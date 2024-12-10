@@ -1,0 +1,368 @@
+{
+  "address": "mu1LDWh4VGHhnZHB85s92HNBapj3b9s5DgzTkiAyeKY",
+  "metadata": {
+    "name": "multi_wallet",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "change_config",
+      "discriminator": [
+        24,
+        158,
+        114,
+        115,
+        94,
+        210,
+        244,
+        233
+      ],
+      "accounts": [
+        {
+          "name": "multi_wallet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  117,
+                  108,
+                  116,
+                  105,
+                  95,
+                  119,
+                  97,
+                  108,
+                  108,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "multi_wallet.create_key",
+                "account": "MultiWallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true,
+          "optional": true
+        },
+        {
+          "name": "system_program",
+          "optional": true,
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "instruction_sysvar",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "remove_members",
+          "type": {
+            "option": {
+              "vec": "pubkey"
+            }
+          }
+        },
+        {
+          "name": "add_members",
+          "type": {
+            "option": {
+              "vec": "pubkey"
+            }
+          }
+        },
+        {
+          "name": "new_threshold",
+          "type": {
+            "option": "u16"
+          }
+        }
+      ]
+    },
+    {
+      "name": "create",
+      "discriminator": [
+        24,
+        30,
+        200,
+        40,
+        5,
+        28,
+        7,
+        119
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "multi_wallet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  117,
+                  108,
+                  116,
+                  105,
+                  95,
+                  119,
+                  97,
+                  108,
+                  108,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "create_key"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  117,
+                  108,
+                  116,
+                  105,
+                  95,
+                  119,
+                  97,
+                  108,
+                  108,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "multi_wallet"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "const",
+                "value": [
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "create_key",
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "vault_transaction_execute",
+      "discriminator": [
+        194,
+        8,
+        161,
+        87,
+        153,
+        164,
+        25,
+        171
+      ],
+      "accounts": [
+        {
+          "name": "multi_wallet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  117,
+                  108,
+                  116,
+                  105,
+                  95,
+                  119,
+                  97,
+                  108,
+                  108,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "multi_wallet.create_key",
+                "account": "MultiWallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "instruction_sysvar",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "vault_index",
+          "type": "u16"
+        },
+        {
+          "name": "transaction_message",
+          "type": "bytes"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "MultiWallet",
+      "discriminator": [
+        100,
+        242,
+        252,
+        66,
+        54,
+        82,
+        77,
+        90
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "DurableNonceDetected",
+      "msg": "Durable nonce is not allowed"
+    },
+    {
+      "code": 6001,
+      "name": "DuplicateMember",
+      "msg": "Found multiple members with the same pubkey"
+    },
+    {
+      "code": 6002,
+      "name": "EmptyMembers",
+      "msg": "Members array is empty"
+    },
+    {
+      "code": 6003,
+      "name": "TooManyMembers",
+      "msg": "Too many members, can be up to 65535"
+    },
+    {
+      "code": 6004,
+      "name": "InvalidThreshold",
+      "msg": "Invalid threshold, must be between 1 and number of members with Vote permission"
+    },
+    {
+      "code": 6005,
+      "name": "InvalidTransactionMessage",
+      "msg": "TransactionMessage is malformed."
+    },
+    {
+      "code": 6006,
+      "name": "NotEnoughSigners",
+      "msg": "Number of signers does not meet the minumum threshold"
+    },
+    {
+      "code": 6007,
+      "name": "InvalidNumberOfAccounts",
+      "msg": "Wrong number of accounts provided"
+    },
+    {
+      "code": 6008,
+      "name": "InvalidAccount",
+      "msg": "Invalid account provided"
+    },
+    {
+      "code": 6009,
+      "name": "MissingAccount",
+      "msg": "Missing account"
+    },
+    {
+      "code": 6010,
+      "name": "DecimalsMismatch",
+      "msg": "Decimals don't match the mint"
+    },
+    {
+      "code": 6011,
+      "name": "IllegalAccountOwner",
+      "msg": "Account is not owned by Multisig program"
+    },
+    {
+      "code": 6012,
+      "name": "ProtectedAccount",
+      "msg": "Account is protected, it cannot be passed into a CPI as writable"
+    }
+  ],
+  "types": [
+    {
+      "name": "MultiWallet",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "create_key",
+            "type": "pubkey"
+          },
+          {
+            "name": "threshold",
+            "type": "u16"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "members",
+            "type": {
+              "vec": "pubkey"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

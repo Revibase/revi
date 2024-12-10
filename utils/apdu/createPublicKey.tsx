@@ -1,0 +1,29 @@
+import { Chain } from "../types/chain";
+
+// POLICY_ALLOW_READ
+// POLICY_ALLOW_SIGN
+// POLICY_ALLOW_VERIFY
+export const createAddress = (blockchain: Chain) => [
+  0x80,
+  0x01,
+  0x61,
+  0x00,
+  0x14,
+  0x11,
+  0x09,
+  0x08,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x18,
+  0x20,
+  0x00,
+  0x00,
+  0x41,
+  0x04,
+  ...blockchain.identifier,
+  0x42,
+  0x01,
+  blockchain.curve,
+];

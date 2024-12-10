@@ -1,0 +1,90 @@
+{
+  "expo": {
+    "name": "horizon",
+    "slug": "horizon",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "myapp",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "supportsTablet": true,
+      "bundleIdentifier": "com.jychab.horizon"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": ["android.permission.NFC"],
+      "package": "com.jychab.horizon"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": "Allow $(PRODUCT_NAME) to access your Face ID biometric data."
+        }
+      ],
+      [
+        "react-native-nfc-manager",
+        {
+          "nfcPermission": "NFC is required to sign transactions.",
+          "selectIdentifiers": [
+            "A0000003965453000000010300000000",
+            "D276000085304A434F9003"
+          ],
+          "includeNdefEntitlement": true
+        }
+      ],
+      "expo-router",
+      "expo-font",
+      [
+        "react-native-cloud-storage",
+        {
+          "iCloudContainerEnvironment": "Development",
+          "iCloudContainerIdentifier": "iCloud.com.jychab.horizon"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "newArchEnabled": true
+          },
+          "android": {
+            "newArchEnabled": true
+          }
+        }
+      ],
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "a6772126-2343-43d3-ad5e-e4c1b9092e59"
+      }
+    },
+    "owner": "jychab"
+  }
+}
