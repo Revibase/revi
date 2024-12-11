@@ -3,6 +3,7 @@ import { ArrowLeft, Copy } from "@tamagui/lucide-icons";
 import { useToastController } from "@tamagui/toast";
 import * as Clipboard from "expo-clipboard";
 import { FC } from "react";
+import { Pressable } from "react-native";
 import {
   Button,
   ButtonIcon,
@@ -34,17 +35,11 @@ export const Deposit: FC<{
         alignItems="center"
         width={"100%"}
       >
-        <Button
-          circular
-          backgroundColor={"$colorTransparent"}
-          onPress={() => setPage && setPage(Page.Main)}
-          opacity={setPage ? 1 : 0}
-        >
-          <ArrowLeft size="xl" />
-        </Button>
+        <Pressable onPress={() => setPage && setPage(Page.Main)}>
+          <ArrowLeft opacity={setPage ? 1 : 0} />
+        </Pressable>
         <Heading>{`Deposit`}</Heading>
-
-        <ArrowLeft size="xl" opacity={0} />
+        <ArrowLeft opacity={0} />
       </XStack>
 
       <Text textAlign="center" fontSize={"$5"}>

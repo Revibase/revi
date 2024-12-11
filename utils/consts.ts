@@ -1,8 +1,4 @@
-import { Program } from "@coral-xyz/anchor";
-import { Connection } from "@solana/web3.js";
 import { BLOCKCHAIN } from "./enums/chain";
-import MultiWalletIdl from "./program/idl/multi_wallet.json";
-import { MultiWallet } from "./program/types/multi_wallet";
 import { Chain } from "./types/chain";
 
 export const ASSET_IDENTIFIER = [0x00, 0x00, 0x01, 0x00];
@@ -25,7 +21,3 @@ export const CHAIN: Record<string, Chain> = {
 };
 
 export const RPC_ENDPOINT = "https://rpc.blinksfeed.com";
-
-export const program = new Program<MultiWallet>(MultiWalletIdl as MultiWallet, {
-  connection: new Connection(RPC_ENDPOINT),
-});

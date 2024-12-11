@@ -7,10 +7,13 @@ import { getMultiSigFromAddress, getVaultFromAddress } from "utils/helper";
 import { useGetAssetsByOwner } from "utils/queries/useGetAssetsByOwner";
 import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
 import { DAS } from "utils/types/das";
+import { TransactionArgs } from "utils/types/transaction";
 import { AssetPage } from "./asset";
+import { ConfirmationPage } from "./confirmation";
 import { CreateMultisigPage } from "./create";
 import { Deposit } from "./deposit";
 import { Main } from "./main";
+import { SearchPage } from "./search";
 import { Withdrawal } from "./withdrawal";
 
 export const Wallet: FC<{
@@ -33,6 +36,8 @@ export const Wallet: FC<{
   const [page, setPage] = useState<Page>(Page.Loading);
   const [withdrawAsset, setWithdrawAsset] = useState<DAS.GetAssetResponse>();
   const [viewAsset, setViewAsset] = useState<DAS.GetAssetResponse>();
+  const [transactionArgs, setTransactionArgs] =
+    useState<TransactionArgs | null>(null);
 
   const { data: walletInfo, isLoading } = useGetWalletInfo({
     address:
@@ -48,6 +53,7 @@ export const Wallet: FC<{
           : walletAddress
         : null,
   });
+
   useEffect(() => {
     if (isLoading) return;
     if (!walletInfo && isMultiSig) {
@@ -67,9 +73,8 @@ export const Wallet: FC<{
           setPage={setPage}
           setViewAsset={setViewAsset}
           isMultiSig={isMultiSig}
-          deviceAddress={deviceAddress}
-          cloudAddress={cloudAddress}
           close={close}
+          setArgs={setTransactionArgs}
         />
       )}
       {page == Page.Deposit && walletAddress && (
@@ -79,12 +84,14 @@ export const Wallet: FC<{
           isMultiSig={isMultiSig}
         />
       )}
-      {page == Page.Withdrawal && walletAddress && (
+      {page == Page.Withdrawal && walletAddress && withdrawAsset && (
         <Withdrawal
           walletAddress={walletAddress}
           asset={withdrawAsset}
+          setArgs={setTransactionArgs}
           setPage={setPage}
           setWithdrawAsset={setWithdrawAsset}
+          walletInfo={walletInfo}
         />
       )}
       {page == Page.Asset && (
@@ -97,8 +104,23 @@ export const Wallet: FC<{
       {page == Page.Create && (
         <CreateMultisigPage
           walletAddress={walletAddress}
-          deviceAddress={deviceAddress}
-          cloudAddress={cloudAddress}
+          setPage={setPage}
+          setArgs={setTransactionArgs}
+        />
+      )}
+      {page == Page.Search && (
+        <SearchPage
+          allAssets={allAssets}
+          setPage={setPage}
+          setViewAsset={setViewAsset}
+        />
+      )}
+      {page == Page.Confirmation && walletAddress && transactionArgs && (
+        <ConfirmationPage
+          walletAddress={walletAddress}
+          setPage={setPage}
+          args={transactionArgs}
+          setArgs={setTransactionArgs}
         />
       )}
       {page == Page.Loading && (

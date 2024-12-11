@@ -43,6 +43,7 @@ export default function index() {
               ),
               blockchain: BLOCKCHAIN.SOLANA,
             });
+
             // const data = await readSecureElementMutation.mutateAsync();
             // if (data) {
             //   setData(data);

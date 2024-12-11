@@ -10,6 +10,7 @@ import {
   X,
 } from "@tamagui/lucide-icons";
 import { useToastController } from "@tamagui/toast";
+import { useOnboarding } from "components/providers/onboardingProvider";
 import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
 import { FC, useMemo, useState } from "react";
@@ -38,6 +39,7 @@ import { SignerType } from "utils/program/transactionBuilder";
 import { useGetAsset } from "utils/queries/useGetAsset";
 import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
 import { DAS } from "utils/types/das";
+import { SignerState, TransactionArgs } from "utils/types/transaction";
 enum Tab {
   Tokens = "Tokens",
   Collectibles = "Collectibles",
@@ -50,9 +52,8 @@ export const Main: FC<{
   setViewAsset: React.Dispatch<
     React.SetStateAction<DAS.GetAssetResponse | undefined>
   >;
+  setArgs: React.Dispatch<React.SetStateAction<TransactionArgs | null>>;
   close: () => void;
-  deviceAddress?: PublicKey;
-  cloudAddress?: PublicKey;
   isMultiSig?: boolean;
 }> = ({
   walletAddress,
@@ -60,12 +61,12 @@ export const Main: FC<{
   allAssets,
   setPage,
   setViewAsset,
+  setArgs,
   close,
-  deviceAddress,
-  cloudAddress,
   isMultiSig = true,
 }) => {
   const toast = useToastController();
+  const { deviceAddress, cloudAddress } = useOnboarding();
   const copyToClipboard = async (textToCopy: string) => {
     await Clipboard.setStringAsync(textToCopy);
     toast.show(`${textToCopy.substring(0, 12)}... Copied!`);
@@ -94,19 +95,38 @@ export const Main: FC<{
       return owner
         ? {
             address: "You are the owner.",
-            action: () => {
+            action: async () => {
               if (deviceAddress && cloudAddress) {
-                setOwnerMutation.mutateAsync({
-                  newOwners: null,
-                  signers: [
-                    { address: deviceAddress, type: SignerType.DEVICE },
-                    { address: cloudAddress, type: SignerType.CLOUD },
-                  ],
-                  feePayer: {
-                    address: deviceAddress,
+                const feePayer = {
+                  key: deviceAddress,
+                  type: SignerType.DEVICE,
+                  state: SignerState.Unsigned,
+                };
+                const signers = [
+                  {
+                    key: deviceAddress,
                     type: SignerType.DEVICE,
+                    state: SignerState.Unsigned,
                   },
+                  {
+                    key: cloudAddress,
+                    type: SignerType.CLOUD,
+                    state: SignerState.Unsigned,
+                  },
+                ];
+                const ix = await setOwnerMutation.mutateAsync({
+                  newOwners: null,
+                  signers,
+                  feePayer,
                 });
+                if (ix) {
+                  setArgs({
+                    feePayer,
+                    signers,
+                    ixs: [ix],
+                  });
+                  setPage(Page.Confirmation);
+                }
               } else {
                 close();
                 router.replace("/(tabs)/profile");
@@ -116,31 +136,33 @@ export const Main: FC<{
           }
         : {
             address: owners[0].toString(),
-            action: () => {
-              if (deviceAddress && cloudAddress && walletAddress) {
-                setOwnerMutation.mutateAsync({
-                  newOwners: [deviceAddress, cloudAddress],
-                  feePayer: {
-                    address: walletAddress,
-                    type: SignerType.NFC,
-                  },
-                });
-              } else {
-                close();
-                router.replace("/(tabs)/profile");
-              }
+            action: async () => {
+              //send notification to owner
             },
             label: "Request",
           };
     }
     return {
       address: "No Owner",
-      action: () => {
+      action: async () => {
         if (deviceAddress && cloudAddress) {
-          setOwnerMutation.mutateAsync({
+          const feePayer = {
+            key: walletAddress,
+            type: SignerType.NFC,
+            state: SignerState.Unsigned,
+          };
+          const ix = await setOwnerMutation.mutateAsync({
             newOwners: [deviceAddress, cloudAddress],
-            feePayer: { address: walletAddress, type: SignerType.NFC },
+            feePayer,
           });
+          if (ix) {
+            setArgs({
+              feePayer,
+              signers: [feePayer],
+              ixs: [ix],
+            });
+            setPage(Page.Confirmation);
+          }
         } else {
           close();
           router.replace("/(tabs)/profile");
@@ -155,8 +177,8 @@ export const Main: FC<{
         width={"100%"}
         alignItems="center"
         justifyContent="space-between"
-        paddingHorizontal={"$4"}
-        paddingVertical={"$2"}
+        padding={"$2"}
+        gap={"$4"}
         borderWidth={"$0.75"}
         borderColor={"$gray10Dark"}
         borderRadius={"$4"}
@@ -165,7 +187,7 @@ export const Main: FC<{
           <Dialog.Trigger asChild>
             <XStack alignItems="center" gap="$4">
               <Menu />
-              <Text textAlign="left">
+              <Text maxWidth={"200"} numberOfLines={1} textAlign="left">
                 {owner?.address || walletAddress?.toString()}
               </Text>
             </XStack>
@@ -179,7 +201,7 @@ export const Main: FC<{
               exitStyle={{ opacity: 0 }}
             />
             <Dialog.Content
-              width={"75%"}
+              width={"80%"}
               gap="$4"
               borderWidth={1}
               borderColor="$borderColor"
@@ -288,7 +310,11 @@ export const Main: FC<{
         />
       )}
       {tab == Tab.Collectibles && (
-        <CollectiblesPage allAssets={allAssets} setViewAsset={setViewAsset} />
+        <CollectiblesPage
+          allAssets={allAssets}
+          setViewAsset={setViewAsset}
+          setPage={setPage}
+        />
       )}
     </YStack>
   );
@@ -320,13 +346,13 @@ const TokenPage: FC<{
               }
             }}
           >
-            <Image
-              width={200}
-              height={200}
-              source={{
-                uri: mintData.content?.links?.image,
-              }}
-            />
+            <Avatar size={"$20"} borderRadius={"$4"}>
+              <AvatarImage
+                source={{
+                  uri: mintData.content?.links?.image,
+                }}
+              />
+            </Avatar>
           </Pressable>
           {!asset && (
             <XStack alignItems="center" gap="$2">
@@ -378,38 +404,31 @@ const TokenPage: FC<{
           )
           .map((x) => {
             return (
-              <Button
+              <ListItem
                 key={x.id}
-                paddingHorizontal={"$4"}
-                paddingVertical="$2"
-                size={"$6"}
+                padded
+                bordered
+                width={"100%"}
+                borderRadius={"$4"}
                 onPress={() => {
                   setViewAsset(x);
                   setPage(Page.Asset);
                 }}
-              >
-                <XStack
-                  alignItems="center"
-                  justifyContent="space-between"
-                  width={"100%"}
-                  key={x.id}
-                >
-                  <XStack alignItems="center" gap="$2">
-                    <Avatar circular>
-                      <AvatarImage
-                        source={{
-                          uri: x.content?.links?.image,
-                        }}
-                      />
-                    </Avatar>
-                    <YStack gap="$1">
-                      <Text>{x.content?.metadata.name}</Text>
-                      <Text>{`${
-                        (x.token_info?.balance || 0) /
-                        10 ** (x.token_info?.decimals || 0)
-                      } ${x.content?.metadata.symbol}`}</Text>
-                    </YStack>
-                  </XStack>
+                icon={
+                  <Avatar size="$4" circular>
+                    <AvatarImage
+                      source={{
+                        uri: x.content?.links?.image,
+                      }}
+                    />
+                  </Avatar>
+                }
+                title={x.content?.metadata.name}
+                subTitle={`${
+                  (x.token_info?.balance || 0) /
+                  10 ** (x.token_info?.decimals || 0)
+                } ${x.content?.metadata.symbol}`}
+                iconAfter={
                   <YStack>
                     <Text>
                       {`$${
@@ -419,8 +438,8 @@ const TokenPage: FC<{
                       }`}
                     </Text>
                   </YStack>
-                </XStack>
-              </Button>
+                }
+              />
             );
           })}
       </YStack>
@@ -433,10 +452,10 @@ const CollectiblesPage: FC<{
   setViewAsset: React.Dispatch<
     React.SetStateAction<DAS.GetAssetResponse | undefined>
   >;
-}> = ({ allAssets, setViewAsset }) => {
+  setPage: React.Dispatch<React.SetStateAction<Page>>;
+}> = ({ allAssets, setViewAsset, setPage }) => {
   return (
     <YStack
-      padding={"$4"}
       flexWrap="wrap" // Allow items to wrap within the container
       flexDirection="row" // Make the children flow in rows
       gap="$4" // Spacing between grid items
@@ -449,15 +468,21 @@ const CollectiblesPage: FC<{
         .map((x) => {
           return (
             <Button
+              padded={false}
               key={x.id}
               width="50%"
               aspectRatio={1}
               justifyContent="center"
               alignItems="center"
               borderRadius="$4"
-              onPress={() => setViewAsset(x)}
+              padding={0}
+              onPress={() => {
+                setViewAsset(x);
+                setPage(Page.Asset);
+              }}
             >
               <Image
+                borderRadius={"$4"}
                 height={"100%"}
                 width={"100%"}
                 objectFit="contain"

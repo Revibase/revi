@@ -1,34 +1,33 @@
-import { PublicKey, TransactionSignature } from "@solana/web3.js";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useConnection } from "components/providers/connectionProvider";
+import { PublicKey } from "@solana/web3.js";
+import { useMutation } from "@tanstack/react-query";
 import { Alert } from "react-native";
-import { program } from "utils/consts";
-import { getMultiSigFromAddress, getVaultFromAddress } from "../helper";
-import {
-  buildAndSignTransaction,
-  pollAndSendTransaction,
-  SignerType,
-} from "../program/transactionBuilder";
+import { program } from "utils/program";
+import { Signer, SignerState } from "utils/types/transaction";
+import { getMultiSigFromAddress } from "../helper";
+import { SignerType } from "../program/transactionBuilder";
 export function useSetOwnerMutation({
   wallet,
 }: {
   wallet: PublicKey | null | undefined;
 }) {
-  const { connection } = useConnection();
-  const client = useQueryClient();
   return useMutation({
     mutationKey: ["set-owner", { wallet }],
     mutationFn: async ({
       newOwners,
-      signers = [{ address: wallet!, type: SignerType.NFC }],
-      feePayer = { address: wallet!, type: SignerType.NFC },
+      signers = [
+        { key: wallet!, type: SignerType.NFC, state: SignerState.Unsigned },
+      ],
+      feePayer = {
+        key: wallet!,
+        type: SignerType.NFC,
+        state: SignerState.Unsigned,
+      },
     }: {
       newOwners: PublicKey[] | null;
-      signers?: { address: PublicKey; type: SignerType }[];
-      feePayer?: { address: PublicKey; type: SignerType };
+      signers?: Signer[];
+      feePayer?: Signer;
     }) => {
       if (!wallet) return null;
-      let signature: TransactionSignature = "";
       try {
         const multisigPda = getMultiSigFromAddress(wallet);
 
@@ -46,57 +45,20 @@ export function useSetOwnerMutation({
           )
           .accountsPartial({
             multiWallet: new PublicKey(multisigPda),
-            payer: new PublicKey(feePayer.address),
+            payer: new PublicKey(feePayer.key),
           })
           .remainingAccounts(
             signers.map((x) => ({
-              pubkey: new PublicKey(x.address),
+              pubkey: new PublicKey(x.key),
               isSigner: true,
-              isWritable: feePayer.address.toString() === x.address.toString(),
+              isWritable: feePayer.key.toString() === x.key.toString(),
             }))
           )
           .instruction();
-        const tx = await buildAndSignTransaction({
-          connection,
-          feePayer: feePayer.address,
-          signers: [
-            {
-              key: feePayer.address,
-              type: feePayer.type,
-            },
-          ].concat(signers.map((x) => ({ key: x.address, type: x.type }))),
-          ixs: [changeConfigIx],
-        });
-        signature = await pollAndSendTransaction(connection, tx);
-
-        return signature;
+        return changeConfigIx;
       } catch (error: unknown) {
         Alert.alert(`Transaction failed!`, `${error}`);
         return;
-      }
-    },
-    onSuccess: async (result) => {
-      if (result) {
-        await Promise.all([
-          client.invalidateQueries({
-            queryKey: [
-              "get-assets-by-owner",
-              {
-                address: getVaultFromAddress({ address: wallet! }),
-                connection: connection.rpcEndpoint,
-              },
-            ],
-          }),
-          client.invalidateQueries({
-            queryKey: [
-              "get-wallet-info",
-              {
-                address: getMultiSigFromAddress(wallet!),
-                connection: connection.rpcEndpoint,
-              },
-            ],
-          }),
-        ]);
       }
     },
   });

@@ -11,6 +11,7 @@ import {
 import { CloudStorage } from "react-native-cloud-storage";
 import { retrieveCloudKeypair } from "utils/queries/useGetCloudPublicKey";
 import { retrieveDeviceKeypair } from "utils/queries/useGetDevicePublicKey";
+import { Signer, SignerState, TransactionArgs } from "utils/types/transaction";
 import { nfcSignTransction } from "../commands";
 
 async function getPriorityFeeEstimate(
@@ -82,25 +83,19 @@ export enum SignerType {
 }
 export async function buildAndSignTransaction({
   connection,
-  feePayer,
-  signers,
   cloudStorage,
-  ixs,
-  lookUpTables,
+  args,
+  callback,
 }: {
   connection: Connection;
-  feePayer: PublicKey;
-  signers: {
-    key: PublicKey;
-    type: SignerType;
-  }[];
+  callback: (signer: Signer) => void;
+  args: TransactionArgs;
   cloudStorage?: CloudStorage;
-  ixs?: TransactionInstruction[];
-  lookUpTables?: AddressLookupTableAccount[];
 }): Promise<VersionedTransaction> {
+  const { feePayer, signers, ixs, lookUpTables } = args;
   const tx = await buildTransaction({
     connection,
-    feePayer,
+    feePayer: feePayer.key,
     ixs,
     lookUpTables,
   });
@@ -121,21 +116,51 @@ export async function buildAndSignTransaction({
           const signature = await nfcSignTransction(tx);
           if (signature) {
             tx.addSignature(signer.key, new Uint8Array(signature));
+            callback({
+              key: signer.key,
+              type: signer.type,
+              state: SignerState.Signed,
+            });
           } else {
+            callback({
+              key: signer.key,
+              type: signer.type,
+              state: SignerState.Error,
+            });
             throw Error("Unable to get signature from hardware wallet");
           }
         } else if (signer.type == SignerType.DEVICE) {
           const keypair = await retrieveDeviceKeypair();
           if (keypair) {
             tx.sign([keypair]);
+            callback({
+              key: signer.key,
+              type: signer.type,
+              state: SignerState.Signed,
+            });
           } else {
+            callback({
+              key: signer.key,
+              type: signer.type,
+              state: SignerState.Error,
+            });
             throw Error("Unable to get signature from device wallet");
           }
         } else if (signer.type == SignerType.CLOUD && cloudStorage) {
           const keypair = await retrieveCloudKeypair(cloudStorage);
           if (keypair) {
             tx.sign([keypair]);
+            callback({
+              key: signer.key,
+              type: signer.type,
+              state: SignerState.Signed,
+            });
           } else {
+            callback({
+              key: signer.key,
+              type: signer.type,
+              state: SignerState.Error,
+            });
             throw Error("Unable to get signature from cloud wallet");
           }
         }

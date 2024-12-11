@@ -6,12 +6,13 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { useConnection } from "components/providers/connectionProvider";
 import { Alert } from "react-native";
-import { program } from "utils/consts";
+import { program } from "utils/program";
 import {
   accountsForTransactionExecute,
   transactionMessageToMultisigTransactionMessageBytes,
 } from "utils/program/utils";
 import { vaultTransactionMessageBeet } from "utils/program/utils/VaultTransactionMessage";
+import { Signer, SignerState } from "utils/types/transaction";
 import { getMultiSigFromAddress, getVaultFromAddress } from "../helper";
 import { SignerType } from "../program/transactionBuilder";
 
@@ -25,11 +26,13 @@ export function useCreateVaultExecuteIxMutation({
     mutationKey: ["create-vault-execute-ix", { wallet }],
     mutationFn: async ({
       feePayer,
-      signers = [{ address: wallet!, type: SignerType.NFC }],
+      signers = [
+        { key: wallet!, type: SignerType.NFC, state: SignerState.Unsigned },
+      ],
       ixs,
     }: {
-      feePayer: { address: PublicKey; type: SignerType };
-      signers?: { address: PublicKey; type: SignerType }[];
+      feePayer: Signer;
+      signers?: Signer[];
       ixs: TransactionInstruction[];
     }) => {
       if (!wallet) return null;
@@ -38,7 +41,7 @@ export function useCreateVaultExecuteIxMutation({
         const vaultPda = getVaultFromAddress({ address: wallet });
 
         const transactionMessageTx = new TransactionMessage({
-          payerKey: feePayer.address,
+          payerKey: new PublicKey(feePayer.key),
           recentBlockhash: (await connection.getLatestBlockhash()).blockhash,
           instructions: ixs,
         });
@@ -53,10 +56,9 @@ export function useCreateVaultExecuteIxMutation({
             message: vaultTransactionMessageBeet.deserialize(
               transactionMessageBytes
             )[0],
-            vaultPda: vaultPda,
-            signers: signers.map((x) => x.address),
+            vaultPda: new PublicKey(vaultPda),
+            signers: signers.map((x) => new PublicKey(x.key)),
           });
-
         const vaultTransactionExecuteIx = await program.methods
           .vaultTransactionExecute(0, transactionMessageBytes)
           .accountsPartial({ multiWallet: multisigPda })

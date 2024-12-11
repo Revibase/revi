@@ -22,7 +22,6 @@ export function useGetAssetsByOwner({
       }
       return null;
     },
-    staleTime: 1000 * 60, //refresh every 1 min
     enabled: !!address,
   });
 }

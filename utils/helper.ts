@@ -8,7 +8,7 @@ import * as Crypto from "expo-crypto";
 import * as IntentLauncher from "expo-intent-launcher";
 import { Linking, Platform } from "react-native";
 import nacl from "tweetnacl";
-import { program } from "./consts";
+import { program } from "./program";
 import { DAS } from "./types/das";
 
 export function getMultiSigFromAddress(address: PublicKey) {

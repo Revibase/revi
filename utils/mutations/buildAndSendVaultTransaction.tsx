@@ -1,16 +1,13 @@
-import {
-  AddressLookupTableAccount,
-  PublicKey,
-  TransactionInstruction,
-} from "@solana/web3.js";
+import { PublicKey } from "@solana/web3.js";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCloudStorage } from "components/providers/cloudStorageProvider";
 import { useConnection } from "components/providers/connectionProvider";
 import { Alert } from "react-native";
+import { Signer, TransactionArgs } from "utils/types/transaction";
 import { getMultiSigFromAddress, getVaultFromAddress } from "../helper";
 import {
   buildAndSignTransaction,
   pollAndSendTransaction,
-  SignerType,
 } from "../program/transactionBuilder";
 
 export function useBuildAndSendVaultTransaction({
@@ -19,34 +16,25 @@ export function useBuildAndSendVaultTransaction({
   wallet: PublicKey | null | undefined;
 }) {
   const { connection } = useConnection();
+  const { cloudStorage } = useCloudStorage();
   const client = useQueryClient();
   return useMutation({
     mutationKey: ["send-vault-transaction", { wallet }],
     mutationFn: async ({
-      feePayer,
-      signers = [{ address: wallet!, type: SignerType.NFC }],
-      ixs,
-      lookUpTables = [],
+      args,
+      callback,
     }: {
-      feePayer: { address: PublicKey; type: SignerType };
-      signers?: { address: PublicKey; type: SignerType }[];
-      ixs: TransactionInstruction[];
-      lookUpTables?: AddressLookupTableAccount[];
+      args: TransactionArgs;
+      callback: (signer: Signer) => void;
     }) => {
       if (!wallet) return null;
       let signature = "";
       try {
         const tx = await buildAndSignTransaction({
           connection,
-          feePayer: feePayer.address,
-          signers: [
-            {
-              key: feePayer.address,
-              type: feePayer.type,
-            },
-          ].concat(signers.map((x) => ({ key: x.address, type: x.type }))),
-          ixs: ixs,
-          lookUpTables,
+          args,
+          callback,
+          cloudStorage,
         });
         signature = await pollAndSendTransaction(connection, tx);
         return signature;
@@ -56,13 +44,15 @@ export function useBuildAndSendVaultTransaction({
       }
     },
     onSuccess: async (result) => {
-      if (result) {
+      if (result && wallet) {
         await Promise.all([
           client.invalidateQueries({
             queryKey: [
               "get-assets-by-owner",
               {
-                address: getVaultFromAddress({ address: wallet! }),
+                address: getVaultFromAddress({
+                  address: wallet,
+                }),
                 connection: connection.rpcEndpoint,
               },
             ],
@@ -71,7 +61,7 @@ export function useBuildAndSendVaultTransaction({
             queryKey: [
               "get-wallet-info",
               {
-                address: getMultiSigFromAddress(wallet!),
+                address: getMultiSigFromAddress(wallet),
                 connection: connection.rpcEndpoint,
               },
             ],

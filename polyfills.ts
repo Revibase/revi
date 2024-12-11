@@ -11,15 +11,15 @@ Buffer.prototype.subarray = function subarray(
   Object.setPrototypeOf(result, Buffer.prototype); // Explicitly add the `Buffer` prototype (adds `readUIntLE`!)
   return result;
 };
-// getRandomValues polyfill
+global.TextEncoder = require("text-encoding").TextEncoder;
+
 class Crypto {
   getRandomValues = expoCryptoGetRandomValues;
 }
+
 if (!("structuredClone" in globalThis)) {
   globalThis.structuredClone = structuredClone as any;
 }
-
-global.TextEncoder = require("text-encoding").TextEncoder;
 
 const webCrypto = typeof crypto !== "undefined" ? crypto : new Crypto();
 

@@ -1,17 +1,24 @@
 import {
+  AddressLookupTableAccount,
   PublicKey,
   TransactionInstruction,
-  VersionedTransaction,
 } from "@solana/web3.js";
 import { SignerType } from "utils/program/transactionBuilder";
 
 export interface TransactionArgs {
-  feePayer: PublicKey;
-  signers: {
-    key: PublicKey;
-    type: SignerType;
-    signed: boolean;
-  }[];
+  feePayer: Signer;
+  signers: Signer[];
   ixs: TransactionInstruction[];
-  tx?: VersionedTransaction;
+  lookUpTables?: AddressLookupTableAccount[];
+}
+
+export interface Signer {
+  key: PublicKey;
+  type: SignerType;
+  state: SignerState;
+}
+export enum SignerState {
+  Signed,
+  Unsigned,
+  Error,
 }
