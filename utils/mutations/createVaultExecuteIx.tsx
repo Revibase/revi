@@ -1,20 +1,30 @@
 import {
+  AddressLookupTableAccount,
+  LAMPORTS_PER_SOL,
   PublicKey,
+  SystemProgram,
   TransactionInstruction,
   TransactionMessage,
 } from "@solana/web3.js";
 import { useMutation } from "@tanstack/react-query";
 import { useConnection } from "components/providers/connectionProvider";
-import { Alert } from "react-native";
+import { SignerType } from "utils/enums/transaction";
 import { program } from "utils/program";
+import {
+  getPriorityFeeEstimate,
+  getSimulationUnits,
+} from "utils/program/transactionBuilder";
 import {
   accountsForTransactionExecute,
   transactionMessageToMultisigTransactionMessageBytes,
 } from "utils/program/utils";
 import { vaultTransactionMessageBeet } from "utils/program/utils/VaultTransactionMessage";
-import { Signer, SignerState } from "utils/types/transaction";
-import { getMultiSigFromAddress, getVaultFromAddress } from "../helper";
-import { SignerType } from "../program/transactionBuilder";
+import { SignerState, TransactionSigner } from "utils/types/transaction";
+import {
+  getFeePayerFromSigners,
+  getMultiSigFromAddress,
+  getVaultFromAddress,
+} from "../helper";
 
 export function useCreateVaultExecuteIxMutation({
   wallet,
@@ -25,51 +35,83 @@ export function useCreateVaultExecuteIxMutation({
   return useMutation({
     mutationKey: ["create-vault-execute-ix", { wallet }],
     mutationFn: async ({
-      feePayer,
       signers = [
         { key: wallet!, type: SignerType.NFC, state: SignerState.Unsigned },
       ],
       ixs,
+      lookUpTables,
     }: {
-      feePayer: Signer;
-      signers?: Signer[];
+      signers?: TransactionSigner[];
       ixs: TransactionInstruction[];
+      lookUpTables?: AddressLookupTableAccount[];
     }) => {
-      if (!wallet) return null;
-      try {
-        const multisigPda = getMultiSigFromAddress(wallet);
-        const vaultPda = getVaultFromAddress({ address: wallet });
-
-        const transactionMessageTx = new TransactionMessage({
-          payerKey: new PublicKey(feePayer.key),
-          recentBlockhash: (await connection.getLatestBlockhash()).blockhash,
-          instructions: ixs,
-        });
-
-        const transactionMessageBytes =
-          transactionMessageToMultisigTransactionMessageBytes({
-            message: transactionMessageTx,
-          });
-        const { accountMetas, lookupTableAccounts } =
-          await accountsForTransactionExecute({
-            connection: connection,
-            message: vaultTransactionMessageBeet.deserialize(
-              transactionMessageBytes
-            )[0],
-            vaultPda: new PublicKey(vaultPda),
-            signers: signers.map((x) => new PublicKey(x.key)),
-          });
-        const vaultTransactionExecuteIx = await program.methods
-          .vaultTransactionExecute(0, transactionMessageBytes)
-          .accountsPartial({ multiWallet: multisigPda })
-          .remainingAccounts(accountMetas)
-          .instruction();
-
-        return { vaultTransactionExecuteIx, lookupTableAccounts };
-      } catch (error: unknown) {
-        Alert.alert(`Transaction failed!`, `${error}`);
+      if (!wallet) {
         return;
       }
+      const multisigPda = getMultiSigFromAddress(wallet);
+      const vaultPda = getVaultFromAddress(wallet);
+
+      const numSigners = new Set<string>();
+      ixs.forEach((ix) => {
+        ix.keys
+          .filter(
+            (x) => x.isSigner && x.pubkey.toString() !== vaultPda.toString()
+          )
+          .forEach((x) => numSigners.add(x.pubkey.toString()));
+      });
+      signers.forEach((x) => numSigners.add(x.key.toString()));
+      const feePayer = getFeePayerFromSigners(signers);
+
+      let [microLamports, units] = await Promise.all([
+        getPriorityFeeEstimate(connection, ixs, feePayer, lookUpTables),
+        getSimulationUnits(connection, ixs, feePayer, lookUpTables),
+      ]);
+      microLamports = Math.round(microLamports);
+      units = units ? Math.round(units * 2.25) : undefined;
+
+      const totalFees = Math.round(
+        LAMPORTS_PER_SOL * 0.000005 * numSigners.size +
+          (microLamports * (units ? units : 200_000)) / 1_000_000
+      );
+      ixs.unshift(
+        SystemProgram.transfer({
+          fromPubkey: vaultPda,
+          toPubkey: feePayer,
+          lamports: totalFees,
+        })
+      );
+      const transactionMessageTx = new TransactionMessage({
+        payerKey: feePayer,
+        recentBlockhash: PublicKey.default.toString(),
+        instructions: ixs,
+      });
+
+      const transactionMessageBytes =
+        transactionMessageToMultisigTransactionMessageBytes({
+          message: transactionMessageTx,
+          addressLookupTableAccounts: lookUpTables,
+        });
+      const { accountMetas, lookupTableAccounts } =
+        await accountsForTransactionExecute({
+          connection: connection,
+          message: vaultTransactionMessageBeet.deserialize(
+            transactionMessageBytes
+          )[0],
+          vaultPda: vaultPda,
+          signers: signers.map((x) => new PublicKey(x.key)),
+        });
+      const vaultTransactionExecuteIx = await program.methods
+        .vaultTransactionExecute(0, transactionMessageBytes)
+        .accountsPartial({ multiWallet: multisigPda })
+        .remainingAccounts(accountMetas)
+        .instruction();
+      return {
+        vaultTransactionExecuteIx,
+        lookupTableAccounts,
+        microLamports,
+        units,
+        totalFees,
+      };
     },
   });
 }

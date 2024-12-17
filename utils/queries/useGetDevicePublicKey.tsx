@@ -1,50 +1,35 @@
-import { Keypair } from "@solana/web3.js";
+import { Keypair, VersionedTransaction } from "@solana/web3.js";
 import { useQuery } from "@tanstack/react-query";
-import Constants from "expo-constants";
-import * as SecureStore from "expo-secure-store";
-import { Platform } from "react-native";
-import { openAppSettings } from "utils/helper";
-
+import * as Keychain from "react-native-keychain";
+import { APP_IDENTIFIER } from "utils/consts";
 export function useGetDeviceAddress() {
   return useQuery({
     queryKey: ["get-device-address"],
     queryFn: async () => {
-      if (
-        SecureStore.canUseBiometricAuthentication() &&
-        (await SecureStore.isAvailableAsync())
-      ) {
-        return (await retrieveDeviceKeypair())?.publicKey || null;
-      } else {
-        openAppSettings();
-        return null;
-      }
+      return (await retrieveDeviceKeypair()).publicKey;
     },
     staleTime: Infinity,
   });
 }
 
-export const retrieveDeviceKeypair = async () => {
+export const signWithDeviceKeypair = async (tx: VersionedTransaction) => {
+  const keypair = await retrieveDeviceKeypair();
+  tx.sign([keypair]);
+};
+
+const retrieveDeviceKeypair = async () => {
   try {
-    const credentials = await SecureStore.getItemAsync(
-      (Platform.OS === "ios"
-        ? Constants.expoConfig?.ios?.bundleIdentifier
-        : Constants.expoConfig?.android?.package) || "",
-      {
-        keychainAccessible: SecureStore.WHEN_UNLOCKED,
-        requireAuthentication: true,
-        keychainService:
-          (Platform.OS === "ios"
-            ? Constants.expoConfig?.ios?.bundleIdentifier
-            : Constants.expoConfig?.android?.package) || "",
-      }
-    );
+    const credentials = await Keychain.getGenericPassword({
+      accessControl: Keychain.ACCESS_CONTROL.BIOMETRY_ANY_OR_DEVICE_PASSCODE,
+      rules: Keychain.SECURITY_RULES.NONE,
+      service: `${APP_IDENTIFIER}-DEVICE`,
+    });
     if (credentials) {
-      return Keypair.fromSecretKey(Buffer.from(credentials, "hex"));
+      return Keypair.fromSecretKey(Buffer.from(credentials.password, "hex"));
     } else {
-      return null;
+      throw new Error("No key found.");
     }
   } catch (error) {
-    console.log("Error retrieving device private key:", error);
-    return null;
+    throw new Error(`${error.message}`);
   }
 };

@@ -1,17 +1,15 @@
 import { PublicKey } from "@solana/web3.js";
 import { useQuery } from "@tanstack/react-query";
-import { useConnection } from "components/providers/connectionProvider";
 import { getAsset } from "../helper";
 
 export function useGetAsset({ mint }: { mint: PublicKey | undefined }) {
-  const { connection } = useConnection();
   return useQuery({
-    queryKey: ["get-asset", { mint, endpoint: connection.rpcEndpoint }],
+    queryKey: ["get-asset", { mint: mint?.toString() || null }],
     queryFn: async () => {
       if (!mint) return null;
-      return getAsset(mint, connection);
+      return getAsset(mint);
     },
-    staleTime: 1000 * 60 * 15,
+    staleTime: 1000 * 60 * 5,
     enabled: !!mint,
   });
 }

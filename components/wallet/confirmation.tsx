@@ -1,4 +1,4 @@
-import { PublicKey } from "@solana/web3.js";
+import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import {
   ArrowLeft,
   CircleCheck,
@@ -6,22 +6,24 @@ import {
   TriangleAlert,
 } from "@tamagui/lucide-icons";
 import { useToastController } from "@tamagui/toast";
-import { FC, useEffect } from "react";
+import { FC, useEffect, useState } from "react";
 import { Pressable } from "react-native";
 import {
   Button,
   ButtonText,
   Heading,
   ListItem,
+  Spinner,
   Text,
   XStack,
   YGroup,
   YStack,
 } from "tamagui";
+import { SignerType } from "utils/enums/transaction";
 import { Page } from "utils/enums/wallet";
-import { useBuildAndSendVaultTransaction } from "utils/mutations/buildAndSendVaultTransaction";
-import { SignerType } from "utils/program/transactionBuilder";
+import { useBuildAndSendTransaction } from "utils/mutations/buildAndSendTransaction";
 import { SignerState, TransactionArgs } from "utils/types/transaction";
+import NfcProxy from "../../utils/apdu/index";
 
 export const ConfirmationPage: FC<{
   walletAddress: PublicKey;
@@ -30,9 +32,23 @@ export const ConfirmationPage: FC<{
   setArgs: React.Dispatch<React.SetStateAction<TransactionArgs | null>>;
 }> = ({ walletAddress, setPage, args, setArgs }) => {
   const toast = useToastController();
-  const buildAndSendTransactionMutation = useBuildAndSendVaultTransaction({
+  const buildAndSendTransactionMutation = useBuildAndSendTransaction({
     wallet: walletAddress,
   });
+  const [error, setError] = useState<string | null>(null);
+
+  const reset = async () => {
+    setError(null);
+    setArgs(null);
+    setPage(Page.Main);
+  };
+
+  const handleCancelled = async () => {
+    toast.show("Transaction Cancelled!");
+    await NfcProxy.close();
+    reset();
+  };
+
   useEffect(() => {
     if (
       !buildAndSendTransactionMutation.isPending &&
@@ -40,7 +56,7 @@ export const ConfirmationPage: FC<{
     ) {
       buildAndSendTransactionMutation
         .mutateAsync({
-          args,
+          ...args,
           callback: (e) => {
             setArgs((prev) =>
               prev
@@ -59,12 +75,15 @@ export const ConfirmationPage: FC<{
         .then((sig) => {
           if (sig) {
             toast.show("Transaction Success!");
-            setArgs(null);
-            setPage(Page.Main);
+            reset();
           }
+        })
+        .catch((error) => {
+          setError(error.message);
         });
     }
   }, [args]);
+
   return (
     <YStack gap={"$4"}>
       <XStack
@@ -74,13 +93,7 @@ export const ConfirmationPage: FC<{
         alignItems="center"
         width={"100%"}
       >
-        <Pressable
-          onPress={() => {
-            setArgs(null);
-            setPage(Page.Main);
-            toast.show("Transaction Cancelled!");
-          }}
-        >
+        <Pressable onPress={handleCancelled}>
           <ArrowLeft />
         </Pressable>
         <Heading>{`Sending Transaction`}</Heading>
@@ -110,7 +123,7 @@ export const ConfirmationPage: FC<{
                 }
                 iconAfter={
                   x.state === SignerState.Signed ? (
-                    <CircleCheck />
+                    <CircleCheck color={"green"} />
                   ) : x.state === SignerState.Unsigned ? (
                     <Clock />
                   ) : (
@@ -121,16 +134,36 @@ export const ConfirmationPage: FC<{
             </YGroup.Item>
           ))}
       </YGroup>
-      <Button
+
+      <YStack alignItems="flex-end" justifyContent="center" width={"100%"}>
+        {args.totalFees && (
+          <Text fontSize={"$1"}>{`Transaction Fees:   ${
+            args.totalFees / LAMPORTS_PER_SOL
+          } SOL`}</Text>
+        )}
+      </YStack>
+
+      <YStack
+        gap="$4"
+        alignItems="center"
+        justifyContent="center"
         width={"100%"}
-        onPress={() => {
-          setArgs(null);
-          setPage(Page.Main);
-          toast.show("Transaction Cancelled!");
-        }}
-        backgroundColor={"red"}
-        theme="active"
       >
+        {!error ? (
+          <>
+            <Text>{`${
+              args.signers.every((x) => x.state === SignerState.Signed)
+                ? "Sending transaction in progress"
+                : "Fetching signatures in progress"
+            }`}</Text>
+            <Spinner />
+          </>
+        ) : (
+          <Text color="red">{error}</Text>
+        )}
+      </YStack>
+
+      <Button width={"100%"} onPress={handleCancelled}>
         <ButtonText>Cancel</ButtonText>
       </Button>
     </YStack>

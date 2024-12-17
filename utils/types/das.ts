@@ -215,7 +215,7 @@ export declare namespace DAS {
     external_url?: string;
     image?: string;
     animation_url?: string;
-    [Symbol.iterator](): Iterator<Links>;
+    [Symbol.iterator]?(): Iterator<Links>;
   };
   interface Content {
     $schema: string;

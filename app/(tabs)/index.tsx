@@ -1,105 +1,136 @@
 import { PublicKey } from "@solana/web3.js";
-import { useOnboarding } from "components/providers/onboardingProvider";
+import { useGlobalVariables } from "components/providers/globalProvider";
 import { Wallet } from "components/wallet";
 import { useState } from "react";
-import { SafeAreaView } from "react-native";
-import { Button, ButtonText, Sheet, YStack } from "tamagui";
+import { Platform } from "react-native";
+import { Button, ButtonText, Sheet, Spinner, Text, YStack } from "tamagui";
 import { CHAIN } from "utils/consts";
 import { BLOCKCHAIN } from "utils/enums/chain";
-import { useReadSecureElement } from "utils/mutations/readSecureElement";
+import NfcProxy from "../../utils/apdu/index";
 
 export default function index() {
-  const readSecureElementMutation = useReadSecureElement({
-    blockchain: CHAIN.SOLANA,
-  });
   const [data, setData] = useState<{
     walletAddress: PublicKey;
     mint: PublicKey;
     blockchain: BLOCKCHAIN;
   } | null>(null);
 
-  const { deviceAddress, cloudAddress } = useOnboarding();
+  const { isNfcSheetVisible, setNfcSheetVisible } = useGlobalVariables();
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
-      <YStack flex={1} justifyContent="center" alignItems="center">
-        <Button
-          circular
-          size={"$16"}
-          theme="active"
-          elevate
-          elevation={"4"}
-          borderColor={"$accentColor"}
-          shadowColor={"aliceblue"}
-          shadowRadius={"$4"}
-          disabled={readSecureElementMutation.isPending}
-          onPress={async () => {
-            setData({
-              walletAddress: new PublicKey(
-                "CLKBJ7CvY59FdFAu2GryZeWnz7k3T4SgM79UzDrxJaDe"
-              ),
-              mint: new PublicKey(
-                "So11111111111111111111111111111111111111112"
-              ),
-              blockchain: BLOCKCHAIN.SOLANA,
-            });
+    <YStack flex={1} justifyContent="center" alignItems="center">
+      <Button
+        padded
+        bordered
+        size={"$16"}
+        circular
+        elevate
+        elevation={"$4"}
+        shadowColor={"black"}
+        shadowRadius={"$4"}
+        disabled={isNfcSheetVisible}
+        onPress={async () => {
+          const data = await NfcProxy.readSecureElement(
+            CHAIN["SOLANA"],
+            setNfcSheetVisible
+          );
+          if (data) {
+            setData(data);
+          }
+        }}
+      >
+        <ButtonText fontSize={"$8"}>
+          {isNfcSheetVisible ? "In Progress" : "Tap To Reveal"}
+        </ButtonText>
+      </Button>
+      <Sheet
+        forceRemoveScrollEnabled={true}
+        dismissOnOverlayPress
+        modal={true}
+        open={!!data}
+        defaultOpen={false}
+        snapPoints={[95]}
+        zIndex={100_000}
+        animation="medium"
+        snapPointsMode={"percent"}
+        onOpenChange={(open) => {
+          if (!open) {
+            setData(null);
+          }
+        }}
+      >
+        <Sheet.Overlay
+          animation="lazy"
+          enterStyle={{ opacity: 0 }}
+          exitStyle={{ opacity: 0 }}
+          key="overlay"
+          opacity={0.5}
+        />
 
-            // const data = await readSecureElementMutation.mutateAsync();
-            // if (data) {
-            //   setData(data);
-            // }
-          }}
+        <Sheet.Handle />
+        <Sheet.Frame
+          padding="$4"
+          justifyContent="center"
+          alignItems="center"
+          gap="$4"
         >
-          <ButtonText fontSize={"$8"}>
-            {readSecureElementMutation.isPending
-              ? "Operation In Progress"
-              : "Tap To Reveal"}
-          </ButtonText>
-        </Button>
-        <Sheet
-          forceRemoveScrollEnabled={true}
-          modal={true}
-          open={!!data}
-          defaultOpen={false}
-          snapPoints={[80]}
-          zIndex={100_000}
-          animation="medium"
-          snapPointsMode={"percent"}
-          onOpenChange={(open) => {
-            if (!open) {
-              setData(null);
-            }
-          }}
-        >
-          <Sheet.Overlay
-            animation="lazy"
-            enterStyle={{ opacity: 0 }}
-            exitStyle={{ opacity: 0 }}
-            key="overlay"
-            opacity={0.5}
-          />
-
-          <Sheet.Handle theme={"light"} />
-          <Sheet.Frame
-            padding="$4"
-            justifyContent="center"
-            alignItems="center"
-            gap="$4"
-            theme={"light"}
-          >
-            <Sheet.ScrollView>
+          <Sheet.ScrollView width={"100%"} showsVerticalScrollIndicator={false}>
+            {data && (
               <Wallet
-                walletAddress={data?.walletAddress}
-                mint={data?.mint}
-                blockchain={data?.blockchain}
-                deviceAddress={deviceAddress || undefined}
-                cloudAddress={cloudAddress || undefined}
-                close={() => setData(null)}
+                walletAddress={data.walletAddress}
+                mint={data.mint}
+                close={() => {
+                  setData(null);
+                }}
               />
-            </Sheet.ScrollView>
-          </Sheet.Frame>
-        </Sheet>
-      </YStack>
-    </SafeAreaView>
+            )}
+          </Sheet.ScrollView>
+        </Sheet.Frame>
+      </Sheet>
+      <Sheet
+        forceRemoveScrollEnabled
+        modal={true}
+        open={isNfcSheetVisible && Platform.OS === "android"}
+        snapPoints={[50]}
+        defaultOpen={false}
+        zIndex={200_000}
+        animation="medium"
+        snapPointsMode="percent"
+      >
+        <Sheet.Overlay
+          animation="lazy"
+          enterStyle={{ opacity: 0 }}
+          exitStyle={{ opacity: 0 }}
+          key="nfc-overlay"
+          opacity={0.5}
+          onPress={async () => {
+            await NfcProxy.close();
+            setNfcSheetVisible(false);
+          }}
+        />
+
+        <Sheet.Handle />
+        <Sheet.Frame
+          padding="$8"
+          justifyContent="center"
+          alignItems="center"
+          gap="$8"
+        >
+          <Spinner size="large" color="$color" />
+          <Text fontSize="$6" fontWeight="bold">
+            Hold your device near an NFC tag.
+          </Text>
+          <Button
+            width={"100%"}
+            onPress={async () => {
+              await NfcProxy.close();
+              setNfcSheetVisible(false);
+            }}
+          >
+            <ButtonText>Cancel</ButtonText>
+          </Button>
+        </Sheet.Frame>
+      </Sheet>
+    </YStack>
   );
 }

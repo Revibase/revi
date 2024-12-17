@@ -88,6 +88,12 @@
           "type": {
             "option": "u16"
           }
+        },
+        {
+          "name": "label",
+          "type": {
+            "option": "string"
+          }
         }
       ]
     },
@@ -191,6 +197,61 @@
         {
           "name": "system_program",
           "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "label",
+          "type": {
+            "option": "string"
+          }
+        }
+      ]
+    },
+    {
+      "name": "migrate_data",
+      "discriminator": [
+        118,
+        173,
+        228,
+        79,
+        30,
+        79,
+        8,
+        10
+      ],
+      "accounts": [
+        {
+          "name": "multi_wallet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  117,
+                  108,
+                  116,
+                  105,
+                  95,
+                  119,
+                  97,
+                  108,
+                  108,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "create_key"
+              }
+            ]
+          }
+        },
+        {
+          "name": "create_key"
         }
       ],
       "args": []
@@ -359,6 +420,12 @@
             "name": "members",
             "type": {
               "vec": "pubkey"
+            }
+          },
+          {
+            "name": "label",
+            "type": {
+              "option": "string"
             }
           }
         ]

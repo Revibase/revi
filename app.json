@@ -35,13 +35,6 @@
     },
     "plugins": [
       [
-        "expo-secure-store",
-        {
-          "configureAndroidBackup": true,
-          "faceIDPermission": "Allow $(PRODUCT_NAME) to access your Face ID biometric data."
-        }
-      ],
-      [
         "react-native-nfc-manager",
         {
           "nfcPermission": "NFC is required to sign transactions.",
@@ -55,13 +48,6 @@
       "expo-router",
       "expo-font",
       [
-        "react-native-cloud-storage",
-        {
-          "iCloudContainerEnvironment": "Development",
-          "iCloudContainerIdentifier": "iCloud.com.jychab.horizon"
-        }
-      ],
-      [
         "expo-build-properties",
         {
           "ios": {
@@ -71,8 +57,7 @@
             "newArchEnabled": true
           }
         }
-      ],
-      "expo-secure-store"
+      ]
     ],
     "experiments": {
       "typedRoutes": true

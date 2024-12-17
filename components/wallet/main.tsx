@@ -10,7 +10,7 @@ import {
   X,
 } from "@tamagui/lucide-icons";
 import { useToastController } from "@tamagui/toast";
-import { useOnboarding } from "components/providers/onboardingProvider";
+import { useGlobalVariables } from "components/providers/globalProvider";
 import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
 import { FC, useMemo, useState } from "react";
@@ -32,11 +32,14 @@ import {
   YGroup,
   YStack,
 } from "tamagui";
+import { SOL_NATIVE_MINT } from "utils/consts";
+import { SignerType } from "utils/enums/transaction";
 import { Page } from "utils/enums/wallet";
 import { getMultiSigFromAddress, getVaultFromAddress } from "utils/helper";
-import { useSetOwnerMutation } from "utils/mutations/setOwner";
-import { SignerType } from "utils/program/transactionBuilder";
+import { useCreateVaultExecuteIxMutation } from "utils/mutations/createVaultExecuteIx";
+import { useSetOwnerIxMutation } from "utils/mutations/setOwnerIx";
 import { useGetAsset } from "utils/queries/useGetAsset";
+import { useGetAssetsByOwner } from "utils/queries/useGetAssetsByOwner";
 import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
 import { DAS } from "utils/types/das";
 import { SignerState, TransactionArgs } from "utils/types/transaction";
@@ -46,44 +49,36 @@ enum Tab {
 }
 export const Main: FC<{
   mint: PublicKey | undefined;
-  walletAddress: PublicKey | undefined;
-  allAssets: DAS.GetAssetResponseList | null | undefined;
+  walletAddress: PublicKey;
   setPage: React.Dispatch<React.SetStateAction<Page>>;
   setViewAsset: React.Dispatch<
     React.SetStateAction<DAS.GetAssetResponse | undefined>
   >;
   setArgs: React.Dispatch<React.SetStateAction<TransactionArgs | null>>;
   close: () => void;
-  isMultiSig?: boolean;
-}> = ({
-  walletAddress,
-  mint,
-  allAssets,
-  setPage,
-  setViewAsset,
-  setArgs,
-  close,
-  isMultiSig = true,
-}) => {
+}> = ({ walletAddress, mint, setPage, setViewAsset, setArgs, close }) => {
+  const [tab, setTab] = useState(Tab.Tokens);
   const toast = useToastController();
-  const { deviceAddress, cloudAddress } = useOnboarding();
   const copyToClipboard = async (textToCopy: string) => {
     await Clipboard.setStringAsync(textToCopy);
     toast.show(`${textToCopy.substring(0, 12)}... Copied!`);
   };
-  const [tab, setTab] = useState(Tab.Tokens);
+
+  const { deviceAddress, cloudAddress } = useGlobalVariables();
   const { data: walletInfo } = useGetWalletInfo({
-    address:
-      walletAddress && isMultiSig
-        ? getMultiSigFromAddress(walletAddress)
-        : null,
+    address: getMultiSigFromAddress(walletAddress),
   });
-  const setOwnerMutation = useSetOwnerMutation({
+
+  const setOwnerIxMutation = useSetOwnerIxMutation({
+    wallet: walletAddress,
+  });
+
+  const createVaultExecuteIxMutation = useCreateVaultExecuteIxMutation({
     wallet: walletAddress,
   });
 
   const owner = useMemo(() => {
-    if (!isMultiSig || !walletAddress || !walletInfo) return null;
+    if (!walletInfo) return null;
 
     const owners = walletInfo.members.filter(
       (x) => x.toString() !== walletAddress.toString()
@@ -97,11 +92,6 @@ export const Main: FC<{
             address: "You are the owner.",
             action: async () => {
               if (deviceAddress && cloudAddress) {
-                const feePayer = {
-                  key: deviceAddress,
-                  type: SignerType.DEVICE,
-                  state: SignerState.Unsigned,
-                };
                 const signers = [
                   {
                     key: deviceAddress,
@@ -114,18 +104,29 @@ export const Main: FC<{
                     state: SignerState.Unsigned,
                   },
                 ];
-                const ix = await setOwnerMutation.mutateAsync({
+                const ixs = await setOwnerIxMutation.mutateAsync({
                   newOwners: null,
                   signers,
-                  feePayer,
                 });
-                if (ix) {
-                  setArgs({
-                    feePayer,
-                    signers,
-                    ixs: [ix],
-                  });
-                  setPage(Page.Confirmation);
+
+                if (ixs) {
+                  const result = await createVaultExecuteIxMutation.mutateAsync(
+                    {
+                      signers,
+                      ixs,
+                    }
+                  );
+                  if (result) {
+                    setArgs({
+                      signers,
+                      ixs: [result.vaultTransactionExecuteIx],
+                      lookUpTables: result.lookupTableAccounts,
+                      microLamports: result.microLamports,
+                      units: result.units,
+                      totalFees: result.totalFees,
+                    });
+                    setPage(Page.Confirmation);
+                  }
                 }
               } else {
                 close();
@@ -135,7 +136,7 @@ export const Main: FC<{
             label: "Revoke",
           }
         : {
-            address: owners[0].toString(),
+            address: owners[1].toString(),
             action: async () => {
               //send notification to owner
             },
@@ -146,22 +147,46 @@ export const Main: FC<{
       address: "No Owner",
       action: async () => {
         if (deviceAddress && cloudAddress) {
-          const feePayer = {
-            key: walletAddress,
-            type: SignerType.NFC,
-            state: SignerState.Unsigned,
-          };
-          const ix = await setOwnerMutation.mutateAsync({
-            newOwners: [deviceAddress, cloudAddress],
-            feePayer,
+          const signers = [
+            {
+              key: walletAddress,
+              type: SignerType.NFC,
+              state: SignerState.Unsigned,
+            },
+          ];
+          const newOwners = [
+            {
+              key: deviceAddress,
+              type: SignerType.DEVICE,
+              state: SignerState.Unsigned,
+            },
+            {
+              key: cloudAddress,
+              type: SignerType.CLOUD,
+              state: SignerState.Unsigned,
+            },
+          ];
+          const ixs = await setOwnerIxMutation.mutateAsync({
+            newOwners,
+            signers,
           });
-          if (ix) {
-            setArgs({
-              feePayer,
-              signers: [feePayer],
-              ixs: [ix],
+
+          if (ixs) {
+            const result = await createVaultExecuteIxMutation.mutateAsync({
+              signers,
+              ixs,
             });
-            setPage(Page.Confirmation);
+            if (result) {
+              setArgs({
+                signers,
+                ixs: [result.vaultTransactionExecuteIx],
+                lookUpTables: result.lookupTableAccounts,
+                microLamports: result.microLamports,
+                units: result.units,
+                totalFees: result.totalFees,
+              });
+              setPage(Page.Confirmation);
+            }
           }
         } else {
           close();
@@ -170,7 +195,7 @@ export const Main: FC<{
       },
       label: "Request",
     };
-  }, [close, walletAddress, deviceAddress, cloudAddress, walletInfo]);
+  }, [close, walletAddress, deviceAddress, walletInfo]);
   return (
     <YStack alignItems="center" gap="$4">
       <XStack
@@ -218,6 +243,9 @@ export const Main: FC<{
               ]}
             >
               <Heading>Multisig Details</Heading>
+              {walletInfo?.label && (
+                <Text numberOfLines={1}>{`Label: ${walletInfo?.label}`}</Text>
+              )}
               <Text>{`Signatures Threshold: ${walletInfo?.threshold}`}</Text>
               {walletAddress && (
                 <ListItem
@@ -225,14 +253,12 @@ export const Main: FC<{
                   borderRadius={"$4"}
                   onPress={() =>
                     copyToClipboard(
-                      getVaultFromAddress({ address: walletAddress }).toString()
+                      getVaultFromAddress(walletAddress).toString()
                     )
                   }
                   hoverTheme
                   pressTheme
-                  title={getVaultFromAddress({
-                    address: walletAddress,
-                  }).toString()}
+                  title={getVaultFromAddress(walletAddress).toString()}
                   subTitle="Multisig Vault Address"
                   icon={Wallet}
                   iconAfter={Copy}
@@ -276,13 +302,16 @@ export const Main: FC<{
           </Dialog.Portal>
         </Dialog>
         <Button
-          disabled={setOwnerMutation.isPending}
+          disabled={
+            setOwnerIxMutation.isPending ||
+            createVaultExecuteIxMutation.isPending
+          }
           size={"$3"}
           onPress={owner?.action}
-          theme={"active"}
         >
           <ButtonText>{owner?.label}</ButtonText>
-          {setOwnerMutation.isPending && <Spinner />}
+          {(setOwnerIxMutation.isPending ||
+            createVaultExecuteIxMutation.isPending) && <Spinner />}
         </Button>
       </XStack>
 
@@ -304,14 +333,16 @@ export const Main: FC<{
       {tab == Tab.Tokens && (
         <TokenPage
           mint={mint}
-          allAssets={allAssets}
+          walletAddress={walletAddress}
+          walletInfo={walletInfo}
           setPage={setPage}
           setViewAsset={setViewAsset}
         />
       )}
       {tab == Tab.Collectibles && (
         <CollectiblesPage
-          allAssets={allAssets}
+          walletAddress={walletAddress}
+          walletInfo={walletInfo}
           setViewAsset={setViewAsset}
           setPage={setPage}
         />
@@ -322,18 +353,23 @@ export const Main: FC<{
 
 const TokenPage: FC<{
   mint: PublicKey | undefined;
-  allAssets: DAS.GetAssetResponseList | null | undefined;
+  walletInfo: any | null;
+  walletAddress: PublicKey;
   setPage: React.Dispatch<React.SetStateAction<Page>>;
   setViewAsset: React.Dispatch<
     React.SetStateAction<DAS.GetAssetResponse | undefined>
   >;
-}> = ({ mint, allAssets, setPage, setViewAsset }) => {
+}> = ({ walletAddress, walletInfo, mint, setPage, setViewAsset }) => {
+  const { data: allAssets } = useGetAssetsByOwner({
+    address: walletInfo ? getVaultFromAddress(walletAddress) : walletAddress,
+  });
+
   const asset = useMemo(
     () => allAssets?.items.find((x) => x.id === mint?.toString()),
     [allAssets, mint]
   );
   const { data: mintData } = useGetAsset({ mint });
-
+  const nativeAsset = SOL_NATIVE_MINT(allAssets?.nativeBalance);
   return (
     <>
       {mintData && (
@@ -358,7 +394,7 @@ const TokenPage: FC<{
             <XStack alignItems="center" gap="$2">
               <AlertTriangle size={"$1"} color={"red"} />
               <Text
-                theme={"red"}
+                color={"red"}
               >{`${mintData.content?.metadata.name} not found.`}</Text>
             </XStack>
           )}
@@ -372,7 +408,6 @@ const TokenPage: FC<{
             onPress={() => {
               setPage(Page.Deposit);
             }}
-            theme={"active"}
           >
             <ButtonIcon
               children={<ArrowDown size={"$2"} color={"$accentColor"} />}
@@ -385,7 +420,6 @@ const TokenPage: FC<{
             onPress={() => {
               setPage(Page.Search);
             }}
-            theme={"active"}
             circular
           >
             <ButtonIcon
@@ -396,7 +430,43 @@ const TokenPage: FC<{
         </YStack>
       </XStack>
 
-      <YStack width={"100%"}>
+      <YStack width={"100%"} gap="$2">
+        <ListItem
+          padded
+          bordered
+          width={"100%"}
+          borderRadius={"$4"}
+          onPress={() => {
+            setViewAsset(nativeAsset);
+            setPage(Page.Asset);
+          }}
+          icon={
+            <Avatar size="$4" circular>
+              <AvatarImage
+                source={{
+                  uri: nativeAsset.content?.links?.image,
+                }}
+              />
+            </Avatar>
+          }
+          title={nativeAsset.content?.metadata.name}
+          subTitle={`${
+            (nativeAsset.token_info?.balance || 0) /
+            10 ** (nativeAsset.token_info?.decimals || 0)
+          } ${nativeAsset.content?.metadata.symbol}`}
+          iconAfter={
+            <YStack maxWidth={"25%"}>
+              <Text numberOfLines={1}>
+                {`$${
+                  (nativeAsset.token_info?.price_info?.price_per_token || 0) *
+                  ((nativeAsset.token_info?.balance || 0) /
+                    10 ** (nativeAsset.token_info?.decimals || 0))
+                }`}
+              </Text>
+            </YStack>
+          }
+        />
+
         {allAssets?.items
           .filter(
             (x) =>
@@ -429,8 +499,8 @@ const TokenPage: FC<{
                   10 ** (x.token_info?.decimals || 0)
                 } ${x.content?.metadata.symbol}`}
                 iconAfter={
-                  <YStack>
-                    <Text>
+                  <YStack maxWidth={"25%"}>
+                    <Text numberOfLines={1}>
                       {`$${
                         (x.token_info?.price_info?.price_per_token || 0) *
                         ((x.token_info?.balance || 0) /
@@ -448,14 +518,19 @@ const TokenPage: FC<{
 };
 
 const CollectiblesPage: FC<{
-  allAssets: DAS.GetAssetResponseList | null | undefined;
+  walletInfo: any | null;
+  walletAddress: PublicKey;
   setViewAsset: React.Dispatch<
     React.SetStateAction<DAS.GetAssetResponse | undefined>
   >;
   setPage: React.Dispatch<React.SetStateAction<Page>>;
-}> = ({ allAssets, setViewAsset, setPage }) => {
+}> = ({ walletAddress, walletInfo, setViewAsset, setPage }) => {
+  const { data: allAssets } = useGetAssetsByOwner({
+    address: walletInfo ? getVaultFromAddress(walletAddress) : walletAddress,
+  });
   return (
     <YStack
+      width={"100%"}
       flexWrap="wrap" // Allow items to wrap within the container
       flexDirection="row" // Make the children flow in rows
       gap="$4" // Spacing between grid items

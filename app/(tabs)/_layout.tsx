@@ -28,7 +28,8 @@ export default function TabLayout() {
     <PortalProvider shouldAddRootHost>
       <Tabs
         screenOptions={{
-          tabBarActiveTintColor: theme.red10.val,
+          animation: "shift",
+          tabBarActiveTintColor: theme.color.val,
           tabBarStyle: {
             backgroundColor: theme.background.val,
             borderTopColor: theme.borderColor.val,

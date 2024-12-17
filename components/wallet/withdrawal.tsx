@@ -1,12 +1,8 @@
-import {
-  createAssociatedTokenAccountIdempotentInstruction,
-  createTransferCheckedInstruction,
-  getAssociatedTokenAddressSync,
-} from "@solana/spl-token";
 import { PublicKey } from "@solana/web3.js";
 import { ArrowLeft, AtSign } from "@tamagui/lucide-icons";
-import { useOnboarding } from "components/providers/onboardingProvider";
-import { FC, useMemo, useState } from "react";
+import { useConnection } from "components/providers/connectionProvider";
+import { useGlobalVariables } from "components/providers/globalProvider";
+import { FC, useState } from "react";
 import { Pressable } from "react-native";
 import {
   Avatar,
@@ -22,15 +18,15 @@ import {
   XStack,
   YStack,
 } from "tamagui";
+import { SignerType } from "utils/enums/transaction";
 import { Page } from "utils/enums/wallet";
 import { getVaultFromAddress } from "utils/helper";
 import { useCreateVaultExecuteIxMutation } from "utils/mutations/createVaultExecuteIx";
-import { SignerType } from "utils/program/transactionBuilder";
+import { transferAsset } from "utils/transfer";
 import { DAS } from "utils/types/das";
 import { SignerState, TransactionArgs } from "utils/types/transaction";
 
 export const Withdrawal: FC<{
-  walletAddress: PublicKey;
   asset: DAS.GetAssetResponse;
   walletInfo:
     | {
@@ -45,33 +41,18 @@ export const Withdrawal: FC<{
   setWithdrawAsset: React.Dispatch<
     React.SetStateAction<DAS.GetAssetResponse | undefined>
   >;
-
   setArgs: React.Dispatch<React.SetStateAction<TransactionArgs | null>>;
-}> = ({
-  walletAddress,
-  asset,
-  walletInfo,
-  setPage,
-  setWithdrawAsset,
-  setArgs,
-}) => {
+}> = ({ asset, walletInfo, setPage, setWithdrawAsset, setArgs }) => {
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");
   const createVaultExecuteIxMutation = useCreateVaultExecuteIxMutation({
-    wallet: walletAddress,
+    wallet: walletInfo?.createKey,
   });
 
-  const { deviceAddress, cloudAddress } = useOnboarding();
-
-  const isOwner = useMemo(
-    () =>
-      walletInfo?.members.findIndex(
-        (x) => deviceAddress?.toString() == x.toString()
-      ) !== -1,
-    [walletInfo]
-  );
+  const { deviceAddress, cloudAddress } = useGlobalVariables();
+  const { connection } = useConnection();
   return (
-    <YStack gap={"$4"} alignItems="center">
+    <YStack gap={"$8"} alignItems="center">
       <XStack
         gap={"$4"}
         padding="$2"
@@ -90,7 +71,7 @@ export const Withdrawal: FC<{
         <Heading>{`Transfer ${asset.content?.metadata.name}`}</Heading>
         <ArrowLeft opacity={0} />
       </XStack>
-      <Avatar size={"$12"} circular>
+      <Avatar size={"$16"} circular>
         <AvatarImage
           source={{ uri: asset.content?.links?.image }}
           alt="image"
@@ -102,6 +83,7 @@ export const Withdrawal: FC<{
             borderRadius="$4"
             padding="$2"
             borderWidth={1}
+            borderColor={"$gray10"}
             alignItems="center"
           >
             <Input
@@ -112,18 +94,18 @@ export const Withdrawal: FC<{
               backgroundColor={"transparent"}
               placeholder="Recipient's Solana PublicKey"
             />
-            <Button circular theme="active" size={"$3"}>
+            <Button circular size={"$3"}>
               <ButtonIcon children={<AtSign size={"$1"} />} />
             </Button>
           </XStack>
-          {(asset?.interface === "FungibleToken" ||
-            asset?.interface === "FungibleAsset") && (
-            <YStack gap="$1">
+          {asset.token_info?.supply !== 1 && (
+            <YStack gap="$2">
               <XStack
                 alignItems="center"
                 borderWidth={1}
                 borderRadius={"$4"}
                 padding={"$2"}
+                borderColor={"$gray10"}
               >
                 <Input
                   value={amount}
@@ -144,14 +126,13 @@ export const Withdrawal: FC<{
                       ).toString() || ""
                     )
                   }
-                  theme="active"
                   size={"$3"}
                 >
                   <ButtonText>Max</ButtonText>
                 </Button>
               </XStack>
               <XStack justifyContent="flex-end">
-                <Text className="w-full text-right">
+                <Text fontSize={"$1"} className="w-full text-right">
                   {`Available: ${
                     (asset.token_info?.balance || 0) /
                     10 ** (asset.token_info?.decimals || 0)
@@ -163,94 +144,76 @@ export const Withdrawal: FC<{
           <Form.Trigger>
             <Button
               disabled={createVaultExecuteIxMutation.isPending}
-              theme="active"
               onPress={async () => {
-                const feePayer =
-                  isOwner && deviceAddress
-                    ? {
-                        key: deviceAddress,
-                        type: SignerType.DEVICE,
-                        state: SignerState.Unsigned,
-                      }
-                    : {
-                        key: walletAddress,
-                        type: SignerType.NFC,
-                        state: SignerState.Unsigned,
-                      };
+                if (!walletInfo) {
+                  return;
+                }
+                try {
+                  const isOwner =
+                    walletInfo.members.findIndex(
+                      (x) => deviceAddress?.toString() == x.toString()
+                    ) !== -1;
+                  const signers =
+                    isOwner && deviceAddress && cloudAddress
+                      ? [
+                          {
+                            key: deviceAddress,
+                            type: SignerType.DEVICE,
+                            state: SignerState.Unsigned,
+                          },
+                          {
+                            key: cloudAddress,
+                            type: SignerType.CLOUD,
+                            state: SignerState.Unsigned,
+                          },
+                        ]
+                      : walletInfo.members.every(
+                          (x) =>
+                            x.toString() === walletInfo.createKey.toString()
+                        )
+                      ? [
+                          {
+                            key: walletInfo.createKey,
+                            type: SignerType.NFC,
+                            state: SignerState.Unsigned,
+                          },
+                        ]
+                      : null;
+                  if (!signers) {
+                    throw new Error("Signer can't be found.");
+                  }
 
-                const signers =
-                  isOwner && deviceAddress && cloudAddress
-                    ? [
-                        {
-                          key: deviceAddress,
-                          type: SignerType.DEVICE,
-                          state: SignerState.Unsigned,
-                        },
-                        {
-                          key: cloudAddress,
-                          type: SignerType.CLOUD,
-                          state: SignerState.Unsigned,
-                        },
-                      ]
-                    : [
-                        {
-                          key: walletAddress,
-                          type: SignerType.NFC,
-                          state: SignerState.Unsigned,
-                        },
-                      ];
-                const tokenProgram = new PublicKey(
-                  asset.token_info?.token_program!
-                );
-                const vaultAddress = getVaultFromAddress({
-                  address: walletAddress,
-                });
-                const destination = getAssociatedTokenAddressSync(
-                  new PublicKey(asset.id),
-                  new PublicKey(recipient),
-                  true,
-                  tokenProgram
-                );
-                const ataIx = createAssociatedTokenAccountIdempotentInstruction(
-                  new PublicKey(feePayer.key),
-                  destination,
-                  new PublicKey(recipient),
-                  new PublicKey(asset.id),
-                  tokenProgram
-                );
-                const transferIx = createTransferCheckedInstruction(
-                  getAssociatedTokenAddressSync(
-                    new PublicKey(asset.id),
-                    vaultAddress,
-                    true,
-                    tokenProgram
-                  ),
-                  new PublicKey(asset.id),
-                  destination,
-                  vaultAddress,
-                  parseFloat(amount) * 10 ** (asset.token_info?.decimals || 0),
-                  asset.token_info?.decimals || 0,
-                  undefined,
-                  tokenProgram
-                );
-                const vaultTransactionExecute =
-                  await createVaultExecuteIxMutation.mutateAsync({
-                    feePayer: feePayer,
-                    signers: signers,
-                    ixs: [transferIx],
-                  });
+                  let { ixs, lookUpTables } = await transferAsset(
+                    connection,
+                    getVaultFromAddress(walletInfo.createKey),
+                    new PublicKey(recipient),
+                    asset.token_info?.supply === 1 ? 1 : parseFloat(amount),
+                    asset.id === PublicKey.default.toString(),
+                    asset
+                  );
 
-                if (vaultTransactionExecute) {
+                  const vaultTransactionExecute =
+                    await createVaultExecuteIxMutation.mutateAsync({
+                      signers: signers,
+                      ixs: ixs,
+                      lookUpTables,
+                    });
+                  if (vaultTransactionExecute) {
+                    ixs = [vaultTransactionExecute.vaultTransactionExecuteIx];
+                    lookUpTables = vaultTransactionExecute.lookupTableAccounts;
+                  }
+
                   setArgs({
-                    feePayer,
                     signers,
-                    ixs: [
-                      ataIx,
-                      vaultTransactionExecute.vaultTransactionExecuteIx,
-                    ],
-                    lookUpTables: vaultTransactionExecute.lookupTableAccounts,
+                    ixs,
+                    lookUpTables,
+                    microLamports: vaultTransactionExecute?.microLamports,
+                    units: vaultTransactionExecute?.units,
+                    totalFees: vaultTransactionExecute?.totalFees,
                   });
                   setPage(Page.Confirmation);
+                } catch (e) {
+                  console.log(e);
                 }
               }}
             >

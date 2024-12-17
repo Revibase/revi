@@ -1,42 +1,35 @@
-import { Keypair } from "@solana/web3.js";
+import { Keypair, VersionedTransaction } from "@solana/web3.js";
 import { useQuery } from "@tanstack/react-query";
-import { useCloudStorage } from "components/providers/cloudStorageProvider";
-import Constants from "expo-constants";
-import { Platform } from "react-native";
-import { CloudStorage } from "react-native-cloud-storage";
-import { openAppSettings } from "utils/helper";
-
+import * as Keychain from "react-native-keychain";
+import { APP_IDENTIFIER } from "utils/consts";
 export function useGetCloudAddress() {
-  const { cloudStorage, cloudAvailable } = useCloudStorage();
   return useQuery({
     queryKey: ["get-cloud-address"],
     queryFn: async () => {
-      if (cloudAvailable) {
-        return (await retrieveCloudKeypair(cloudStorage))?.publicKey || null;
-      } else {
-        openAppSettings();
-        return null;
-      }
+      return (await retrieveCloudKeypair()).publicKey;
     },
     staleTime: Infinity,
   });
 }
 
-export const retrieveCloudKeypair = async (cloudStorage: CloudStorage) => {
-  try {
-    const privateKey = await cloudStorage.readFile(
-      (Platform.OS === "ios"
-        ? Constants.expoConfig?.ios?.bundleIdentifier
-        : Constants.expoConfig?.android?.package) || ""
-    );
+export const signWithCloudKeypair = async (tx: VersionedTransaction) => {
+  const keypair = await retrieveCloudKeypair();
+  tx.sign([keypair]);
+};
 
-    if (privateKey) {
-      return Keypair.fromSecretKey(Buffer.from(privateKey, "hex"));
+const retrieveCloudKeypair = async () => {
+  try {
+    const credentials = await Keychain.getGenericPassword({
+      rules: Keychain.SECURITY_RULES.NONE,
+      service: `${APP_IDENTIFIER}-CLOUD`,
+      cloudSync: true,
+    });
+    if (credentials) {
+      return Keypair.fromSecretKey(Buffer.from(credentials.password, "hex"));
     } else {
-      return null;
+      throw new Error("No key found.");
     }
   } catch (error) {
-    console.log("Error retrieving cloud private key:", error);
-    return null;
+    throw new Error(`${error.message}`);
   }
 };

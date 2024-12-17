@@ -1,10 +1,10 @@
-import { Heading, View } from "tamagui";
+import { Heading, YStack } from "tamagui";
 
 function explore() {
   return (
-    <View flex={1} justifyContent="center" alignItems="center">
-      <Heading>Explore</Heading>
-    </View>
+    <YStack alignItems="center" justifyContent="center" flex={1}>
+      <Heading theme={"alt2"}>Explore</Heading>
+    </YStack>
   );
 }
 

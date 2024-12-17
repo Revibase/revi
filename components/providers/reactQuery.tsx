@@ -3,15 +3,10 @@ import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persi
 import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { ReactNode } from "react";
+import { DevToolsBubble } from "react-native-react-query-devtools";
 
 export function ReactQueryProvider({ children }: { children: ReactNode }) {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        gcTime: 1000 * 60 * 60 * 24, // 24 hours,queries:
-      },
-    },
-  });
+  const queryClient = new QueryClient();
 
   const asyncStoragePersister = createAsyncStoragePersister({
     storage: AsyncStorage,
@@ -23,6 +18,7 @@ export function ReactQueryProvider({ children }: { children: ReactNode }) {
       persistOptions={{ persister: asyncStoragePersister }}
     >
       {children}
+      <DevToolsBubble />
     </PersistQueryClientProvider>
   );
 }

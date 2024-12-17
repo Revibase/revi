@@ -1,14 +1,10 @@
-import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
-} from "@react-navigation/native";
 import { NativeToast } from "components/NativeToast";
 import { Provider } from "components/providers";
 import { useFonts } from "expo-font";
 import { SplashScreen, Stack } from "expo-router";
 import { useEffect } from "react";
 import { useColorScheme } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export const unstable_settings = {
   // Ensure that reloading on `/user` keeps a back button present.
@@ -40,20 +36,21 @@ export default function App() {
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
-
   return (
-    <Provider>
-      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+    <SafeAreaView style={{ flex: 1 }}>
+      <Provider defaultTheme={colorScheme || "light"}>
         <Stack>
           <Stack.Screen
             name="(tabs)"
             options={{
               headerShown: false,
+              statusBarHidden: false,
+              statusBarStyle: colorScheme || "light",
             }}
           />
         </Stack>
         <NativeToast />
-      </ThemeProvider>
-    </Provider>
+      </Provider>
+    </SafeAreaView>
   );
 }

@@ -1,72 +1,62 @@
-import { LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { PublicKey } from "@solana/web3.js";
 import {
   Cloud,
   EllipsisVertical,
-  HelpCircle,
-  ShoppingCart,
-  Wallet,
-  X,
+  Wallet as WalletIcon,
 } from "@tamagui/lucide-icons";
-import { useOnboarding } from "components/providers/onboardingProvider";
-import { Deposit } from "components/wallet/deposit";
+import { useGlobalVariables } from "components/providers/globalProvider";
+import { Wallet } from "components/wallet";
 import { router } from "expo-router";
-import { FC, useState } from "react";
-import { SafeAreaView } from "react-native";
+import { FC, useEffect, useState } from "react";
 import {
   Button,
   ButtonText,
-  Dialog,
   Heading,
+  Image,
   ListItem,
+  Popover,
+  Sheet,
+  Spinner,
   Text,
-  Unspaced,
-  XGroup,
   XStack,
+  YGroup,
   YStack,
 } from "tamagui";
+import { getAssetBatch } from "utils/helper";
 import { useGenerateCloudWallet } from "utils/mutations/generateCloudWallet";
 import { useGenerateDeviceWallet } from "utils/mutations/generateDeviceWallet";
-import { useGetAssetsByOwner } from "utils/queries/useGetAssetsByOwner";
+import { useGetMultisigByOwner } from "utils/queries/useGetMultisigByOwner";
+import { DAS } from "utils/types/das";
 
 export default function profile() {
-  const { deviceAddress, cloudAddress } = useOnboarding();
+  const { deviceAddress, cloudAddress } = useGlobalVariables();
 
-  return (
-    <SafeAreaView style={{ flex: 1 }}>
-      {deviceAddress && cloudAddress ? <Profile /> : <Onboarding />}
-    </SafeAreaView>
-  );
+  return deviceAddress && cloudAddress ? <Profile /> : <Onboarding />;
 }
 
 const Onboarding: FC = () => {
-  const { deviceAddress, cloudAddress } = useOnboarding();
+  const { deviceAddress, cloudAddress } = useGlobalVariables();
   const generateDeviceWalletMutation = useGenerateDeviceWallet();
   const generateCloudWalletMutation = useGenerateCloudWallet();
 
   return (
     <YStack flex={1} alignItems="center" justifyContent="center" gap="$8">
-      <Heading>{`${
+      <Heading color="black">{`${
         !deviceAddress
           ? "Step 1: Set Up a Device Wallet"
           : !cloudAddress
-          ? "Step 2: Set Up a 2FA Wallet"
+          ? "Step 2: Set Up a Cloud Wallet"
           : "You're all set!"
       }`}</Heading>
-      <Text textAlign="center" padding={"$4"} fontSize={"$6"}>
+      <Text color="black" textAlign="center" padding={"$4"} fontSize={"$6"}>
         {`${
           !deviceAddress
-            ? "The wallet's private key is securely stored on your device and can only be accessed using your biometrics."
+            ? "The wallet's private key is securely stored on your device and can only be accessed with your biometrics."
             : !cloudAddress
-            ? "The 2FA wallet is encrypted and stored securely on your personal icloud."
+            ? "The cloud wallet is stored on your personal icloud and is used as a 2FA wallet."
             : ""
         }`}
       </Text>
-      {deviceAddress && cloudAddress && (
-        <>
-          <Text>{`Device Wallet: ${deviceAddress.toString()}`}</Text>
-          <Text>{`2FA Wallet: ${cloudAddress.toString()}`}</Text>
-        </>
-      )}
       <Button
         onPress={() => {
           if (!deviceAddress) {
@@ -82,7 +72,7 @@ const Onboarding: FC = () => {
           !deviceAddress
             ? "Generate Device Wallet"
             : !cloudAddress
-            ? "Generate 2FA Wallet"
+            ? "Generate Cloud Wallet"
             : "Back To Home!"
         }`}</ButtonText>
       </Button>
@@ -90,130 +80,269 @@ const Onboarding: FC = () => {
   );
 };
 const Profile: FC<{}> = () => {
-  const { deviceAddress, cloudAddress } = useOnboarding();
-  const { data: allAssets } = useGetAssetsByOwner({
-    address: deviceAddress || null,
+  const { deviceAddress, cloudAddress } = useGlobalVariables();
+  const { data: multiWallets } = useGetMultisigByOwner({
+    address: deviceAddress,
   });
-  const [open, setOpen] = useState(false);
+
+  const generateDeviceWalletMutation = useGenerateDeviceWallet();
+  const generateCloudWalletMutation = useGenerateCloudWallet();
+  const [multiWalletsWithData, setMultiWalletsWithData] = useState<
+    {
+      data: DAS.GetAssetResponse | undefined;
+      publicKey: PublicKey;
+      account: {
+        createKey: PublicKey;
+        threshold: number;
+        bump: number;
+        members: PublicKey[];
+        label: string | null;
+      };
+    }[]
+  >([]);
+
+  useEffect(() => {
+    const fetchMultiWalletData = async () => {
+      if (!multiWallets) return;
+
+      const filteredLabels = multiWallets
+        .filter((x) => !!x.account.label)
+        .map((x) => x.account.label!);
+
+      try {
+        const multiWalletData = await getAssetBatch(filteredLabels);
+
+        const walletsWithData = multiWallets.map((x) => ({
+          ...x,
+          data: multiWalletData.find((data) => data.id === x.account.label),
+        }));
+
+        setMultiWalletsWithData(walletsWithData);
+      } catch (error) {
+        console.error("Error fetching wallet data:", error);
+      }
+    };
+
+    fetchMultiWalletData();
+  }, [multiWallets]);
+  const [address, setAddress] = useState<PublicKey | undefined | null>(null);
+  const [mint, setMint] = useState<PublicKey | undefined>(undefined);
+
+  const reset = () => {
+    setAddress(null);
+    setMint(undefined);
+  };
+
   return (
-    <SafeAreaView>
-      <YStack alignItems="center" gap={"$4"} padding="$4">
-        <Dialog open={open} modal>
-          <XGroup
-            width={"100%"}
-            alignSelf="center"
-            gap={"$4"}
-            justifyContent="space-between"
-            alignItems="center"
-          >
-            <XGroup.Item>
-              <ListItem
-                maxWidth={"48%"}
-                padded
-                bordered
-                hoverTheme
-                pressTheme
-                title={
-                  <XStack alignItems="center" gap={"$2"}>
-                    <Wallet size={"$1"} />
-                    <Text>Device Wallet</Text>
-                  </XStack>
-                }
-                subTitle={deviceAddress?.toString()}
-                iconAfter={EllipsisVertical}
-              />
-            </XGroup.Item>
-            <XGroup.Item>
-              <ListItem
-                maxWidth={"48%"}
-                padded
-                bordered
-                hoverTheme
-                pressTheme
-                title={
-                  <XStack alignItems="center" gap={"$2"}>
-                    <Cloud size={"$1"} />
-                    <Text>2FA Wallet</Text>
-                  </XStack>
-                }
-                subTitle={cloudAddress?.toString()}
-                iconAfter={EllipsisVertical}
-              />
-            </XGroup.Item>
-          </XGroup>
-          <ListItem
-            borderRadius={"$4"}
-            bordered
-            padded
-            hoverTheme
-            pressTheme
-            title={
-              <XStack alignItems="center" gap={"$2"}>
-                <Text>{`Fees Payer (Device Wallet)`}</Text>
-                <HelpCircle size={"$1"} />
-              </XStack>
-            }
-            subTitle={`${
-              (allAssets?.nativeBalance.lamports || 0) / LAMPORTS_PER_SOL
-            } SOL`}
-            icon={<ShoppingCart size={"$1"} />}
-            iconAfter={
-              <Dialog.Trigger asChild>
+    <YStack gap={"$4"} padding="$4">
+      <Heading color={"black"}>Wallet Management</Heading>
+      <XStack
+        width={"100%"}
+        alignSelf="center"
+        gap={"$4"}
+        justifyContent="space-between"
+        alignItems="center"
+      >
+        <ListItem
+          maxWidth={"48%"}
+          borderRadius={"$4"}
+          padded
+          bordered
+          hoverTheme
+          pressTheme
+          title={
+            <XStack alignItems="center" gap={"$2"}>
+              <WalletIcon size={"$1"} />
+              <Text>Device Wallet</Text>
+            </XStack>
+          }
+          subTitle={deviceAddress?.toString()}
+          iconAfter={
+            <Popover>
+              <Popover.Trigger asChild>
                 <Button
-                  onPress={() => setOpen(true)}
-                  size={"$3"}
-                  theme={"blue_active"}
-                >
-                  <ButtonText>Top Up</ButtonText>
-                </Button>
-              </Dialog.Trigger>
-            }
-          />
-          <Dialog.Portal>
-            <Dialog.Overlay
-              key="overlay"
-              animation="slow"
-              opacity={0.5}
-              enterStyle={{ opacity: 0 }}
-              exitStyle={{ opacity: 0 }}
-              onPress={() => setOpen(false)}
-            />
-            <Dialog.Content
-              width={"95%"}
-              bordered
-              elevate
-              key="content"
-              animateOnly={["transform", "opacity"]}
-              animation={[
-                "quicker",
-                {
-                  opacity: {
-                    overshootClamping: true,
+                  backgroundColor={"transparent"}
+                  padding="$0"
+                  icon={<EllipsisVertical />}
+                />
+              </Popover.Trigger>
+              <Popover.Content
+                padding={"$0"}
+                borderWidth={1}
+                borderColor="$borderColor"
+                enterStyle={{ y: -10, opacity: 0 }}
+                exitStyle={{ y: -10, opacity: 0 }}
+                elevate
+                animation={[
+                  "quick",
+                  {
+                    opacity: {
+                      overshootClamping: true,
+                    },
                   },
-                },
-              ]}
-              enterStyle={{ x: 0, y: -20, opacity: 0, scale: 0.9 }}
-              exitStyle={{ x: 0, y: 10, opacity: 0, scale: 0.95 }}
-              gap="$4"
-            >
-              <Deposit walletAddress={deviceAddress!} isMultiSig={false} />
-              <Unspaced>
-                <Dialog.Close asChild>
-                  <Button
-                    onPress={() => setOpen(false)}
-                    position="absolute"
-                    top="$3"
-                    right="$3"
-                    size="$2"
-                    circular
-                    icon={X}
-                  />
-                </Dialog.Close>
-              </Unspaced>
-            </Dialog.Content>
-          </Dialog.Portal>
-        </Dialog>
+                ]}
+              >
+                <YGroup>
+                  <YGroup.Item>
+                    <Button
+                      disabled={generateDeviceWalletMutation.isPending}
+                      onPress={() => {
+                        generateDeviceWalletMutation.mutateAsync();
+                      }}
+                    >
+                      <ButtonText>Generate New Device Key</ButtonText>
+                      {generateDeviceWalletMutation.isPending && <Spinner />}
+                    </Button>
+                  </YGroup.Item>
+                </YGroup>
+              </Popover.Content>
+            </Popover>
+          }
+        />
+        <ListItem
+          maxWidth={"48%"}
+          borderRadius={"$4"}
+          padded
+          bordered
+          hoverTheme
+          pressTheme
+          title={
+            <XStack alignItems="center" gap={"$2"}>
+              <Cloud size={"$1"} />
+              <Text>Cloud Wallet</Text>
+            </XStack>
+          }
+          subTitle={cloudAddress?.toString()}
+          iconAfter={
+            <Popover>
+              <Popover.Trigger asChild>
+                <Button
+                  backgroundColor={"transparent"}
+                  padding="$0"
+                  icon={<EllipsisVertical />}
+                />
+              </Popover.Trigger>
+              <Popover.Content
+                padding={"$0"}
+                borderWidth={1}
+                borderColor="$borderColor"
+                enterStyle={{ y: -10, opacity: 0 }}
+                exitStyle={{ y: -10, opacity: 0 }}
+                elevate
+                animation={[
+                  "quick",
+                  {
+                    opacity: {
+                      overshootClamping: true,
+                    },
+                  },
+                ]}
+              >
+                <YGroup>
+                  <YGroup.Item>
+                    <Button
+                      disabled={generateCloudWalletMutation.isPending}
+                      onPress={() => {
+                        generateCloudWalletMutation.mutateAsync();
+                      }}
+                    >
+                      <ButtonText>Generate New Cloud Key</ButtonText>
+                      {generateCloudWalletMutation.isPending && <Spinner />}
+                    </Button>
+                  </YGroup.Item>
+                </YGroup>
+              </Popover.Content>
+            </Popover>
+          }
+        />
+      </XStack>
+      <YStack width={"100%"} gap="$2">
+        <Heading size={"$6"} color={"black"}>
+          Your Multisig Wallets
+        </Heading>
+        <YStack
+          width={"100%"}
+          flexWrap="wrap" // Allow items to wrap within the container
+          flexDirection="row" // Make the children flow in rows
+          gap="$4" // Spacing between grid items
+        >
+          {multiWalletsWithData?.map((x) => {
+            return (
+              <Button
+                padded={false}
+                key={x.publicKey.toString()}
+                width="50%"
+                aspectRatio={1}
+                justifyContent="center"
+                alignItems="center"
+                borderRadius="$4"
+                padding={0}
+                onPress={() => {
+                  setAddress(new PublicKey(x.account.createKey));
+                  setMint(
+                    x.account.label ? new PublicKey(x.account.label) : undefined
+                  );
+                }}
+              >
+                <Image
+                  borderRadius={"$4"}
+                  height={"100%"}
+                  width={"100%"}
+                  objectFit="contain"
+                  source={{ uri: x?.data?.content?.links?.image }}
+                  alt="image"
+                />
+              </Button>
+            );
+          })}
+        </YStack>
       </YStack>
-    </SafeAreaView>
+      <Sheets address={address} reset={reset} mint={mint} />
+    </YStack>
+  );
+};
+
+const Sheets: FC<{
+  address: PublicKey | null | undefined;
+  reset: () => void;
+  mint: PublicKey | undefined;
+}> = ({ address, reset, mint }) => {
+  return (
+    <Sheet
+      forceRemoveScrollEnabled={true}
+      modal={true}
+      open={!!address}
+      defaultOpen={false}
+      snapPoints={[95]}
+      zIndex={100_000}
+      animation="medium"
+      snapPointsMode={"percent"}
+      onOpenChange={(open) => {
+        if (!open) {
+          reset();
+        }
+      }}
+    >
+      <Sheet.Overlay
+        animation="lazy"
+        enterStyle={{ opacity: 0 }}
+        exitStyle={{ opacity: 0 }}
+        key="overlay"
+        opacity={0.5}
+      />
+      <Sheet.Handle />
+      <Sheet.Frame
+        padding="$4"
+        justifyContent="center"
+        alignItems="center"
+        gap="$4"
+      >
+        <Sheet.ScrollView width={"100%"} showsVerticalScrollIndicator={false}>
+          {address && (
+            <Wallet walletAddress={address} mint={mint} close={() => reset()} />
+          )}
+        </Sheet.ScrollView>
+      </Sheet.Frame>
+    </Sheet>
   );
 };

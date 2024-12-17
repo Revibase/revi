@@ -1,3 +1,4 @@
+import { PublicKey } from "@solana/web3.js";
 import { ArrowLeft, Search } from "@tamagui/lucide-icons";
 import { FC, useMemo, useState } from "react";
 import { Pressable } from "react-native";
@@ -10,30 +11,42 @@ import {
   XStack,
   YStack,
 } from "tamagui";
+import { SOL_NATIVE_MINT } from "utils/consts";
 import { Page } from "utils/enums/wallet";
+import { getMultiSigFromAddress, getVaultFromAddress } from "utils/helper";
+import { useGetAssetsByOwner } from "utils/queries/useGetAssetsByOwner";
+import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
 import { DAS } from "utils/types/das";
 
 export const SearchPage: FC<{
-  allAssets: DAS.GetAssetResponseList | null | undefined;
+  walletAddress: PublicKey;
   setPage: React.Dispatch<React.SetStateAction<Page>>;
   setViewAsset: React.Dispatch<
     React.SetStateAction<DAS.GetAssetResponse | undefined>
   >;
-}> = ({ allAssets, setPage, setViewAsset }) => {
+}> = ({ walletAddress, setPage, setViewAsset }) => {
+  const { data: walletInfo } = useGetWalletInfo({
+    address: getMultiSigFromAddress(walletAddress),
+  });
+  const { data: allAssets } = useGetAssetsByOwner({
+    address: walletInfo ? getVaultFromAddress(walletAddress) : walletAddress,
+  });
   const [searchText, setSearchText] = useState("");
   const filteredTokenList = useMemo(() => {
     return (
-      allAssets?.items.filter((x) => {
-        if (!searchText) return true;
-        return (
-          x.content?.metadata.name
-            .toLowerCase()
-            .includes(searchText.toLowerCase()) ||
-          x.content?.metadata.symbol
-            .toLowerCase()
-            .includes(searchText.toLowerCase())
-        );
-      }) || []
+      allAssets?.items
+        .concat([SOL_NATIVE_MINT(allAssets.nativeBalance)])
+        .filter((x) => {
+          if (!searchText) return true;
+          return (
+            x.content?.metadata.name
+              .toLowerCase()
+              .includes(searchText.toLowerCase()) ||
+            x.content?.metadata.symbol
+              .toLowerCase()
+              .includes(searchText.toLowerCase())
+          );
+        }) || []
     );
   }, [allAssets, searchText]);
 

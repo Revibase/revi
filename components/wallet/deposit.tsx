@@ -19,15 +19,14 @@ import { getVaultFromAddress } from "utils/helper";
 export const Deposit: FC<{
   walletAddress: PublicKey;
   setPage?: React.Dispatch<React.SetStateAction<Page>>;
-  isMultiSig?: boolean;
-}> = ({ walletAddress, setPage, isMultiSig = true }) => {
+}> = ({ walletAddress, setPage }) => {
   const toast = useToastController();
   const copyToClipboard = async (textToCopy: string) => {
     await Clipboard.setStringAsync(textToCopy);
     toast.show("Copied!");
   };
   return (
-    <YStack gap={"$4"} alignItems="center">
+    <YStack gap={"$8"} alignItems="center">
       <XStack
         gap={"$4"}
         padding="$2"
@@ -46,14 +45,9 @@ export const Deposit: FC<{
         Send assets to the wallet address below
       </Text>
       <Text fontSize={"$5"} textAlign="center">
-        {isMultiSig
-          ? getVaultFromAddress({ address: walletAddress }).toString()
-          : walletAddress?.toString()}
+        {getVaultFromAddress(walletAddress).toString()}
       </Text>
-      <Button
-        onPress={() => copyToClipboard(walletAddress.toString())}
-        theme="active"
-      >
+      <Button onPress={() => copyToClipboard(walletAddress.toString())}>
         <ButtonText>Copy</ButtonText>
         <ButtonIcon children={<Copy />}></ButtonIcon>
       </Button>

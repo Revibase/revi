@@ -1,10 +1,8 @@
 import { PublicKey } from "@solana/web3.js";
 import { FC, useEffect, useState } from "react";
 import { Spinner, YStack } from "tamagui";
-import { BLOCKCHAIN } from "utils/enums/chain";
 import { Page } from "utils/enums/wallet";
-import { getMultiSigFromAddress, getVaultFromAddress } from "utils/helper";
-import { useGetAssetsByOwner } from "utils/queries/useGetAssetsByOwner";
+import { getMultiSigFromAddress } from "utils/helper";
 import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
 import { DAS } from "utils/types/das";
 import { TransactionArgs } from "utils/types/transaction";
@@ -17,51 +15,28 @@ import { SearchPage } from "./search";
 import { Withdrawal } from "./withdrawal";
 
 export const Wallet: FC<{
-  walletAddress: PublicKey | undefined;
+  walletAddress: PublicKey;
   mint: PublicKey | undefined;
-  blockchain: BLOCKCHAIN | undefined;
   close: () => void;
-  deviceAddress?: PublicKey;
-  cloudAddress?: PublicKey;
-  isMultiSig?: boolean;
-}> = ({
-  walletAddress,
-  mint,
-  blockchain,
-  isMultiSig = true,
-  deviceAddress,
-  cloudAddress,
-  close,
-}) => {
+}> = ({ walletAddress, mint, close }) => {
   const [page, setPage] = useState<Page>(Page.Loading);
   const [withdrawAsset, setWithdrawAsset] = useState<DAS.GetAssetResponse>();
   const [viewAsset, setViewAsset] = useState<DAS.GetAssetResponse>();
   const [transactionArgs, setTransactionArgs] =
     useState<TransactionArgs | null>(null);
-
   const { data: walletInfo, isLoading } = useGetWalletInfo({
-    address:
-      isMultiSig && !!walletAddress
-        ? getMultiSigFromAddress(walletAddress)
-        : null,
+    address: getMultiSigFromAddress(walletAddress),
   });
-  const { data: allAssets } = useGetAssetsByOwner({
-    address:
-      blockchain === BLOCKCHAIN.SOLANA && !!walletAddress
-        ? walletInfo
-          ? getVaultFromAddress({ address: walletAddress })
-          : walletAddress
-        : null,
-  });
-
   useEffect(() => {
-    if (isLoading) return;
-    if (!walletInfo && isMultiSig) {
-      setPage(Page.Create);
-    } else {
-      setPage(Page.Main);
+    if (page === Page.Loading) {
+      if (isLoading) return;
+      if (!walletInfo) {
+        setPage(Page.Create);
+      } else {
+        setPage(Page.Main);
+      }
     }
-  }, [walletInfo, isLoading, isMultiSig]);
+  }, [walletInfo, isLoading, page]);
 
   return (
     <YStack>
@@ -69,24 +44,17 @@ export const Wallet: FC<{
         <Main
           mint={mint}
           walletAddress={walletAddress}
-          allAssets={allAssets}
           setPage={setPage}
           setViewAsset={setViewAsset}
-          isMultiSig={isMultiSig}
           close={close}
           setArgs={setTransactionArgs}
         />
       )}
-      {page == Page.Deposit && walletAddress && (
-        <Deposit
-          walletAddress={walletAddress}
-          setPage={setPage}
-          isMultiSig={isMultiSig}
-        />
+      {page == Page.Deposit && (
+        <Deposit walletAddress={walletAddress} setPage={setPage} />
       )}
-      {page == Page.Withdrawal && walletAddress && withdrawAsset && (
+      {page == Page.Withdrawal && withdrawAsset && (
         <Withdrawal
-          walletAddress={walletAddress}
           asset={withdrawAsset}
           setArgs={setTransactionArgs}
           setPage={setPage}
@@ -104,18 +72,19 @@ export const Wallet: FC<{
       {page == Page.Create && (
         <CreateMultisigPage
           walletAddress={walletAddress}
+          mint={mint}
           setPage={setPage}
           setArgs={setTransactionArgs}
         />
       )}
       {page == Page.Search && (
         <SearchPage
-          allAssets={allAssets}
+          walletAddress={walletAddress}
           setPage={setPage}
           setViewAsset={setViewAsset}
         />
       )}
-      {page == Page.Confirmation && walletAddress && transactionArgs && (
+      {page == Page.Confirmation && transactionArgs && (
         <ConfirmationPage
           walletAddress={walletAddress}
           setPage={setPage}
@@ -125,15 +94,11 @@ export const Wallet: FC<{
       )}
       {page == Page.Loading && (
         <YStack
-          backgroundColor={"$colorTransparent"}
+          backgroundColor={"transparent"}
           justifyContent="center"
           alignItems="center"
         >
-          <Spinner
-            backgroundColor={"$colorTransparent"}
-            size="large"
-            color="$gray10"
-          />
+          <Spinner backgroundColor={"transparent"} size="large" />
         </YStack>
       )}
     </YStack>

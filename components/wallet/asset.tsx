@@ -93,7 +93,8 @@ export const AssetPage: FC<{
           <ButtonIcon children={<Send />} />
         </Button>
       </XStack>
-      {asset?.interface === "FungibleToken" && (
+      {(asset?.interface === "FungibleToken" ||
+        asset?.interface === "Custom") && (
         <XGroup
           width={"100%"}
           alignItems="center"

@@ -3,16 +3,18 @@ import {
   PublicKey,
   TransactionInstruction,
 } from "@solana/web3.js";
-import { SignerType } from "utils/program/transactionBuilder";
+import { SignerType } from "utils/enums/transaction";
 
 export interface TransactionArgs {
-  feePayer: Signer;
-  signers: Signer[];
+  signers: TransactionSigner[];
   ixs: TransactionInstruction[];
   lookUpTables?: AddressLookupTableAccount[];
+  microLamports?: number;
+  units?: number;
+  totalFees?: number;
 }
 
-export interface Signer {
+export interface TransactionSigner {
   key: PublicKey;
   type: SignerType;
   state: SignerState;

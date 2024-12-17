@@ -94,6 +94,12 @@ export type MultiWallet = {
           "type": {
             "option": "u16"
           }
+        },
+        {
+          "name": "label",
+          "type": {
+            "option": "string"
+          }
         }
       ]
     },
@@ -197,6 +203,61 @@ export type MultiWallet = {
         {
           "name": "systemProgram",
           "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "label",
+          "type": {
+            "option": "string"
+          }
+        }
+      ]
+    },
+    {
+      "name": "migrateData",
+      "discriminator": [
+        118,
+        173,
+        228,
+        79,
+        30,
+        79,
+        8,
+        10
+      ],
+      "accounts": [
+        {
+          "name": "multiWallet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  117,
+                  108,
+                  116,
+                  105,
+                  95,
+                  119,
+                  97,
+                  108,
+                  108,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "createKey"
+              }
+            ]
+          }
+        },
+        {
+          "name": "createKey"
         }
       ],
       "args": []
@@ -365,6 +426,12 @@ export type MultiWallet = {
             "name": "members",
             "type": {
               "vec": "pubkey"
+            }
+          },
+          {
+            "name": "label",
+            "type": {
+              "option": "string"
             }
           }
         ]
