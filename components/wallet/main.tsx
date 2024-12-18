@@ -545,7 +545,7 @@ const CollectiblesPage: FC<{
             <Button
               padded={false}
               key={x.id}
-              width="50%"
+              width="45%"
               aspectRatio={1}
               justifyContent="center"
               alignItems="center"

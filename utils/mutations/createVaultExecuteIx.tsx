@@ -14,9 +14,11 @@ import {
   getPriorityFeeEstimate,
   getSimulationUnits,
 } from "utils/program/transactionBuilder";
+
 import {
   accountsForTransactionExecute,
-  transactionMessageToMultisigTransactionMessageBytes,
+  transactionMessageSerialize,
+  transactionMessageToCompileMessage,
 } from "utils/program/utils";
 import { vaultTransactionMessageBeet } from "utils/program/utils/VaultTransactionMessage";
 import { SignerState, TransactionSigner } from "utils/types/transaction";
@@ -86,15 +88,18 @@ export function useCreateVaultExecuteIxMutation({
         instructions: ixs,
       });
 
+      const compiledMessage = transactionMessageToCompileMessage({
+        message: transactionMessageTx,
+        addressLookupTableAccounts: lookUpTables,
+      });
       const transactionMessageBytes =
-        transactionMessageToMultisigTransactionMessageBytes({
-          message: transactionMessageTx,
-          addressLookupTableAccounts: lookUpTables,
-        });
+        transactionMessageSerialize(compiledMessage);
+
       const { accountMetas, lookupTableAccounts } =
         await accountsForTransactionExecute({
           connection: connection,
-          message: vaultTransactionMessageBeet.deserialize(
+          message: compiledMessage,
+          vaultMessage: vaultTransactionMessageBeet.deserialize(
             transactionMessageBytes
           )[0],
           vaultPda: vaultPda,

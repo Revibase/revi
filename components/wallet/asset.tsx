@@ -55,7 +55,7 @@ export const AssetPage: FC<{
   );
 
   return (
-    <YStack gap={"$4"} alignItems="center">
+    <YStack gap={"$6"} alignItems="center">
       <XStack
         gap={"$4"}
         padding="$2"
@@ -140,40 +140,41 @@ export const AssetPage: FC<{
             <Text>{asset?.content?.metadata.description}</Text>
           </>
         )}
-        {asset?.content?.metadata.attributes && (
-          <>
-            <Heading textAlign="left">{"Attributes"}</Heading>
-            <YStack gap="$2" flexDirection="row" flexWrap="wrap">
-              {asset?.content?.metadata.attributes?.map((x, index) => {
-                return (
-                  <ListItem
-                    key={index}
-                    width={"30%"}
-                    title={x.value}
-                    subTitle={x.trait_type}
-                    bordered
-                    padded
-                    borderRadius={"$4"}
-                  />
-                );
-              })}
-            </YStack>
-          </>
-        )}
-        {collection && (
-          <Card elevate size="$4" bordered padded>
-            <XStack>
-              <Avatar size={"$4"} circular>
-                <AvatarImage
-                  source={{ uri: collection.content?.links?.image }}
-                ></AvatarImage>
-              </Avatar>
-              <Heading>{collection.content?.metadata.name}</Heading>
-            </XStack>
-            <Text>{collection.content?.metadata.description}</Text>
-          </Card>
-        )}
+        {asset?.content?.metadata.attributes &&
+          asset.content.metadata.attributes.length > 0 && (
+            <>
+              <Heading textAlign="left">{"Attributes"}</Heading>
+              <YStack gap="$2" flexDirection="row" flexWrap="wrap">
+                {asset?.content?.metadata.attributes?.map((x, index) => {
+                  return (
+                    <ListItem
+                      key={index}
+                      width={"30%"}
+                      title={x.value}
+                      subTitle={x.trait_type}
+                      bordered
+                      padded
+                      borderRadius={"$4"}
+                    />
+                  );
+                })}
+              </YStack>
+            </>
+          )}
       </YStack>
+      {collection && (
+        <Card elevate size="$4" bordered padded gap={"$3"}>
+          <XStack alignItems="center" gap={"$3"}>
+            <Avatar size={"$3"} circular>
+              <AvatarImage
+                source={{ uri: collection.content?.links?.image }}
+              ></AvatarImage>
+            </Avatar>
+            <Heading size={"$3"}>{collection.content?.metadata.name}</Heading>
+          </XStack>
+          <Text>{collection.content?.metadata.description}</Text>
+        </Card>
+      )}
     </YStack>
   );
 };

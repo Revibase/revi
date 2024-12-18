@@ -2,7 +2,7 @@ import { PublicKey } from "@solana/web3.js";
 import { ArrowLeft, AtSign } from "@tamagui/lucide-icons";
 import { useConnection } from "components/providers/connectionProvider";
 import { useGlobalVariables } from "components/providers/globalProvider";
-import { FC, useState } from "react";
+import { FC, useCallback, useMemo, useState } from "react";
 import { Pressable } from "react-native";
 import {
   Avatar,
@@ -22,7 +22,7 @@ import { SignerType } from "utils/enums/transaction";
 import { Page } from "utils/enums/wallet";
 import { getVaultFromAddress } from "utils/helper";
 import { useCreateVaultExecuteIxMutation } from "utils/mutations/createVaultExecuteIx";
-import { transferAsset } from "utils/transfer";
+import { transferAsset } from "utils/program/transfer";
 import { DAS } from "utils/types/das";
 import { SignerState, TransactionArgs } from "utils/types/transaction";
 
@@ -48,9 +48,89 @@ export const Withdrawal: FC<{
   const createVaultExecuteIxMutation = useCreateVaultExecuteIxMutation({
     wallet: walletInfo?.createKey,
   });
-
   const { deviceAddress, cloudAddress } = useGlobalVariables();
   const { connection } = useConnection();
+
+  const hasOnlyOne = useMemo(() => {
+    return (
+      asset.token_info?.supply === 1 || asset.compression?.compressed === true
+    );
+  }, [asset]);
+
+  const handleWithdrawal = useCallback(() => {
+    if (!walletInfo) {
+      return;
+    }
+    const isOwner =
+      walletInfo.members.findIndex(
+        (x) => deviceAddress?.toString() == x.toString()
+      ) !== -1;
+    const signers =
+      isOwner && deviceAddress && cloudAddress
+        ? [
+            {
+              key: deviceAddress,
+              type: SignerType.DEVICE,
+              state: SignerState.Unsigned,
+            },
+            {
+              key: cloudAddress,
+              type: SignerType.CLOUD,
+              state: SignerState.Unsigned,
+            },
+          ]
+        : walletInfo.members.every(
+            (x) => x.toString() === walletInfo.createKey.toString()
+          )
+        ? [
+            {
+              key: walletInfo.createKey,
+              type: SignerType.NFC,
+              state: SignerState.Unsigned,
+            },
+          ]
+        : null;
+    if (!signers) {
+      throw new Error("Signer can't be found.");
+    }
+
+    transferAsset(
+      connection,
+      getVaultFromAddress(new PublicKey(walletInfo.createKey)),
+      new PublicKey(recipient),
+      hasOnlyOne ? 1 : parseFloat(amount),
+      asset.id === PublicKey.default.toString(),
+      asset
+    )
+      .then((result) => {
+        createVaultExecuteIxMutation
+          .mutateAsync({
+            signers: signers,
+            ixs: result.ixs,
+            lookUpTables: result.lookUpTables,
+          })
+          .then((response) => {
+            if (response) {
+              setArgs({
+                signers,
+                ixs: [response.vaultTransactionExecuteIx],
+                lookUpTables: response.lookupTableAccounts,
+                microLamports: response.microLamports,
+                units: response.units,
+                totalFees: response.totalFees,
+              });
+              setPage(Page.Confirmation);
+            }
+          })
+          .catch((e) => {
+            console.log(e);
+          });
+      })
+      .catch((e) => {
+        console.log(e);
+      });
+  }, [asset, walletInfo, deviceAddress, cloudAddress, recipient]);
+
   return (
     <YStack gap={"$8"} alignItems="center">
       <XStack
@@ -98,7 +178,7 @@ export const Withdrawal: FC<{
               <ButtonIcon children={<AtSign size={"$1"} />} />
             </Button>
           </XStack>
-          {asset.token_info?.supply !== 1 && (
+          {!hasOnlyOne && (
             <YStack gap="$2">
               <XStack
                 alignItems="center"
@@ -144,78 +224,7 @@ export const Withdrawal: FC<{
           <Form.Trigger>
             <Button
               disabled={createVaultExecuteIxMutation.isPending}
-              onPress={async () => {
-                if (!walletInfo) {
-                  return;
-                }
-                try {
-                  const isOwner =
-                    walletInfo.members.findIndex(
-                      (x) => deviceAddress?.toString() == x.toString()
-                    ) !== -1;
-                  const signers =
-                    isOwner && deviceAddress && cloudAddress
-                      ? [
-                          {
-                            key: deviceAddress,
-                            type: SignerType.DEVICE,
-                            state: SignerState.Unsigned,
-                          },
-                          {
-                            key: cloudAddress,
-                            type: SignerType.CLOUD,
-                            state: SignerState.Unsigned,
-                          },
-                        ]
-                      : walletInfo.members.every(
-                          (x) =>
-                            x.toString() === walletInfo.createKey.toString()
-                        )
-                      ? [
-                          {
-                            key: walletInfo.createKey,
-                            type: SignerType.NFC,
-                            state: SignerState.Unsigned,
-                          },
-                        ]
-                      : null;
-                  if (!signers) {
-                    throw new Error("Signer can't be found.");
-                  }
-
-                  let { ixs, lookUpTables } = await transferAsset(
-                    connection,
-                    getVaultFromAddress(walletInfo.createKey),
-                    new PublicKey(recipient),
-                    asset.token_info?.supply === 1 ? 1 : parseFloat(amount),
-                    asset.id === PublicKey.default.toString(),
-                    asset
-                  );
-
-                  const vaultTransactionExecute =
-                    await createVaultExecuteIxMutation.mutateAsync({
-                      signers: signers,
-                      ixs: ixs,
-                      lookUpTables,
-                    });
-                  if (vaultTransactionExecute) {
-                    ixs = [vaultTransactionExecute.vaultTransactionExecuteIx];
-                    lookUpTables = vaultTransactionExecute.lookupTableAccounts;
-                  }
-
-                  setArgs({
-                    signers,
-                    ixs,
-                    lookUpTables,
-                    microLamports: vaultTransactionExecute?.microLamports,
-                    units: vaultTransactionExecute?.units,
-                    totalFees: vaultTransactionExecute?.totalFees,
-                  });
-                  setPage(Page.Confirmation);
-                } catch (e) {
-                  console.log(e);
-                }
-              }}
+              onPress={handleWithdrawal}
             >
               <ButtonText fontSize={"$6"} fontWeight={"600"}>
                 Confirm

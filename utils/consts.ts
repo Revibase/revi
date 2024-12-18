@@ -5,6 +5,10 @@ import { BLOCKCHAIN } from "./enums/chain";
 import { Chain } from "./types/chain";
 import { DAS } from "./types/das";
 
+export const ADDRESS_LOOK_UP_TABLE = new PublicKey(
+  "Hg5CGGARH2PSh7ceV8KVqZ6VqW5bnFqdFabziVddHsDZ"
+);
+
 export const ASSET_IDENTIFIER = [0x00, 0x00, 0x01, 0x00];
 
 export const AUTHENTICATION_ID = [0x7f, 0xff, 0x02, 0x01];

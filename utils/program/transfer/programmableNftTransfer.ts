@@ -14,7 +14,13 @@ import {
   PublicKey,
   SYSVAR_INSTRUCTIONS_PUBKEY,
 } from "@solana/web3.js";
+import { ADDRESS_LOOK_UP_TABLE } from "utils/consts";
 import { DAS } from "utils/types/das";
+
+const authorizationRulesProgram = new PublicKey(
+  "auth9SigNpDKz4sJJ1DfCTuZrZNSAgh9sFD3rboVmgg"
+);
+
 export async function programmableNftTransfer(
   connection: Connection,
   owner: PublicKey,
@@ -24,9 +30,7 @@ export async function programmableNftTransfer(
 ) {
   const tokenProgram = new PublicKey(asset.token_info?.token_program!);
   const mint = new PublicKey(asset.id);
-  const authorizationRulesProgram = new PublicKey(
-    "auth9SigNpDKz4sJJ1DfCTuZrZNSAgh9sFD3rboVmgg"
-  );
+
   const ownerAta = getAssociatedTokenAddressSync(
     mint,
     owner,
@@ -113,15 +117,11 @@ export async function programmableNftTransfer(
 
   const transferIx = createTransferInstruction(transferAcccounts, transferArgs);
 
-  const lookUpTable = new PublicKey(
-    "Hg5CGGARH2PSh7ceV8KVqZ6VqW5bnFqdFabziVddHsDZ"
-  );
-
   const addressLookUpTable = (
-    await connection.getAddressLookupTable(lookUpTable)
+    await connection.getAddressLookupTable(ADDRESS_LOOK_UP_TABLE)
   ).value;
   return {
     instructions: [transferIx],
-    addressLookUpTable: addressLookUpTable,
+    addressLookUpTable,
   };
 }

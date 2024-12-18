@@ -6,6 +6,7 @@ import {
 } from "@solana/web3.js";
 import { getAsset } from "utils/helper";
 import { DAS } from "utils/types/das";
+import { compressedNftTransfer } from "./compressedNftTransfer";
 import { nativeTransfer } from "./nativeTransfer";
 import { programmableNftTransfer } from "./programmableNftTransfer";
 import { splTokenTransfer } from "./splTransfer";
@@ -15,7 +16,7 @@ export async function transferAsset(
   source: PublicKey,
   destination: PublicKey,
   amount: number,
-  isNative: boolean,
+  isNative: boolean = false,
   asset?: DAS.GetAssetResponse | PublicKey
 ): Promise<{
   ixs: TransactionInstruction[];
@@ -23,13 +24,10 @@ export async function transferAsset(
 }> {
   let ixs: TransactionInstruction[] = [];
   let lookUpTables: AddressLookupTableAccount[] = [];
-
   asset =
     asset instanceof PublicKey ? await getAsset(asset, connection) : asset;
-
   const amountNormalized =
     amount * 10 ** (isNative ? 9 : asset?.token_info?.decimals || 0);
-
   if (!asset) {
     if (isNative) {
       ixs = nativeTransfer(source, destination, amountNormalized);
@@ -37,7 +35,7 @@ export async function transferAsset(
       throw new Error("Asset can't be undefined if it is a non native asset!");
     }
   } else if (asset.interface === "ProgrammableNFT") {
-    let { instructions, addressLookUpTable } = await programmableNftTransfer(
+    const { instructions, addressLookUpTable } = await programmableNftTransfer(
       connection,
       source,
       destination,
@@ -49,9 +47,18 @@ export async function transferAsset(
       lookUpTables.push(addressLookUpTable);
     }
   } else if (asset.compression?.compressed) {
-    // compressed nft
+    const { instructions, addressLookUpTable } = await compressedNftTransfer(
+      connection,
+      source,
+      destination,
+      asset
+    );
+    ixs = instructions;
+    if (addressLookUpTable) {
+      lookUpTables.push(addressLookUpTable);
+    }
   } else if (asset.compressedToken) {
-    // compressed zk token
+    // compressed zk token (TBD)
   } else {
     ixs = splTokenTransfer(source, destination, amountNormalized, asset);
   }

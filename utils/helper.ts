@@ -33,6 +33,25 @@ export function getVaultFromAddress(address: PublicKey, vault_index = 0) {
   return new PublicKey(multisigVaultPda);
 }
 
+export async function getAssetProof(mint: PublicKey, connection?: Connection) {
+  const response = await fetch(connection?.rpcEndpoint || RPC_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: "text",
+      method: "getAssetProof",
+      params: {
+        id: mint.toString(),
+      },
+    }),
+  });
+  const data = (await response.json()).result as DAS.GetAssetProofResponse;
+  return data;
+}
+
 export async function getAsset(mint: PublicKey, connection?: Connection) {
   const response = await fetch(connection?.rpcEndpoint || RPC_ENDPOINT, {
     method: "POST",

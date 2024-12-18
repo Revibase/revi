@@ -6,8 +6,6 @@
  */
 
 import * as beet from "@metaplex-foundation/beet";
-import * as beetSolana from "@metaplex-foundation/beet-solana";
-import * as web3 from "@solana/web3.js";
 import {
   MultisigCompiledInstruction,
   multisigCompiledInstructionBeet,
@@ -20,8 +18,7 @@ export type VaultTransactionMessage = {
   numSigners: number;
   numWritableSigners: number;
   numWritableNonSigners: number;
-  numTransactionKeys: number;
-  accountKeys: web3.PublicKey[];
+  numAccountKeys: number;
   instructions: MultisigCompiledInstruction[];
   addressTableLookups: MultisigMessageAddressTableLookup[];
 };
@@ -36,8 +33,7 @@ export const vaultTransactionMessageBeet =
       ["numSigners", beet.u8],
       ["numWritableSigners", beet.u8],
       ["numWritableNonSigners", beet.u8],
-      ["numTransactionKeys", beet.u8],
-      ["accountKeys", beet.array(beetSolana.publicKey)],
+      ["numAccountKeys", beet.u8],
       ["instructions", beet.array(multisigCompiledInstructionBeet)],
       [
         "addressTableLookups",
