@@ -1,6 +1,8 @@
 import { ToastProvider, ToastViewport } from "@tamagui/toast";
-import { CustomToast } from "components/CustomToast";
-import { isWeb, TamaguiProvider, type TamaguiProviderProps } from "tamagui";
+
+import { CurrentToast } from "components/CurrentToast";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { TamaguiProvider, type TamaguiProviderProps } from "tamagui";
 import { RPC_ENDPOINT } from "utils/consts";
 import tamaguiConfig from "utils/tamagui/tamagui.config";
 import { ConnectionProvider } from "./connectionProvider";
@@ -11,6 +13,7 @@ export function Provider({
   children,
   ...rest
 }: Omit<TamaguiProviderProps, "config">) {
+  const { left, top, right } = useSafeAreaInsets();
   return (
     <ReactQueryProvider>
       <ConnectionProvider
@@ -22,11 +25,16 @@ export function Provider({
             <ToastProvider
               swipeDirection="horizontal"
               duration={6000}
-              native={isWeb ? [] : ["mobile"]}
+              native={false}
             >
               {children}
-              <CustomToast />
-              <ToastViewport />
+              <CurrentToast />
+              <ToastViewport
+                position="absolute"
+                bottom={100}
+                alignSelf="center"
+                width="80%"
+              />
             </ToastProvider>
           </TamaguiProvider>
         </GlobalProvider>

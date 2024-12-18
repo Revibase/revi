@@ -1,4 +1,5 @@
 import { PublicKey } from "@solana/web3.js";
+import { useToastController } from "@tamagui/toast";
 import { useGlobalVariables } from "components/providers/globalProvider";
 import { Wallet } from "components/wallet";
 import { useState } from "react";
@@ -16,7 +17,7 @@ export default function index() {
   } | null>(null);
 
   const { isNfcSheetVisible, setNfcSheetVisible } = useGlobalVariables();
-
+  const toast = useToastController();
   return (
     <YStack flex={1} justifyContent="center" alignItems="center">
       <Button
@@ -30,12 +31,16 @@ export default function index() {
         shadowRadius={"$4"}
         disabled={isNfcSheetVisible}
         onPress={async () => {
-          const data = await NfcProxy.readSecureElement(
-            CHAIN["SOLANA"],
-            setNfcSheetVisible
-          );
-          if (data) {
-            setData(data);
+          try {
+            const data = await NfcProxy.readSecureElement(
+              CHAIN["SOLANA"],
+              setNfcSheetVisible
+            );
+            if (data) {
+              setData(data);
+            }
+          } catch (error) {
+            toast.show(error.message, { customData: { preset: "error" } });
           }
         }}
       >

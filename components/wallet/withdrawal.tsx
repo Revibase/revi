@@ -3,7 +3,6 @@ import { ArrowLeft, AtSign } from "@tamagui/lucide-icons";
 import { useConnection } from "components/providers/connectionProvider";
 import { useGlobalVariables } from "components/providers/globalProvider";
 import { FC, useCallback, useMemo, useState } from "react";
-import { Pressable } from "react-native";
 import {
   Avatar,
   AvatarImage,
@@ -11,7 +10,6 @@ import {
   ButtonIcon,
   ButtonText,
   Form,
-  Heading,
   Input,
   Spinner,
   Text,
@@ -20,37 +18,42 @@ import {
 } from "tamagui";
 import { SignerType } from "utils/enums/transaction";
 import { Page } from "utils/enums/wallet";
-import { getVaultFromAddress } from "utils/helper";
+import { getMultiSigFromAddress, getVaultFromAddress } from "utils/helper";
 import { useCreateVaultExecuteIxMutation } from "utils/mutations/createVaultExecuteIx";
 import { transferAsset } from "utils/program/transfer";
+import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
 import { DAS } from "utils/types/das";
 import { SignerState, TransactionArgs } from "utils/types/transaction";
 
 export const Withdrawal: FC<{
-  asset: DAS.GetAssetResponse;
-  walletInfo:
-    | {
-        createKey: PublicKey;
-        threshold: number;
-        bump: number;
-        members: PublicKey[];
-      }
-    | null
-    | undefined;
+  withdrawal: {
+    asset: DAS.GetAssetResponse;
+    callback?: () => void;
+  };
+  walletAddress: PublicKey;
   setPage: React.Dispatch<React.SetStateAction<Page>>;
   setWithdrawAsset: React.Dispatch<
-    React.SetStateAction<DAS.GetAssetResponse | undefined>
+    React.SetStateAction<
+      | {
+          asset: DAS.GetAssetResponse;
+          callback?: () => void;
+        }
+      | undefined
+    >
   >;
   setArgs: React.Dispatch<React.SetStateAction<TransactionArgs | null>>;
-}> = ({ asset, walletInfo, setPage, setWithdrawAsset, setArgs }) => {
+}> = ({ withdrawal, walletAddress, setPage, setWithdrawAsset, setArgs }) => {
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");
+  const { data: walletInfo } = useGetWalletInfo({
+    address: getMultiSigFromAddress(walletAddress),
+  });
   const createVaultExecuteIxMutation = useCreateVaultExecuteIxMutation({
-    wallet: walletInfo?.createKey,
+    wallet: walletAddress,
   });
   const { deviceAddress, cloudAddress } = useGlobalVariables();
   const { connection } = useConnection();
-
+  const asset = withdrawal.asset;
   const hasOnlyOne = useMemo(() => {
     return (
       asset.token_info?.supply === 1 || asset.compression?.compressed === true
@@ -80,11 +83,11 @@ export const Withdrawal: FC<{
             },
           ]
         : walletInfo.members.every(
-            (x) => x.toString() === walletInfo.createKey.toString()
+            (x) => x.toString() === walletAddress.toString()
           )
         ? [
             {
-              key: walletInfo.createKey,
+              key: walletAddress,
               type: SignerType.NFC,
               state: SignerState.Unsigned,
             },
@@ -96,7 +99,7 @@ export const Withdrawal: FC<{
 
     transferAsset(
       connection,
-      getVaultFromAddress(new PublicKey(walletInfo.createKey)),
+      getVaultFromAddress(walletAddress),
       new PublicKey(recipient),
       hasOnlyOne ? 1 : parseFloat(amount),
       asset.id === PublicKey.default.toString(),
@@ -112,6 +115,7 @@ export const Withdrawal: FC<{
           .then((response) => {
             if (response) {
               setArgs({
+                callback: () => setPage(Page.Withdrawal),
                 signers,
                 ixs: [response.vaultTransactionExecuteIx],
                 lookUpTables: response.lookupTableAccounts,
@@ -134,22 +138,34 @@ export const Withdrawal: FC<{
   return (
     <YStack gap={"$8"} alignItems="center">
       <XStack
-        gap={"$4"}
         padding="$2"
         justifyContent="space-between"
         alignItems="center"
         width={"100%"}
       >
-        <Pressable
+        <Button
+          backgroundColor={"$colorTransparent"}
           onPress={() => {
-            setPage(Page.Main);
-            setWithdrawAsset(undefined);
+            if (withdrawal.callback) {
+              withdrawal.callback();
+            } else {
+              setPage(Page.Main);
+              setWithdrawAsset(undefined);
+            }
           }}
         >
           <ArrowLeft />
-        </Pressable>
-        <Heading>{`Transfer ${asset.content?.metadata.name}`}</Heading>
-        <ArrowLeft opacity={0} />
+        </Button>
+        <Text
+          numberOfLines={1}
+          width={"70%"}
+          textAlign="center"
+          fontSize={"$8"}
+          fontWeight={800}
+        >{`Send ${asset.content?.metadata.name}`}</Text>
+        <Button opacity={0}>
+          <ArrowLeft />
+        </Button>
       </XStack>
       <Avatar size={"$16"} circular>
         <AvatarImage

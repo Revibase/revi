@@ -8,6 +8,7 @@ import { SignerType } from "utils/enums/transaction";
 export interface TransactionArgs {
   signers: TransactionSigner[];
   ixs: TransactionInstruction[];
+  callback?: () => void;
   lookUpTables?: AddressLookupTableAccount[];
   microLamports?: number;
   units?: number;

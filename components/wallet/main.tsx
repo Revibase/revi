@@ -2,6 +2,7 @@ import { PublicKey } from "@solana/web3.js";
 import {
   AlertTriangle,
   ArrowDown,
+  ArrowDownUp,
   ArrowUpRight,
   Copy,
   Menu,
@@ -14,7 +15,6 @@ import { useGlobalVariables } from "components/providers/globalProvider";
 import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
 import { FC, useMemo, useState } from "react";
-import { Pressable } from "react-native";
 import {
   Avatar,
   AvatarImage,
@@ -61,7 +61,12 @@ export const Main: FC<{
   const toast = useToastController();
   const copyToClipboard = async (textToCopy: string) => {
     await Clipboard.setStringAsync(textToCopy);
-    toast.show(`${textToCopy.substring(0, 12)}... Copied!`);
+    toast.show("Copied!", {
+      message: textToCopy,
+      customData: {
+        preset: "success",
+      },
+    });
   };
 
   const { deviceAddress, cloudAddress } = useGlobalVariables();
@@ -197,7 +202,7 @@ export const Main: FC<{
     };
   }, [close, walletAddress, deviceAddress, walletInfo]);
   return (
-    <YStack alignItems="center" gap="$4">
+    <YStack alignItems="center" gap="$6">
       <XStack
         width={"100%"}
         alignItems="center"
@@ -210,12 +215,20 @@ export const Main: FC<{
       >
         <Dialog modal>
           <Dialog.Trigger asChild>
-            <XStack alignItems="center" gap="$4">
-              <Menu />
-              <Text maxWidth={"200"} numberOfLines={1} textAlign="left">
+            <Button
+              alignItems="center"
+              justifyContent="flex-start"
+              flexGrow={1}
+              backgroundColor={"$colorTransparent"}
+              size={"$3"}
+            >
+              <ButtonIcon>
+                <Menu size={"$2"} />
+              </ButtonIcon>
+              <ButtonText numberOfLines={1} textAlign="left">
                 {owner?.address || walletAddress?.toString()}
-              </Text>
-            </XStack>
+              </ButtonText>
+            </Button>
           </Dialog.Trigger>
           <Dialog.Portal>
             <Dialog.Overlay
@@ -370,26 +383,27 @@ const TokenPage: FC<{
   );
   const { data: mintData } = useGetAsset({ mint });
   const nativeAsset = SOL_NATIVE_MINT(allAssets?.nativeBalance);
+  const toast = useToastController();
   return (
     <>
       {mintData && (
         <YStack alignItems="center" gap="$1">
-          <Pressable
+          <Avatar
             onPress={() => {
               if (asset) {
                 setViewAsset(asset);
                 setPage(Page.Asset);
               }
             }}
+            size={"$20"}
+            borderRadius={"$4"}
           >
-            <Avatar size={"$20"} borderRadius={"$4"}>
-              <AvatarImage
-                source={{
-                  uri: mintData.content?.links?.image,
-                }}
-              />
-            </Avatar>
-          </Pressable>
+            <AvatarImage
+              source={{
+                uri: mintData.content?.links?.image,
+              }}
+            />
+          </Avatar>
           {!asset && (
             <XStack alignItems="center" gap="$2">
               <AlertTriangle size={"$1"} color={"red"} />
@@ -427,6 +441,19 @@ const TokenPage: FC<{
             />
           </Button>
           <Text>Withdraw</Text>
+        </YStack>
+        <YStack gap="$2" alignItems="center" justifyContent="center">
+          <Button
+            onPress={() => {
+              toast.show("Feature coming soon.");
+            }}
+            circular
+          >
+            <ButtonIcon
+              children={<ArrowDownUp size={"$2"} color={"$accentColor"} />}
+            />
+          </Button>
+          <Text>Swap</Text>
         </YStack>
       </XStack>
 

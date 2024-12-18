@@ -1,4 +1,3 @@
-import { NativeToast } from "components/NativeToast";
 import { Provider } from "components/providers";
 import { useFonts } from "expo-font";
 import { SplashScreen, Stack } from "expo-router";
@@ -49,7 +48,6 @@ function RootLayoutNav() {
             }}
           />
         </Stack>
-        <NativeToast />
       </Provider>
     </SafeAreaView>
   );

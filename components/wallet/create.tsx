@@ -14,9 +14,7 @@ export const CreateMultisigPage: FC<{
 }> = ({ walletAddress, mint, setPage, setArgs }) => {
   return (
     <YStack gap={"$8"}>
-      <Heading className="text-typography-900">
-        {"No multisig wallet detected."}
-      </Heading>
+      <Heading>{"No multisig wallet detected."}</Heading>
       <Button
         onPress={async () => {
           const createWalletIx = await program.methods

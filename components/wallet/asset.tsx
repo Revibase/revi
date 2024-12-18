@@ -1,7 +1,13 @@
 import { PublicKey } from "@solana/web3.js";
-import { ArrowLeft, Send } from "@tamagui/lucide-icons";
+import {
+  ArrowLeft,
+  ArrowUpDown,
+  DollarSign,
+  Send,
+} from "@tamagui/lucide-icons";
+import { useToastController } from "@tamagui/toast";
+import { useGlobalVariables } from "components/providers/globalProvider";
 import { FC, useMemo } from "react";
-import { Pressable } from "react-native";
 import {
   Avatar,
   AvatarImage,
@@ -17,16 +23,30 @@ import {
   YStack,
 } from "tamagui";
 import { Page } from "utils/enums/wallet";
+import { getMultiSigFromAddress } from "utils/helper";
 import { useGetAsset } from "utils/queries/useGetAsset";
+import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
 import { DAS } from "utils/types/das";
 
 export const AssetPage: FC<{
+  walletAddress: PublicKey;
   asset: DAS.GetAssetResponse | undefined;
   setPage: React.Dispatch<React.SetStateAction<Page>>;
   setWithdrawAsset: React.Dispatch<
-    React.SetStateAction<DAS.GetAssetResponse | undefined>
+    React.SetStateAction<
+      | {
+          asset: DAS.GetAssetResponse;
+          callback?: () => void;
+        }
+      | undefined
+    >
   >;
-}> = ({ asset, setPage, setWithdrawAsset }) => {
+}> = ({ walletAddress, asset, setPage, setWithdrawAsset }) => {
+  const { data: walletInfo } = useGetWalletInfo({
+    address: getMultiSigFromAddress(walletAddress),
+  });
+  const toast = useToastController();
+  const { deviceAddress } = useGlobalVariables();
   const { data: collection } = useGetAsset({
     mint: asset?.grouping?.find((x) => x.group_key == "collection")?.group_value
       ? new PublicKey(
@@ -54,22 +74,42 @@ export const AssetPage: FC<{
     [assetBalance, assetPrice]
   );
 
+  const isOwner =
+    walletInfo?.members.findIndex(
+      (x) => deviceAddress?.toString() == x.toString()
+    ) !== -1;
+
+  const hasOnlyOne = useMemo(() => {
+    return (
+      asset?.token_info?.supply === 1 || asset?.compression?.compressed === true
+    );
+  }, [asset]);
   return (
     <YStack gap={"$6"} alignItems="center">
       <XStack
-        gap={"$4"}
         padding="$2"
         justifyContent="space-between"
         alignItems="center"
         width={"100%"}
       >
-        <Pressable onPress={() => setPage(Page.Main)}>
+        <Button
+          backgroundColor={"$colorTransparent"}
+          onPress={() => setPage(Page.Main)}
+        >
           <ArrowLeft />
-        </Pressable>
-        <Heading className="text-typography-900">
+        </Button>
+        <Text
+          numberOfLines={1}
+          width={"70%"}
+          textAlign="center"
+          fontSize={"$8"}
+          fontWeight={800}
+        >
           {asset?.content?.metadata.name}
-        </Heading>
-        <ArrowLeft opacity={0} />
+        </Text>
+        <Button opacity={0}>
+          <ArrowLeft />
+        </Button>
       </XStack>
       <Avatar size={"$20"} borderRadius={"$4"}>
         <AvatarImage
@@ -85,16 +125,49 @@ export const AssetPage: FC<{
       >
         <Button
           onPress={() => {
-            setWithdrawAsset(asset);
-            setPage(Page.Withdrawal);
+            if (
+              (isOwner && asset) ||
+              (!isOwner && asset && !asset.compression?.compressed)
+            ) {
+              setWithdrawAsset({ asset, callback: () => setPage(Page.Asset) });
+              setPage(Page.Withdrawal);
+            } else {
+              toast.show("Action is disabled", {
+                message: "An owner needs to be set first.",
+                customData: {
+                  preset: "error",
+                },
+              });
+            }
           }}
         >
-          <ButtonText>Transfer</ButtonText>
-          <ButtonIcon children={<Send />} />
+          <ButtonText>Send</ButtonText>
+          <ButtonIcon children={<Send size={"$1"} />} />
         </Button>
+        {(asset?.interface === "FungibleToken" ||
+          asset?.id === PublicKey.default.toString()) && (
+          <Button
+            onPress={() => {
+              toast.show("Feature coming soon.");
+            }}
+          >
+            <ButtonText>Swap</ButtonText>
+            <ButtonIcon children={<ArrowUpDown size={"$1"} />} />
+          </Button>
+        )}
+        {hasOnlyOne && (
+          <Button
+            onPress={() => {
+              toast.show("Feature coming soon.");
+            }}
+          >
+            <ButtonText>Sell</ButtonText>
+            <ButtonIcon children={<DollarSign size={"$1"} />} />
+          </Button>
+        )}
       </XStack>
       {(asset?.interface === "FungibleToken" ||
-        asset?.interface === "Custom") && (
+        asset?.id === PublicKey.default.toString()) && (
         <XGroup
           width={"100%"}
           alignItems="center"

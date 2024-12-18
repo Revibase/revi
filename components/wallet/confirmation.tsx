@@ -7,7 +7,6 @@ import {
 } from "@tamagui/lucide-icons";
 import { useToastController } from "@tamagui/toast";
 import { FC, useEffect, useState } from "react";
-import { Pressable } from "react-native";
 import {
   Button,
   ButtonText,
@@ -37,16 +36,20 @@ export const ConfirmationPage: FC<{
   });
   const [error, setError] = useState<string | null>(null);
 
-  const reset = async () => {
+  const reset = async (callback: () => void) => {
+    callback();
     setError(null);
     setArgs(null);
-    setPage(Page.Main);
   };
 
-  const handleCancelled = async () => {
-    toast.show("Transaction Cancelled!");
+  const handleCancelled = async (callback?: () => void) => {
+    if (!error) {
+      toast.show("Transaction Cancelled!", {
+        customData: { preset: "error" },
+      });
+    }
     await NfcProxy.close();
-    reset();
+    reset(callback ? callback : () => setPage(Page.Main));
   };
 
   useEffect(() => {
@@ -74,8 +77,12 @@ export const ConfirmationPage: FC<{
         })
         .then((sig) => {
           if (sig) {
-            toast.show("Transaction Success!");
-            reset();
+            toast.show("Transaction Success!", {
+              customData: {
+                preset: "success",
+              },
+            });
+            reset(() => setPage(Page.Main));
           }
         })
         .catch((error) => {
@@ -87,17 +94,27 @@ export const ConfirmationPage: FC<{
   return (
     <YStack gap={"$4"}>
       <XStack
-        gap={"$4"}
         padding="$2"
         justifyContent="space-between"
         alignItems="center"
         width={"100%"}
       >
-        <Pressable onPress={handleCancelled}>
+        <Button
+          backgroundColor={"$colorTransparent"}
+          onPress={() => handleCancelled(args.callback)}
+        >
           <ArrowLeft />
-        </Pressable>
-        <Heading>{`Sending Transaction`}</Heading>
-        <ArrowLeft opacity={0} />
+        </Button>
+        <Text
+          numberOfLines={1}
+          width={"70%"}
+          textAlign="center"
+          fontSize={"$8"}
+          fontWeight={800}
+        >{`Sending Transaction`}</Text>
+        <Button opacity={0}>
+          <ArrowLeft />
+        </Button>
       </XStack>
       <Heading size="$3">Getting Required Signatures</Heading>
       <YGroup>
@@ -137,7 +154,7 @@ export const ConfirmationPage: FC<{
 
       <YStack alignItems="flex-end" justifyContent="center" width={"100%"}>
         {args.totalFees && (
-          <Text fontSize={"$1"}>{`Transaction Fees:   ${
+          <Text fontSize={"$1"}>{`Network Fee: ${
             args.totalFees / LAMPORTS_PER_SOL
           } SOL`}</Text>
         )}
@@ -162,9 +179,8 @@ export const ConfirmationPage: FC<{
           <Text color="red">{error}</Text>
         )}
       </YStack>
-
-      <Button width={"100%"} onPress={handleCancelled}>
-        <ButtonText>Cancel</ButtonText>
+      <Button width={"100%"} onPress={() => handleCancelled()}>
+        <ButtonText>{error ? "Back To Home" : "Cancel"}</ButtonText>
       </Button>
     </YStack>
   );

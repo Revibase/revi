@@ -2,7 +2,7 @@ import { PublicKey, VersionedTransaction } from "@solana/web3.js";
 import bs58 from "bs58";
 import { ec as EC } from "elliptic";
 import * as Crypto from "expo-crypto";
-import { Platform } from "react-native";
+import { Alert, Platform } from "react-native";
 import NfcManager, { NfcError, NfcTech } from "react-native-nfc-manager";
 import nacl from "tweetnacl";
 import { readDataWithAttestation } from "utils/apdu/readDataWAttestation";
@@ -45,10 +45,13 @@ class NfcProxy {
       await NfcManager.requestTechnology(NfcTech.IsoDep, {
         invalidateAfterFirstRead: false,
       });
-      await this.transceiveAndCheck(selectApplet, "Error selecting applet");
+      if (Platform.OS === "android") {
+        await NfcManager.setTimeout(NfcProxy.TIMEOUT);
+      }
+      await this.transceiveAndCheck(selectApplet, "Selecting Applet failed");
       const attestationKeyResponse = await this.transceiveAndCheck(
         readDataWithAttestation(ATTESTATION_KEY, ATTESTATION_KEY),
-        "Error reading attestation key"
+        "Reading attestation key failed"
       );
       const attestationKeyResponseParsed = this.parseSecureObjectPayload(
         attestationKeyResponse
@@ -81,8 +84,9 @@ class NfcProxy {
       if (error instanceof NfcError.UserCancel) {
         throw new Error("User has cancelled the request.");
       }
+      console.log(error.stack);
       throw new Error(
-        "An error has occurred while attempting to sign using NFC."
+        "An error has occurred while attempting to read the NFC object."
       );
     } finally {
       await NfcManager.cancelTechnologyRequest();
@@ -97,27 +101,30 @@ class NfcProxy {
     try {
       await this.ensureReady();
       if (tx.message.serialize().length > NfcProxy.MAX_APDU_SIZE) {
-        throw new Error("Transaction size cannot exceed 900 bytes");
+        throw new Error(
+          `Transaction size cannot exceed ${
+            NfcProxy.MAX_APDU_SIZE
+          } bytes, Size: ${tx.message.serialize().length}`
+        );
       }
       if (Platform.OS === "android") callback(true);
       await NfcManager.requestTechnology(NfcTech.IsoDep, {
         invalidateAfterFirstRead: false,
       });
-      if (Platform.OS === "android")
+      if (Platform.OS === "android") {
         await NfcManager.setTimeout(NfcProxy.TIMEOUT);
-      await this.transceiveAndCheck(selectApplet, "Error selecting applet");
+      }
+      await this.transceiveAndCheck(selectApplet, "Selecting Applet failed");
       const response = await this.transceiveAndCheck(
         signEd25519(Array.from(tx.message.serialize())),
-        "Error signing transaction"
+        "Signing Transaction failed"
       );
       return this.toLittleEndian(response.slice(4));
     } catch (error) {
       if (error instanceof NfcError.UserCancel) {
         throw new Error("User has cancelled the request.");
       }
-      throw new Error(
-        "An error has occurred while attempting to sign using NFC."
-      );
+      throw new Error(error.message);
     } finally {
       await NfcManager.cancelTechnologyRequest();
       if (Platform.OS === "android") callback(false);
@@ -136,18 +143,17 @@ class NfcProxy {
       if (supported) {
         await NfcManager.start();
         this.isReady = true;
-        console.log("NFC initialized successfully.");
       } else {
-        console.warn("NFC is not supported on this device.");
+        Alert.alert("NFC is not supported on this device.");
       }
-    } catch (error) {
-      console.error("Error initializing NFC:", error);
-    }
+    } catch (error) {}
   }
 
   private async transceiveAndCheck(command: number[], errorMsg: string) {
     const response = await NfcManager.isoDepHandler.transceive(command);
-    if (response.at(-2) !== 144) throw new Error(errorMsg);
+    if (response.at(-2) !== 144) {
+      throw new Error(errorMsg);
+    }
     return response.slice(0, -2);
   }
 
@@ -156,8 +162,8 @@ class NfcProxy {
       () => readDataWithAttestation(blockchain.identifier, ATTESTATION_KEY),
       () => createAddress(blockchain),
       attestationKey,
-      "Error reading ed25519 key",
-      "Error generating ed25519 key"
+      "Reading ed25519 key failed",
+      "Generating ed25519 key failed"
     );
     if (attributes.objectClass !== 1) {
       throw new Error("Object is not a valid key");
@@ -192,8 +198,8 @@ class NfcProxy {
           Array.from(bs58.decode("So11111111111111111111111111111111111111112"))
         ),
       attestationKey,
-      "Error reading stored asset",
-      "Error creating stored asset"
+      "Reading stored asset failed",
+      "Creating stored asset failed"
     );
     if (attributes.policy.join("") !== [8, 0, 0, 0, 0, 0, 32, 0, 0].join("")) {
       throw new Error("Asset is set with wrong policy");
@@ -351,8 +357,10 @@ class NfcProxy {
       parsed,
       attestationKey
     );
+
     if (!data) throw new Error("Unable to retrieve data from secure element");
-    return { data, attributes: this.extractAttributes(data["TAG_2"]) };
+
+    return { data, attributes: this.extractAttributes(parsed["TAG_2"]) };
   }
 
   private toLittleEndian(bigEndianArray: number[]) {

@@ -68,13 +68,16 @@ export function useCreateVaultExecuteIxMutation({
         getPriorityFeeEstimate(connection, ixs, feePayer, lookUpTables),
         getSimulationUnits(connection, ixs, feePayer, lookUpTables),
       ]);
-      microLamports = Math.round(microLamports);
-      units = units ? Math.round(units * 2.25) : undefined;
+      microLamports = Math.min(Math.ceil(microLamports), 100_000);
+      units = units
+        ? Math.max(Math.ceil(units * 2.25), units + 40_000)
+        : undefined;
 
-      const totalFees = Math.round(
+      const totalFees = Math.ceil(
         LAMPORTS_PER_SOL * 0.000005 * numSigners.size +
           (microLamports * (units ? units : 200_000)) / 1_000_000
       );
+
       ixs.unshift(
         SystemProgram.transfer({
           fromPubkey: vaultPda,

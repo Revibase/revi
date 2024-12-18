@@ -20,7 +20,10 @@ export const Wallet: FC<{
   close: () => void;
 }> = ({ walletAddress, mint, close }) => {
   const [page, setPage] = useState<Page>(Page.Loading);
-  const [withdrawAsset, setWithdrawAsset] = useState<DAS.GetAssetResponse>();
+  const [withdrawAsset, setWithdrawAsset] = useState<{
+    asset: DAS.GetAssetResponse;
+    callback?: () => void;
+  }>();
   const [viewAsset, setViewAsset] = useState<DAS.GetAssetResponse>();
   const [transactionArgs, setTransactionArgs] =
     useState<TransactionArgs | null>(null);
@@ -55,15 +58,16 @@ export const Wallet: FC<{
       )}
       {page == Page.Withdrawal && withdrawAsset && (
         <Withdrawal
-          asset={withdrawAsset}
+          withdrawal={withdrawAsset}
           setArgs={setTransactionArgs}
           setPage={setPage}
           setWithdrawAsset={setWithdrawAsset}
-          walletInfo={walletInfo}
+          walletAddress={walletAddress}
         />
       )}
       {page == Page.Asset && (
         <AssetPage
+          walletAddress={walletAddress}
           asset={viewAsset}
           setPage={setPage}
           setWithdrawAsset={setWithdrawAsset}

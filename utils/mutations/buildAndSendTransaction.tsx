@@ -67,6 +67,7 @@ export function useBuildAndSendTransaction({
               microLamports: microLamports,
             })
           );
+          console.log("Priority Fees: ", microLamports);
         }
 
         if (units) {
@@ -75,6 +76,7 @@ export function useBuildAndSendTransaction({
               units: units,
             })
           );
+          console.log("Compute Units: ", units);
         }
 
         const tx = new VersionedTransaction(

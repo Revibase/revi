@@ -1,13 +1,13 @@
 import { PublicKey } from "@solana/web3.js";
 import { ArrowLeft, Search } from "@tamagui/lucide-icons";
 import { FC, useMemo, useState } from "react";
-import { Pressable } from "react-native";
 import {
   Avatar,
   AvatarImage,
-  Heading,
+  Button,
   Input,
   ListItem,
+  Text,
   XStack,
   YStack,
 } from "tamagui";
@@ -35,6 +35,10 @@ export const SearchPage: FC<{
   const filteredTokenList = useMemo(() => {
     return (
       allAssets?.items
+        .filter(
+          (x) =>
+            x.interface === "FungibleToken" || x.interface === "FungibleAsset"
+        )
         .concat([SOL_NATIVE_MINT(allAssets.nativeBalance)])
         .filter((x) => {
           if (!searchText) return true;
@@ -53,26 +57,36 @@ export const SearchPage: FC<{
   return (
     <YStack width={"100%"} gap="$4">
       <XStack
-        gap={"$4"}
         width={"100%"}
         padding="$2"
         justifyContent="space-between"
         alignItems="center"
       >
-        <Pressable onPress={() => setPage && setPage(Page.Main)}>
+        <Button
+          backgroundColor={"$colorTransparent"}
+          onPress={() => setPage && setPage(Page.Main)}
+        >
           <ArrowLeft />
-        </Pressable>
-        <Heading>{`Tokens`}</Heading>
-        <ArrowLeft opacity={0} />
+        </Button>
+        <Text
+          numberOfLines={1}
+          width={"70%"}
+          textAlign="center"
+          fontSize={"$8"}
+          fontWeight={800}
+        >{`Tokens`}</Text>
+        <Button opacity={0}>
+          <ArrowLeft />
+        </Button>
       </XStack>
-      <XStack alignItems="center" gap="$2">
+      <XStack alignItems="center" gap="$4">
         <Input
           value={searchText}
           onChangeText={setSearchText}
           flex={1}
           placeholder={`Seach`}
         />
-        <Search />
+        <Search marginRight="$2" />
       </XStack>
       <YStack width={"100%"} gap="$2">
         {filteredTokenList.map((x) => {

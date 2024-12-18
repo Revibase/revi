@@ -3,16 +3,7 @@ import { ArrowLeft, Copy } from "@tamagui/lucide-icons";
 import { useToastController } from "@tamagui/toast";
 import * as Clipboard from "expo-clipboard";
 import { FC } from "react";
-import { Pressable } from "react-native";
-import {
-  Button,
-  ButtonIcon,
-  ButtonText,
-  Heading,
-  Text,
-  XStack,
-  YStack,
-} from "tamagui";
+import { Button, ButtonIcon, ButtonText, Text, XStack, YStack } from "tamagui";
 import { Page } from "utils/enums/wallet";
 import { getVaultFromAddress } from "utils/helper";
 
@@ -23,22 +14,37 @@ export const Deposit: FC<{
   const toast = useToastController();
   const copyToClipboard = async (textToCopy: string) => {
     await Clipboard.setStringAsync(textToCopy);
-    toast.show("Copied!");
+    toast.show("Copied!", {
+      message: textToCopy,
+      customData: {
+        preset: "success",
+      },
+    });
   };
   return (
     <YStack gap={"$8"} alignItems="center">
       <XStack
-        gap={"$4"}
         padding="$2"
         justifyContent="space-between"
         alignItems="center"
         width={"100%"}
       >
-        <Pressable onPress={() => setPage && setPage(Page.Main)}>
+        <Button
+          backgroundColor={"$colorTransparent"}
+          onPress={() => setPage && setPage(Page.Main)}
+        >
           <ArrowLeft opacity={setPage ? 1 : 0} />
-        </Pressable>
-        <Heading>{`Deposit`}</Heading>
-        <ArrowLeft opacity={0} />
+        </Button>
+        <Text
+          numberOfLines={1}
+          width={"70%"}
+          textAlign="center"
+          fontSize={"$8"}
+          fontWeight={800}
+        >{`Deposit`}</Text>
+        <Button opacity={0}>
+          <ArrowLeft />
+        </Button>
       </XStack>
 
       <Text textAlign="center" fontSize={"$5"}>
