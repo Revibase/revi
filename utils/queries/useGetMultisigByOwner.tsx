@@ -17,7 +17,7 @@ export function useGetMultisigByOwner({
       const accounts = await program.account.multiWallet.all([
         {
           memcmp: {
-            offset: 79,
+            offset: 111,
             bytes: address.toString(),
           },
         },

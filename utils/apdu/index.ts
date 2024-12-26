@@ -40,11 +40,13 @@ class NfcProxy {
     callback: React.Dispatch<React.SetStateAction<boolean>>
   ) {
     try {
-      await this.ensureReady();
-      if (Platform.OS === "android") callback(true);
-      await NfcManager.requestTechnology(NfcTech.IsoDep, {
-        invalidateAfterFirstRead: false,
-      });
+      this.ensureReady();
+      if (Platform.OS === "android") {
+        callback(true);
+      }
+
+      await NfcManager.requestTechnology(NfcTech.IsoDep);
+
       if (Platform.OS === "android") {
         await NfcManager.setTimeout(NfcProxy.TIMEOUT);
       }
@@ -81,16 +83,17 @@ class NfcProxy {
         )?.[1] as BLOCKCHAIN,
       };
     } catch (error) {
-      if (error instanceof NfcError.UserCancel) {
-        throw new Error("User has cancelled the request.");
+      console.log(error.message);
+      if (!(error instanceof NfcError.UserCancel)) {
+        throw new Error(
+          "An error has occurred while attempting to read the NFC object."
+        );
       }
-      console.log(error.stack);
-      throw new Error(
-        "An error has occurred while attempting to read the NFC object."
-      );
     } finally {
       await NfcManager.cancelTechnologyRequest();
-      if (Platform.OS === "android") callback(false);
+      if (Platform.OS === "android") {
+        callback(false);
+      }
     }
   }
 
@@ -99,7 +102,7 @@ class NfcProxy {
     callback: React.Dispatch<React.SetStateAction<boolean>>
   ) {
     try {
-      await this.ensureReady();
+      this.ensureReady();
       if (tx.message.serialize().length > NfcProxy.MAX_APDU_SIZE) {
         throw new Error(
           `Transaction size cannot exceed ${
@@ -107,7 +110,9 @@ class NfcProxy {
           } bytes, Size: ${tx.message.serialize().length}`
         );
       }
-      if (Platform.OS === "android") callback(true);
+      if (Platform.OS === "android") {
+        callback(true);
+      }
       await NfcManager.requestTechnology(NfcTech.IsoDep, {
         invalidateAfterFirstRead: false,
       });
@@ -127,11 +132,13 @@ class NfcProxy {
       throw new Error(error.message);
     } finally {
       await NfcManager.cancelTechnologyRequest();
-      if (Platform.OS === "android") callback(false);
+      if (Platform.OS === "android") {
+        callback(false);
+      }
     }
   }
 
-  private async ensureReady() {
+  private ensureReady() {
     if (!this.isReady) {
       throw new Error("NFC is not initialized.");
     }
@@ -195,7 +202,9 @@ class NfcProxy {
       () =>
         createAsset(
           blockchain,
-          Array.from(bs58.decode("So11111111111111111111111111111111111111112"))
+          Array.from(
+            bs58.decode("GpGaGwwTYVBcDPfHTTGnEcava2APRZPMiPf7QuEo4g5B")
+          )
         ),
       attestationKey,
       "Reading stored asset failed",

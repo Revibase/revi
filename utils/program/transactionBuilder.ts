@@ -131,6 +131,7 @@ export async function pollAndSendTransaction(
       try {
         txtSig = await connection.sendTransaction(transaction, {
           maxRetries: 0,
+          preflightCommitment: "confirmed",
         });
 
         return await pollTransactionConfirmation(connection, txtSig);

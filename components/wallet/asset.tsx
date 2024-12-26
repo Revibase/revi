@@ -22,6 +22,7 @@ import {
   XStack,
   YStack,
 } from "tamagui";
+import { SignerType } from "utils/enums/transaction";
 import { Page } from "utils/enums/wallet";
 import { getMultiSigFromAddress } from "utils/helper";
 import { useGetAsset } from "utils/queries/useGetAsset";
@@ -29,8 +30,9 @@ import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
 import { DAS } from "utils/types/das";
 
 export const AssetPage: FC<{
+  type: SignerType;
   walletAddress: PublicKey;
-  asset: DAS.GetAssetResponse | undefined;
+  asset: DAS.GetAssetResponse;
   setPage: React.Dispatch<React.SetStateAction<Page>>;
   setWithdrawAsset: React.Dispatch<
     React.SetStateAction<
@@ -41,12 +43,49 @@ export const AssetPage: FC<{
       | undefined
     >
   >;
-}> = ({ walletAddress, asset, setPage, setWithdrawAsset }) => {
+}> = ({ type, walletAddress, asset, setPage, setWithdrawAsset }) => {
+  return (
+    <YStack gap="$6" padding={"$4"}>
+      <Header setPage={setPage} asset={asset} />
+      <Asset
+        type={type}
+        walletAddress={walletAddress}
+        asset={asset}
+        setPage={setPage}
+        setWithdrawAsset={setWithdrawAsset}
+      />
+    </YStack>
+  );
+};
+export const Asset: FC<{
+  type: SignerType;
+  walletAddress: PublicKey;
+  asset: DAS.GetAssetResponse;
+  setPage: React.Dispatch<React.SetStateAction<Page>>;
+  setWithdrawAsset: React.Dispatch<
+    React.SetStateAction<
+      | {
+          asset: DAS.GetAssetResponse;
+          callback?: () => void;
+        }
+      | undefined
+    >
+  >;
+  callback?: () => void;
+}> = ({
+  type,
+  walletAddress,
+  asset,
+  setPage,
+  setWithdrawAsset,
+  callback = () => setPage(Page.Asset),
+}) => {
   const { data: walletInfo } = useGetWalletInfo({
-    address: getMultiSigFromAddress(walletAddress),
+    address:
+      type === SignerType.NFC ? getMultiSigFromAddress(walletAddress) : null,
   });
   const toast = useToastController();
-  const { deviceAddress } = useGlobalVariables();
+  const { primaryAddress, secondaryAddress } = useGlobalVariables();
   const { data: collection } = useGetAsset({
     mint: asset?.grouping?.find((x) => x.group_key == "collection")?.group_value
       ? new PublicKey(
@@ -74,43 +113,44 @@ export const AssetPage: FC<{
     [assetBalance, assetPrice]
   );
 
-  const isOwner =
-    walletInfo?.members.findIndex(
-      (x) => deviceAddress?.toString() == x.toString()
-    ) !== -1;
+  const noOwners =
+    !!walletInfo?.members &&
+    (
+      walletInfo?.members.filter(
+        (x) => x.toString() !== walletAddress.toString()
+      ) || []
+    ).length === 0;
 
-  const hasOnlyOne = useMemo(() => {
+  const primaryAddressIsMember =
+    !noOwners &&
+    !!primaryAddress &&
+    ((walletInfo?.members &&
+      walletInfo.members.findIndex(
+        (x) => x.toString() === primaryAddress.toString()
+      ) !== -1) ||
+      walletAddress.toString() === primaryAddress.toString());
+
+  const secondaryAddressIsMember =
+    !noOwners &&
+    !!secondaryAddress &&
+    ((walletInfo?.members &&
+      walletInfo.members.findIndex(
+        (x) => x.toString() === secondaryAddress.toString()
+      ) !== -1) ||
+      walletAddress.toString() === secondaryAddress.toString());
+
+  const isAllowed = useMemo(
+    () => noOwners || primaryAddressIsMember || secondaryAddressIsMember,
+    [noOwners, primaryAddressIsMember, secondaryAddressIsMember]
+  );
+
+  const isNonFungible = useMemo(() => {
     return (
       asset?.token_info?.supply === 1 || asset?.compression?.compressed === true
     );
   }, [asset]);
   return (
-    <YStack gap={"$6"} alignItems="center">
-      <XStack
-        padding="$2"
-        justifyContent="space-between"
-        alignItems="center"
-        width={"100%"}
-      >
-        <Button
-          backgroundColor={"$colorTransparent"}
-          onPress={() => setPage(Page.Main)}
-        >
-          <ArrowLeft />
-        </Button>
-        <Text
-          numberOfLines={1}
-          width={"70%"}
-          textAlign="center"
-          fontSize={"$8"}
-          fontWeight={800}
-        >
-          {asset?.content?.metadata.name}
-        </Text>
-        <Button opacity={0}>
-          <ArrowLeft />
-        </Button>
-      </XStack>
+    <YStack width={"100%"} gap={"$6"} alignItems="center">
       <Avatar size={"$20"} borderRadius={"$4"}>
         <AvatarImage
           source={{ uri: asset?.content?.links?.image }}
@@ -125,19 +165,30 @@ export const AssetPage: FC<{
       >
         <Button
           onPress={() => {
-            if (
-              (isOwner && asset) ||
-              (!isOwner && asset && !asset.compression?.compressed)
-            ) {
-              setWithdrawAsset({ asset, callback: () => setPage(Page.Asset) });
-              setPage(Page.Withdrawal);
-            } else {
-              toast.show("Action is disabled", {
-                message: "An owner needs to be set first.",
+            if (!isAllowed) {
+              toast.show("Unauthorised action", {
+                message: "You are not the owner of this wallet.",
                 customData: {
                   preset: "error",
                 },
               });
+            } else {
+              if (
+                !(
+                  asset.compression?.compressed &&
+                  (!primaryAddressIsMember || !secondaryAddressIsMember)
+                )
+              ) {
+                setWithdrawAsset({ asset, callback });
+                setPage(Page.Withdrawal);
+              } else {
+                toast.show("Unauthorised action", {
+                  message: "An owner needs to be set first.",
+                  customData: {
+                    preset: "error",
+                  },
+                });
+              }
             }
           }}
         >
@@ -155,7 +206,7 @@ export const AssetPage: FC<{
             <ButtonIcon children={<ArrowUpDown size={"$1"} />} />
           </Button>
         )}
-        {hasOnlyOne && (
+        {isNonFungible && (
           <Button
             onPress={() => {
               toast.show("Feature coming soon.");
@@ -209,45 +260,79 @@ export const AssetPage: FC<{
       <YStack gap="$4">
         {asset?.content?.metadata.description && (
           <>
-            <Heading textAlign="left">{"Description"}</Heading>
+            <Heading>{"Description"}</Heading>
             <Text>{asset?.content?.metadata.description}</Text>
           </>
         )}
+
         {asset?.content?.metadata.attributes &&
           asset.content.metadata.attributes.length > 0 && (
             <>
-              <Heading textAlign="left">{"Attributes"}</Heading>
+              <Heading>{"Attributes"}</Heading>
               <YStack gap="$2" flexDirection="row" flexWrap="wrap">
                 {asset?.content?.metadata.attributes?.map((x, index) => {
                   return (
                     <ListItem
                       key={index}
-                      width={"30%"}
+                      width={"32%"}
                       title={x.value}
                       subTitle={x.trait_type}
                       bordered
-                      padded
-                      borderRadius={"$4"}
+                      padding={"$2"}
+                      borderRadius={"$2"}
                     />
                   );
                 })}
               </YStack>
             </>
           )}
+        {collection && (
+          <Card size="$4" bordered padded gap={"$3"}>
+            <XStack alignItems="center" gap={"$3"}>
+              <Avatar size={"$3"} circular>
+                <AvatarImage
+                  source={{ uri: collection.content?.links?.image }}
+                ></AvatarImage>
+              </Avatar>
+              <Heading size={"$3"}>{collection.content?.metadata.name}</Heading>
+            </XStack>
+            <Text>{collection.content?.metadata.description}</Text>
+          </Card>
+        )}
       </YStack>
-      {collection && (
-        <Card elevate size="$4" bordered padded gap={"$3"}>
-          <XStack alignItems="center" gap={"$3"}>
-            <Avatar size={"$3"} circular>
-              <AvatarImage
-                source={{ uri: collection.content?.links?.image }}
-              ></AvatarImage>
-            </Avatar>
-            <Heading size={"$3"}>{collection.content?.metadata.name}</Heading>
-          </XStack>
-          <Text>{collection.content?.metadata.description}</Text>
-        </Card>
-      )}
     </YStack>
+  );
+};
+
+const Header: FC<{
+  asset: DAS.GetAssetResponse | undefined;
+  setPage: React.Dispatch<React.SetStateAction<Page>>;
+}> = ({ asset, setPage }) => {
+  return (
+    <XStack
+      padding="$2"
+      justifyContent="space-between"
+      alignItems="center"
+      width={"100%"}
+    >
+      <Button
+        backgroundColor={"$colorTransparent"}
+        onPress={() => setPage(Page.Main)}
+      >
+        <ArrowLeft />
+      </Button>
+      <Text
+        numberOfLines={1}
+        width={"70%"}
+        textAlign="center"
+        fontSize={"$8"}
+        fontWeight={800}
+      >
+        {asset?.content?.metadata.name}
+      </Text>
+      <Button opacity={0}>
+        <ArrowLeft />
+      </Button>
+    </XStack>
   );
 };

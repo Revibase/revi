@@ -8,12 +8,11 @@ import tamaguiConfig from "utils/tamagui/tamagui.config";
 import { ConnectionProvider } from "./connectionProvider";
 import { GlobalProvider } from "./globalProvider";
 import { ReactQueryProvider } from "./reactQuery";
-
 export function Provider({
   children,
   ...rest
 }: Omit<TamaguiProviderProps, "config">) {
-  const { left, top, right } = useSafeAreaInsets();
+  const { top } = useSafeAreaInsets();
   return (
     <ReactQueryProvider>
       <ConnectionProvider
@@ -24,17 +23,12 @@ export function Provider({
           <TamaguiProvider config={tamaguiConfig} {...rest}>
             <ToastProvider
               swipeDirection="horizontal"
-              duration={6000}
+              duration={1000}
               native={false}
             >
               {children}
               <CurrentToast />
-              <ToastViewport
-                position="absolute"
-                bottom={100}
-                alignSelf="center"
-                width="80%"
-              />
+              <ToastViewport top={top} alignSelf="center" width="80%" />
             </ToastProvider>
           </TamaguiProvider>
         </GlobalProvider>

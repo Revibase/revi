@@ -16,7 +16,7 @@ export function getMultiSigFromAddress(address: PublicKey) {
     program.programId
   );
 
-  return new PublicKey(multisigPda);
+  return multisigPda;
 }
 
 export function getVaultFromAddress(address: PublicKey, vault_index = 0) {
@@ -30,7 +30,7 @@ export function getVaultFromAddress(address: PublicKey, vault_index = 0) {
     ],
     program.programId
   );
-  return new PublicKey(multisigVaultPda);
+  return multisigVaultPda;
 }
 
 export async function getAssetProof(mint: PublicKey, connection?: Connection) {
@@ -132,11 +132,26 @@ export const openAppSettings = () => {
 export const getFeePayerFromSigners = (signers: TransactionSigner[]) => {
   const feePayer =
     signers.find((x) => x.type === SignerType.NFC)?.key ||
-    signers.find((x) => x.type === SignerType.DEVICE)?.key ||
-    signers.find((x) => x.type === SignerType.CLOUD)?.key ||
+    signers.find((x) => x.type === SignerType.PRIMARY)?.key ||
+    signers.find((x) => x.type === SignerType.SECONDARY)?.key ||
     null;
   if (!feePayer) {
     throw new Error("Fee payer not found.");
   }
-  return new PublicKey(feePayer);
+  return feePayer;
 };
+
+export function getSignerTypeFromAddress(
+  x: PublicKey,
+  createKey: PublicKey | null | undefined,
+  primaryAddress: PublicKey | null | undefined,
+  secondaryAddress: PublicKey | null | undefined
+): SignerType {
+  return x.toString() === primaryAddress?.toString()
+    ? SignerType.PRIMARY
+    : x.toString() === secondaryAddress?.toString()
+    ? SignerType.SECONDARY
+    : x.toString() === createKey?.toString()
+    ? SignerType.NFC
+    : SignerType.UNKNOWN;
+}

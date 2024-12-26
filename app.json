@@ -18,7 +18,9 @@
         "usesNonExemptEncryption": false
       },
       "supportsTablet": true,
-      "bundleIdentifier": "com.jychab.horizon"
+      "associatedDomains": ["webcredentials:horizon.blinksfeed.com"],
+      "bundleIdentifier": "com.jychab.horizon",
+      "newArchEnabled": true
     },
     "android": {
       "adaptiveIcon": {
@@ -26,7 +28,8 @@
         "backgroundColor": "#ffffff"
       },
       "permissions": ["android.permission.NFC"],
-      "package": "com.jychab.horizon"
+      "package": "com.jychab.horizon",
+      "newArchEnabled": true
     },
     "web": {
       "bundler": "metro",
@@ -50,12 +53,7 @@
       [
         "expo-build-properties",
         {
-          "ios": {
-            "newArchEnabled": true
-          },
-          "android": {
-            "newArchEnabled": true
-          }
+          "newArchEnabled": true
         }
       ]
     ],

@@ -12,6 +12,7 @@ import {
   YStack,
 } from "tamagui";
 import { SOL_NATIVE_MINT } from "utils/consts";
+import { SignerType } from "utils/enums/transaction";
 import { Page } from "utils/enums/wallet";
 import { getMultiSigFromAddress, getVaultFromAddress } from "utils/helper";
 import { useGetAssetsByOwner } from "utils/queries/useGetAssetsByOwner";
@@ -19,14 +20,16 @@ import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
 import { DAS } from "utils/types/das";
 
 export const SearchPage: FC<{
+  type: SignerType;
   walletAddress: PublicKey;
   setPage: React.Dispatch<React.SetStateAction<Page>>;
   setViewAsset: React.Dispatch<
     React.SetStateAction<DAS.GetAssetResponse | undefined>
   >;
-}> = ({ walletAddress, setPage, setViewAsset }) => {
+}> = ({ type, walletAddress, setPage, setViewAsset }) => {
   const { data: walletInfo } = useGetWalletInfo({
-    address: getMultiSigFromAddress(walletAddress),
+    address:
+      type === SignerType.NFC ? getMultiSigFromAddress(walletAddress) : null,
   });
   const { data: allAssets } = useGetAssetsByOwner({
     address: walletInfo ? getVaultFromAddress(walletAddress) : walletAddress,
@@ -55,7 +58,7 @@ export const SearchPage: FC<{
   }, [allAssets, searchText]);
 
   return (
-    <YStack width={"100%"} gap="$4">
+    <YStack width={"100%"} padding={"$4"} gap="$4">
       <XStack
         width={"100%"}
         padding="$2"

@@ -1,8 +1,9 @@
-import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import { LAMPORTS_PER_SOL, PublicKey, SystemProgram } from "@solana/web3.js";
 import { FC } from "react";
 import { Button, ButtonText, Heading, YStack } from "tamagui";
 import { SignerType } from "utils/enums/transaction";
 import { Page } from "utils/enums/wallet";
+import { getVaultFromAddress } from "utils/helper";
 import { program } from "utils/program";
 import { SignerState, TransactionArgs } from "utils/types/transaction";
 
@@ -13,7 +14,7 @@ export const CreateMultisigPage: FC<{
   setArgs: React.Dispatch<React.SetStateAction<TransactionArgs | null>>;
 }> = ({ walletAddress, mint, setPage, setArgs }) => {
   return (
-    <YStack gap={"$8"}>
+    <YStack gap={"$8"} padding={"$4"} alignItems="center">
       <Heading>{"No multisig wallet detected."}</Heading>
       <Button
         onPress={async () => {
@@ -24,7 +25,13 @@ export const CreateMultisigPage: FC<{
               createKey: walletAddress,
             })
             .instruction();
+          const transferSolIx = SystemProgram.transfer({
+            fromPubkey: walletAddress,
+            toPubkey: getVaultFromAddress(walletAddress),
+            lamports: LAMPORTS_PER_SOL * 0.003,
+          });
           setArgs({
+            callback: () => setPage(Page.Create),
             signers: [
               {
                 key: walletAddress,
@@ -32,10 +39,7 @@ export const CreateMultisigPage: FC<{
                 state: SignerState.Unsigned,
               },
             ],
-            ixs: [createWalletIx],
-            microLamports: 10_000,
-            totalFees:
-              (10_000 * 200_000) / 1_000_000 + LAMPORTS_PER_SOL * 0.000005,
+            ixs: [createWalletIx, transferSolIx],
           });
           setPage(Page.Confirmation);
         }}

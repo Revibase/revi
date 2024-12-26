@@ -11,7 +11,6 @@ import {
   ButtonText,
   Form,
   Input,
-  Spinner,
   Text,
   XStack,
   YStack,
@@ -19,13 +18,13 @@ import {
 import { SignerType } from "utils/enums/transaction";
 import { Page } from "utils/enums/wallet";
 import { getMultiSigFromAddress, getVaultFromAddress } from "utils/helper";
-import { useCreateVaultExecuteIxMutation } from "utils/mutations/createVaultExecuteIx";
 import { transferAsset } from "utils/program/transfer";
 import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
 import { DAS } from "utils/types/das";
 import { SignerState, TransactionArgs } from "utils/types/transaction";
 
 export const Withdrawal: FC<{
+  type: SignerType;
   withdrawal: {
     asset: DAS.GetAssetResponse;
     callback?: () => void;
@@ -42,16 +41,22 @@ export const Withdrawal: FC<{
     >
   >;
   setArgs: React.Dispatch<React.SetStateAction<TransactionArgs | null>>;
-}> = ({ withdrawal, walletAddress, setPage, setWithdrawAsset, setArgs }) => {
+}> = ({
+  type,
+  withdrawal,
+  walletAddress,
+  setPage,
+  setWithdrawAsset,
+  setArgs,
+}) => {
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");
   const { data: walletInfo } = useGetWalletInfo({
-    address: getMultiSigFromAddress(walletAddress),
+    address:
+      type === SignerType.NFC ? getMultiSigFromAddress(walletAddress) : null,
   });
-  const createVaultExecuteIxMutation = useCreateVaultExecuteIxMutation({
-    wallet: walletAddress,
-  });
-  const { deviceAddress, cloudAddress } = useGlobalVariables();
+
+  const { primaryAddress, secondaryAddress } = useGlobalVariables();
   const { connection } = useConnection();
   const asset = withdrawal.asset;
   const hasOnlyOne = useMemo(() => {
@@ -64,79 +69,49 @@ export const Withdrawal: FC<{
     if (!walletInfo) {
       return;
     }
-    const isOwner =
-      walletInfo.members.findIndex(
-        (x) => deviceAddress?.toString() == x.toString()
-      ) !== -1;
-    const signers =
-      isOwner && deviceAddress && cloudAddress
-        ? [
-            {
-              key: deviceAddress,
-              type: SignerType.DEVICE,
-              state: SignerState.Unsigned,
-            },
-            {
-              key: cloudAddress,
-              type: SignerType.CLOUD,
-              state: SignerState.Unsigned,
-            },
-          ]
-        : walletInfo.members.every(
-            (x) => x.toString() === walletAddress.toString()
-          )
-        ? [
-            {
-              key: walletAddress,
-              type: SignerType.NFC,
-              state: SignerState.Unsigned,
-            },
-          ]
-        : null;
-    if (!signers) {
-      throw new Error("Signer can't be found.");
-    }
 
     transferAsset(
       connection,
-      getVaultFromAddress(walletAddress),
+      type === SignerType.NFC
+        ? getVaultFromAddress(walletAddress)
+        : walletAddress,
       new PublicKey(recipient),
       hasOnlyOne ? 1 : parseFloat(amount),
       asset.id === PublicKey.default.toString(),
       asset
     )
-      .then((result) => {
-        createVaultExecuteIxMutation
-          .mutateAsync({
-            signers: signers,
+      .then(async (result) => {
+        if (type === SignerType.NFC) {
+          setArgs({
+            callback: () => setPage(Page.Withdrawal),
+            walletInfo,
             ixs: result.ixs,
             lookUpTables: result.lookUpTables,
-          })
-          .then((response) => {
-            if (response) {
-              setArgs({
-                callback: () => setPage(Page.Withdrawal),
-                signers,
-                ixs: [response.vaultTransactionExecuteIx],
-                lookUpTables: response.lookupTableAccounts,
-                microLamports: response.microLamports,
-                units: response.units,
-                totalFees: response.totalFees,
-              });
-              setPage(Page.Confirmation);
-            }
-          })
-          .catch((e) => {
-            console.log(e);
           });
+        } else {
+          setArgs({
+            callback: () => setPage(Page.Withdrawal),
+            signers: [
+              {
+                key: walletAddress,
+                type: type,
+                state: SignerState.Unsigned,
+              },
+            ],
+            ixs: result.ixs,
+            lookUpTables: result.lookUpTables,
+          });
+        }
+
+        setPage(Page.Confirmation);
       })
       .catch((e) => {
         console.log(e);
       });
-  }, [asset, walletInfo, deviceAddress, cloudAddress, recipient]);
+  }, [asset, walletInfo, primaryAddress, secondaryAddress, recipient]);
 
   return (
-    <YStack gap={"$8"} alignItems="center">
+    <YStack gap={"$8"} padding={"$4"} alignItems="center">
       <XStack
         padding="$2"
         justifyContent="space-between"
@@ -238,14 +213,10 @@ export const Withdrawal: FC<{
             </YStack>
           )}
           <Form.Trigger>
-            <Button
-              disabled={createVaultExecuteIxMutation.isPending}
-              onPress={handleWithdrawal}
-            >
+            <Button onPress={handleWithdrawal}>
               <ButtonText fontSize={"$6"} fontWeight={"600"}>
                 Confirm
               </ButtonText>
-              {createVaultExecuteIxMutation.isPending && <Spinner />}
             </Button>
           </Form.Trigger>
         </Form>

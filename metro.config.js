@@ -10,7 +10,16 @@ const config = getDefaultConfig(__dirname, {
 });
 
 // Add polyfill resolvers
-config.resolver.extraNodeModules.crypto = require.resolve("expo-crypto");
+config.resolver.extraNodeModules = {
+  ...(config.resolver.extraNodeModules || {}),
+  crypto: require.resolve("expo-crypto"),
+  stream: require.resolve("stream-browserify"),
+};
+
+config.resolver = {
+  ...config.resolver,
+  sourceExts: [...config.resolver.sourceExts, "mjs", "cjs"], // Add modern extensions
+};
 
 // Enable Tamagui and add nice web support with optimizing compiler + CSS extraction
 const { withTamagui } = require("@tamagui/metro-plugin");
@@ -19,7 +28,5 @@ module.exports = withTamagui(config, {
   config: "./utils/tamagui/tamagui.config.ts",
   outputCSS: "./tamagui-web.css",
 });
-
-config.resolver.sourceExts.push("mjs");
 
 module.exports = config;

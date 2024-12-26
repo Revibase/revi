@@ -7,7 +7,7 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { useConnection } from "components/providers/connectionProvider";
 import { Alert } from "react-native";
-import { SignerType, SignerTypePriority } from "utils/enums/transaction";
+import { SignerType } from "utils/enums/transaction";
 import { program } from "utils/program";
 import { TransactionSigner } from "utils/types/transaction";
 import {
@@ -38,28 +38,26 @@ export function useSetOwnerIxMutation({
           multisigPda,
           "confirmed"
         );
-        const newDeviceOwner = newOwners?.find(
-          (x) => x.type === SignerType.DEVICE
-        )?.key;
-        const newDeviceOwnerPubKey = newDeviceOwner
-          ? new PublicKey(
-              newOwners?.find((x) => x.type === SignerType.DEVICE)?.key!
-            )
-          : null;
+        newOwners =
+          newOwners?.filter((x) => x.toString() !== wallet.toString()) || null;
         const ixs: TransactionInstruction[] = [];
 
-        if (
-          newDeviceOwnerPubKey &&
-          !(await connection.getAccountInfo(newDeviceOwnerPubKey))?.lamports
-        ) {
-          ixs.push(
-            SystemProgram.transfer({
-              fromPubkey: vaultPda,
-              toPubkey: newDeviceOwnerPubKey,
-              lamports: LAMPORTS_PER_SOL * 0.001,
-            })
-          );
-        }
+        await Promise.all(
+          (newOwners || []).map(async (x) => {
+            const accountInfo = await connection.getAccountInfo(x.key);
+            if (!accountInfo) {
+              ixs.push(
+                SystemProgram.transfer({
+                  fromPubkey: vaultPda,
+                  toPubkey: x.key,
+                  lamports: LAMPORTS_PER_SOL * 0.001,
+                })
+              );
+            }
+            return Promise.resolve();
+          })
+        );
+        const enumOrder = Object.values(SignerType);
         ixs.push(
           await program.methods
             .changeConfig(
@@ -67,12 +65,13 @@ export function useSetOwnerIxMutation({
                 (x) => x.toString() !== wallet.toString()
               ),
               newOwners
-                ?.sort(
-                  (a, b) =>
-                    SignerTypePriority[a.type] - SignerTypePriority[b.type]
-                )
-                .map((x) => new PublicKey(x.key)) || null,
-              newOwners?.length || 1,
+                ?.sort((a, b) => {
+                  const indexA = enumOrder.indexOf(a.type);
+                  const indexB = enumOrder.indexOf(b.type);
+                  return indexA - indexB;
+                })
+                .map((x) => x.key) || null,
+              (newOwners?.length || 0) > 1 ? 2 : 1,
               null
             )
             .accountsPartial({
@@ -80,14 +79,12 @@ export function useSetOwnerIxMutation({
               payer: vaultPda,
             })
             .remainingAccounts(
-              signers
-                .map((x) => new PublicKey(x.key))
-                .map((x) => ({
-                  pubkey: x,
-                  isSigner: true,
-                  isWritable:
-                    getFeePayerFromSigners(signers).toString() === x.toString(),
-                }))
+              signers.map((x) => ({
+                pubkey: x.key,
+                isSigner: true,
+                isWritable:
+                  getFeePayerFromSigners(signers).toString() === x.toString(),
+              }))
             )
             .instruction()
         );

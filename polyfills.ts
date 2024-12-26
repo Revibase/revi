@@ -1,6 +1,7 @@
 import structuredClone from "@ungap/structured-clone";
 import { Buffer } from "buffer";
 import { getRandomValues as expoCryptoGetRandomValues } from "expo-crypto";
+import QuickCrypto from "react-native-quick-crypto";
 
 global.Buffer = Buffer;
 Buffer.prototype.subarray = function subarray(
@@ -13,12 +14,13 @@ Buffer.prototype.subarray = function subarray(
 };
 global.TextEncoder = require("text-encoding").TextEncoder;
 
-class Crypto {
-  getRandomValues = expoCryptoGetRandomValues;
-}
-
 if (!("structuredClone" in globalThis)) {
   globalThis.structuredClone = structuredClone as any;
+}
+
+class Crypto {
+  subtle = QuickCrypto.subtle;
+  getRandomValues = expoCryptoGetRandomValues;
 }
 
 const webCrypto = typeof crypto !== "undefined" ? crypto : new Crypto();

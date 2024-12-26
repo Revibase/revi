@@ -6,22 +6,23 @@ import {
   type FC,
   type ReactNode,
 } from "react";
-import { useGetCloudAddress } from "utils/queries/useGetCloudPublicKey";
-import { useGetDeviceAddress } from "utils/queries/useGetDevicePublicKey";
+import { useGetPrimaryAddress } from "utils/queries/useGetPrimaryAddress";
+import { useGetSecondaryAddress } from "utils/queries/useGetSecondaryAddress";
 
 export interface GlobalProviderProps {
   children: ReactNode;
 }
 
 export const GlobalProvider: FC<GlobalProviderProps> = ({ children }) => {
-  const { data: deviceAddress } = useGetDeviceAddress();
-  const { data: cloudAddress } = useGetCloudAddress();
+  const { data: primaryAddress } = useGetPrimaryAddress();
+  const { data: secondaryData } = useGetSecondaryAddress();
   const [isNfcSheetVisible, setNfcSheetVisible] = useState(false);
   return (
     <GlobalContext.Provider
       value={{
-        deviceAddress,
-        cloudAddress,
+        primaryAddress,
+        secondaryAddress: secondaryData?.address,
+        subOrganizationId: secondaryData?.subOrganizationId,
         isNfcSheetVisible,
         setNfcSheetVisible,
       }}
@@ -32,8 +33,9 @@ export const GlobalProvider: FC<GlobalProviderProps> = ({ children }) => {
 };
 
 export interface GlobalContextState {
-  deviceAddress: PublicKey | null | undefined;
-  cloudAddress: PublicKey | null | undefined;
+  primaryAddress: PublicKey | null | undefined;
+  secondaryAddress: PublicKey | null | undefined;
+  subOrganizationId: string | undefined;
   isNfcSheetVisible: boolean;
   setNfcSheetVisible: React.Dispatch<React.SetStateAction<boolean>>;
 }

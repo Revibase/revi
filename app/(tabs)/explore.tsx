@@ -1,10 +1,13 @@
+import { ScreenWrapper } from "components/screenWrapper";
 import { Heading, YStack } from "tamagui";
 
 function explore() {
   return (
-    <YStack alignItems="center" justifyContent="center" flex={1}>
-      <Heading theme={"alt2"}>Explore</Heading>
-    </YStack>
+    <ScreenWrapper>
+      <YStack alignItems="center" justifyContent="center" flex={1}>
+        <Heading>Coming Soon...</Heading>
+      </YStack>
+    </ScreenWrapper>
   );
 }
 

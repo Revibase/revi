@@ -1,4 +1,4 @@
-import { Globe, Home, User } from "@tamagui/lucide-icons";
+import { Globe2, Home, ShieldCheck } from "@tamagui/lucide-icons";
 import { Tabs } from "expo-router";
 import { PortalProvider, useTheme } from "tamagui";
 import { BottomTabs } from "utils/enums/bottomTab";
@@ -10,35 +10,39 @@ const bottomTabs = [
     name: "index",
   },
   {
-    icon: ({ color }) => <Globe color={color} />,
+    icon: ({ color }) => <Globe2 color={color} />,
     label: BottomTabs.Explore,
     name: "explore",
   },
   {
-    icon: ({ color }) => <User color={color} />,
-    label: BottomTabs.Profile,
+    icon: ({ color }) => <ShieldCheck color={color} />,
+    label: BottomTabs.Wallets,
     name: "profile",
   },
 ];
 
 export default function TabLayout() {
-  const theme = useTheme();
+  const { color, background, borderColor } = useTheme();
 
   return (
     <PortalProvider shouldAddRootHost>
       <Tabs
         screenOptions={{
           animation: "shift",
-          tabBarActiveTintColor: theme.color.val,
+          lazy: false, // Preload screens
+          tabBarAllowFontScaling: true,
+          tabBarActiveTintColor: color?.val,
           tabBarStyle: {
-            backgroundColor: theme.background.val,
-            borderTopColor: theme.borderColor.val,
+            paddingTop: "2%",
+            height: "10%",
+            backgroundColor: background?.val,
+            borderTopColor: borderColor?.val,
           },
           headerStyle: {
-            backgroundColor: theme.background.val,
-            borderBottomColor: theme.borderColor.val,
+            backgroundColor: background?.val,
+            borderBottomColor: borderColor?.val,
           },
-          headerTintColor: theme.color.val,
+          headerTintColor: color?.val,
         }}
       >
         {bottomTabs.map((tab) => (

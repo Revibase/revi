@@ -1,11 +1,6 @@
 export enum SignerType {
-  DEVICE = "Device Wallet",
   NFC = "Hardware Wallet",
-  CLOUD = "Cloud Wallet",
+  PRIMARY = "Primary Wallet",
+  SECONDARY = "Secondary Wallet",
+  UNKNOWN = "Unknown",
 }
-
-export const SignerTypePriority = {
-  [SignerType.DEVICE]: 0,
-  [SignerType.NFC]: 1,
-  [SignerType.CLOUD]: 2,
-};

@@ -9,7 +9,7 @@ export function useGetAsset({ mint }: { mint: PublicKey | undefined }) {
       if (!mint) return null;
       return getAsset(mint);
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 60 * 15,
     enabled: !!mint,
   });
 }

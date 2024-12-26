@@ -1,6 +1,5 @@
 import {
   AddressLookupTableAccount,
-  ComputeBudgetProgram,
   PublicKey,
   TransactionInstruction,
   TransactionMessage,
@@ -9,10 +8,9 @@ import {
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useConnection } from "components/providers/connectionProvider";
 import { useGlobalVariables } from "components/providers/globalProvider";
-
 import { SignerType } from "utils/enums/transaction";
-import { signWithCloudKeypair } from "utils/queries/useGetCloudPublicKey";
-import { signWithDeviceKeypair } from "utils/queries/useGetDevicePublicKey";
+import { signWithPrimaryKeypair } from "utils/queries/useGetPrimaryAddress";
+import { signWithSecondaryKeypair } from "utils/queries/useGetSecondaryAddress";
 import { SignerState, TransactionSigner } from "utils/types/transaction";
 import NfcProxy from "../apdu/index";
 import {
@@ -29,27 +27,23 @@ export function useBuildAndSendTransaction({
 }) {
   const { connection } = useConnection();
   const client = useQueryClient();
-  const { setNfcSheetVisible } = useGlobalVariables();
+  const { setNfcSheetVisible, subOrganizationId } = useGlobalVariables();
   return useMutation({
     mutationKey: ["send-vault-transaction", { wallet }],
     mutationFn: async ({
       signers,
       ixs,
       lookUpTables = [],
-      microLamports,
-      units,
       callback,
     }: {
       signers: TransactionSigner[];
       ixs: TransactionInstruction[];
       lookUpTables?: AddressLookupTableAccount[];
-      microLamports?: number;
-      units?: number;
       callback: (signer: TransactionSigner) => void;
     }) => {
-      if (!wallet) return null;
       let signature = "";
       try {
+        const enumOrder = Object.values(SignerType);
         const seenKeys = new Set();
         const sortedSingers = signers
           .filter((signer) => {
@@ -59,37 +53,29 @@ export function useBuildAndSendTransaction({
             seenKeys.add(signer.key);
             return true;
           })
-          .sort((a, _) => (a.type == SignerType.NFC ? -1 : 1));
-
-        if (microLamports) {
-          ixs.unshift(
-            ComputeBudgetProgram.setComputeUnitPrice({
-              microLamports: microLamports,
-            })
-          );
-          console.log("Priority Fees: ", microLamports);
-        }
-
-        if (units) {
-          ixs.unshift(
-            ComputeBudgetProgram.setComputeUnitLimit({
-              units: units,
-            })
-          );
-          console.log("Compute Units: ", units);
-        }
+          .sort((a, b) => {
+            const indexA = enumOrder.indexOf(a.type);
+            const indexB = enumOrder.indexOf(b.type);
+            return indexA - indexB;
+          });
 
         const tx = new VersionedTransaction(
           new TransactionMessage({
             instructions: ixs,
             recentBlockhash: (
-              await connection.getLatestBlockhash({ commitment: "processed" })
+              await connection.getLatestBlockhash({ commitment: "confirmed" })
             ).blockhash,
             payerKey: getFeePayerFromSigners(signers),
           }).compileToV0Message(lookUpTables)
         );
         for (const signer of sortedSingers) {
-          await signTx(signer, tx, callback, setNfcSheetVisible);
+          await signTx(
+            signer,
+            tx,
+            subOrganizationId,
+            callback,
+            setNfcSheetVisible
+          );
         }
         signature = await pollAndSendTransaction(connection, tx);
         return signature;
@@ -133,30 +119,36 @@ export function useBuildAndSendTransaction({
 async function signTx(
   signer: TransactionSigner,
   tx: VersionedTransaction,
+  subOrganizationId: string | undefined,
   callback: (signer: TransactionSigner) => void,
   callback2: React.Dispatch<React.SetStateAction<boolean>>
 ) {
   try {
     switch (signer.type) {
       case SignerType.NFC:
-        const signature = await NfcProxy.signWithNfcKeypair(tx, callback2);
-        tx.addSignature(signer.key, new Uint8Array(signature));
+        const nfcSignature = await NfcProxy.signWithNfcKeypair(tx, callback2);
+        tx.addSignature(signer.key, new Uint8Array(nfcSignature));
         callback({
           key: signer.key,
           type: signer.type,
           state: SignerState.Signed,
         });
         break;
-      case SignerType.DEVICE:
-        await signWithDeviceKeypair(tx);
+      case SignerType.PRIMARY:
+        await signWithPrimaryKeypair(tx);
         callback({
           key: signer.key,
           type: signer.type,
           state: SignerState.Signed,
         });
         break;
-      case SignerType.CLOUD:
-        await signWithCloudKeypair(tx);
+      case SignerType.SECONDARY:
+        const secondarySignature = await signWithSecondaryKeypair(
+          subOrganizationId,
+          signer.key,
+          tx
+        );
+        tx.addSignature(signer.key, new Uint8Array(secondarySignature));
         callback({
           key: signer.key,
           type: signer.type,
@@ -164,7 +156,7 @@ async function signTx(
         });
         break;
       default:
-        break;
+        throw new Error("Signer type is unknown.");
     }
   } catch (error) {
     callback({

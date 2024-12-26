@@ -8,16 +8,13 @@ export function useGetWalletInfo({ address }: { address: PublicKey | null }) {
     queryFn: async () => {
       if (!address) return null;
       try {
-        const multisigInfo = await program.account.multiWallet.fetch(
-          address,
-          "confirmed"
-        );
+        const multisigInfo = await program.account.multiWallet.fetch(address);
         return multisigInfo;
       } catch (e) {
         return null;
       }
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 60 * 15,
     enabled: !!address,
   });
 }

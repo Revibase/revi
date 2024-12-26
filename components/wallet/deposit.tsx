@@ -1,28 +1,17 @@
 import { PublicKey } from "@solana/web3.js";
 import { ArrowLeft, Copy } from "@tamagui/lucide-icons";
-import { useToastController } from "@tamagui/toast";
-import * as Clipboard from "expo-clipboard";
+import { useCopyToClipboard } from "components/hooks/useCopyToClipboard";
 import { FC } from "react";
 import { Button, ButtonIcon, ButtonText, Text, XStack, YStack } from "tamagui";
 import { Page } from "utils/enums/wallet";
-import { getVaultFromAddress } from "utils/helper";
 
 export const Deposit: FC<{
   walletAddress: PublicKey;
   setPage?: React.Dispatch<React.SetStateAction<Page>>;
 }> = ({ walletAddress, setPage }) => {
-  const toast = useToastController();
-  const copyToClipboard = async (textToCopy: string) => {
-    await Clipboard.setStringAsync(textToCopy);
-    toast.show("Copied!", {
-      message: textToCopy,
-      customData: {
-        preset: "success",
-      },
-    });
-  };
+  const copyToClipboard = useCopyToClipboard();
   return (
-    <YStack gap={"$8"} alignItems="center">
+    <YStack gap={"$8"} padding={"$4"} alignItems="center">
       <XStack
         padding="$2"
         justifyContent="space-between"
@@ -50,8 +39,8 @@ export const Deposit: FC<{
       <Text textAlign="center" fontSize={"$5"}>
         Send assets to the wallet address below
       </Text>
-      <Text fontSize={"$5"} textAlign="center">
-        {getVaultFromAddress(walletAddress).toString()}
+      <Text fontSize={"$5"} textAlign="center" width={"80%"}>
+        {walletAddress.toString()}
       </Text>
       <Button onPress={() => copyToClipboard(walletAddress.toString())}>
         <ButtonText>Copy</ButtonText>
