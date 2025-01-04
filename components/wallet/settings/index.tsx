@@ -1,123 +1,70 @@
 import { PublicKey } from "@solana/web3.js";
-import { X } from "@tamagui/lucide-icons";
 import { useGlobalVariables } from "components/providers/globalProvider";
-import { FC, useState } from "react";
-import { Button, Dialog, Heading, Unspaced } from "tamagui";
+import { FC } from "react";
+import { Page } from "utils/enums/page";
 import { SignerType } from "utils/enums/transaction";
-import { Page } from "utils/enums/wallet";
-import { useExportPrimaryWallet } from "utils/mutations/exportPrimaryWallet";
-import { useExportSecondaryWallet } from "utils/mutations/exportSecondaryWallet";
+import { WalletType } from "utils/enums/wallet";
 import { TransactionArgs } from "utils/types/transaction";
+import { Header } from "../header";
 import { RenderWalletInfo } from "./walletInfo";
-import { RenderWalletMembers } from "./walletMembers";
 import { RenderSecretButtons } from "./walletSecretInfo";
 
-export const Settings: FC<{
+import { YStack } from "tamagui";
+import { RenderWalletMembers } from "./walletMembers";
+
+interface SettingsProps {
   type: SignerType;
   walletAddress: PublicKey;
-  setOpenSettings: React.Dispatch<React.SetStateAction<boolean>>;
   setArgs: React.Dispatch<React.SetStateAction<TransactionArgs | null>>;
   setPage: React.Dispatch<React.SetStateAction<Page>>;
   closeSheet: () => void;
-}> = ({
+}
+
+export const SettingsPage: FC<SettingsProps> = ({
   type,
   walletAddress,
-  setOpenSettings,
   setArgs,
   setPage,
   closeSheet,
 }) => {
-  const { primaryAddress, secondaryAddress, subOrganizationId } =
+  const { deviceWalletPublicKey, passkeyWalletPublicKey } =
     useGlobalVariables();
 
-  const [edit, setEdit] = useState(false);
-  const exportPrimaryWallet = useExportPrimaryWallet();
-  const exportSecondaryWallet = useExportSecondaryWallet({
-    address: secondaryAddress,
-    subOrganizationId,
-  });
-  const reset = () => {
-    setEdit(false);
-    setOpenSettings(false);
-  };
-
   return (
-    <Dialog.Portal
-      paddingVertical={"$8"}
-      justifyContent="flex-start"
-      alignItems="center"
-      minHeight={"100%"}
+    <YStack
+      enterStyle={{ opacity: 0, x: -25 }}
+      animation={"medium"}
+      gap="$4"
+      padding={"$4"}
+      flex={1}
     >
-      <Dialog.Overlay
-        key="overlay"
-        animation="quick"
-        opacity={0.2}
-        enterStyle={{ opacity: 0 }}
-        exitStyle={{ opacity: 0 }}
-        onPress={() => reset()}
-      />
-      <Dialog.Content
-        gap="$4"
-        width={"85%"}
-        enterStyle={{ y: -10, opacity: 0 }}
-        exitStyle={{ y: -10, opacity: 0 }}
-        animation={[
-          "quick",
-          {
-            opacity: {
-              overshootClamping: true,
-            },
-          },
-        ]}
-      >
-        <Heading>
-          {edit
-            ? "Edit Members"
-            : type === SignerType.NFC
-            ? "Multisig Wallet Details"
-            : "Wallet Details"}
-        </Heading>
-
-        {!edit && (
-          <RenderWalletInfo type={type} walletAddress={walletAddress} />
+      {type === SignerType.DEVICE &&
+        deviceWalletPublicKey?.toString() === walletAddress.toString() && (
+          <>
+            <Header text={"Wallet Details"} reset={() => setPage(Page.Main)} />
+            <RenderWalletInfo type={type} walletAddress={walletAddress} />
+            <RenderSecretButtons walletType={WalletType.DEVICE} />
+          </>
         )}
 
-        {type === SignerType.PRIMARY &&
-          !edit &&
-          primaryAddress?.toString() === walletAddress.toString() && (
-            <RenderSecretButtons exportFunction={exportPrimaryWallet} />
-          )}
-
-        {type === SignerType.SECONDARY &&
-          !edit &&
-          secondaryAddress?.toString() === walletAddress.toString() && (
-            <RenderSecretButtons exportFunction={exportSecondaryWallet} />
-          )}
-
-        {type === SignerType.NFC && (
-          <RenderWalletMembers
-            edit={edit}
-            setEdit={setEdit}
-            walletAddress={walletAddress}
-            setArgs={setArgs}
-            setPage={setPage}
-            reset={reset}
-            closeSheet={closeSheet}
-          />
+      {type === SignerType.PASSKEY &&
+        passkeyWalletPublicKey?.toString() === walletAddress.toString() && (
+          <>
+            <Header text={"Wallet Details"} reset={() => setPage(Page.Main)} />
+            <RenderWalletInfo type={type} walletAddress={walletAddress} />
+            <RenderSecretButtons walletType={WalletType.PASSKEY} />
+          </>
         )}
-        <Unspaced>
-          <Dialog.Close onPress={() => reset()} asChild>
-            <Button
-              position="absolute"
-              top="$4"
-              right="$4"
-              size="$2"
-              circular
-              icon={X}
-            />
-          </Dialog.Close>
-        </Unspaced>
-      </Dialog.Content>
-    </Dialog.Portal>
+
+      {type === SignerType.NFC && walletAddress && (
+        <RenderWalletMembers
+          walletAddress={walletAddress}
+          setArgs={setArgs}
+          setPage={setPage}
+          reset={() => setPage(Page.Main)}
+          closeSheet={closeSheet}
+        />
+      )}
+    </YStack>
   );
 };

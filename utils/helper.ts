@@ -83,7 +83,10 @@ export async function getAssetBatch(mints: string[]) {
       method: "getAssetBatch",
       params: {
         ids: mints,
-      },
+        displayOptions: {
+          showCollectionMetadata: true,
+        },
+      } as DAS.GetAssetBatchRequest,
     }),
   });
   const data = (await response.json()).result as DAS.GetAssetResponse[];
@@ -132,8 +135,8 @@ export const openAppSettings = () => {
 export const getFeePayerFromSigners = (signers: TransactionSigner[]) => {
   const feePayer =
     signers.find((x) => x.type === SignerType.NFC)?.key ||
-    signers.find((x) => x.type === SignerType.PRIMARY)?.key ||
-    signers.find((x) => x.type === SignerType.SECONDARY)?.key ||
+    signers.find((x) => x.type === SignerType.DEVICE)?.key ||
+    signers.find((x) => x.type === SignerType.PASSKEY)?.key ||
     null;
   if (!feePayer) {
     throw new Error("Fee payer not found.");
@@ -142,16 +145,44 @@ export const getFeePayerFromSigners = (signers: TransactionSigner[]) => {
 };
 
 export function getSignerTypeFromAddress(
-  x: PublicKey,
-  createKey: PublicKey | null | undefined,
-  primaryAddress: PublicKey | null | undefined,
-  secondaryAddress: PublicKey | null | undefined
+  x: { pubkey: PublicKey; label: number | null },
+  deviceWalletPublicKey: PublicKey | null | undefined,
+  passkeyWalletPublicKey: PublicKey | null | undefined
 ): SignerType {
-  return x.toString() === primaryAddress?.toString()
-    ? SignerType.PRIMARY
-    : x.toString() === secondaryAddress?.toString()
-    ? SignerType.SECONDARY
-    : x.toString() === createKey?.toString()
+  return deviceWalletPublicKey &&
+    x.pubkey.toString() === deviceWalletPublicKey.toString()
+    ? SignerType.DEVICE
+    : passkeyWalletPublicKey &&
+      x.pubkey.toString() === passkeyWalletPublicKey.toString()
+    ? SignerType.PASSKEY
+    : x.label === 0
     ? SignerType.NFC
     : SignerType.UNKNOWN;
+}
+
+export function getLabelFromSignerType(type: SignerType) {
+  switch (type) {
+    case SignerType.NFC:
+      return 0;
+    case SignerType.DEVICE:
+      return 1;
+    case SignerType.PASSKEY:
+      return 2;
+    default:
+      return null;
+  }
+}
+
+export function getTotalValueFromWallet(assets: DAS.GetAssetResponseList) {
+  return (
+    (assets?.nativeBalance.total_price ?? 0) +
+    (assets?.items.reduce(
+      (sum, prev) =>
+        ((prev.token_info?.balance || 0) /
+          10 ** (prev.token_info?.decimals || 0)) *
+          (prev.token_info?.price_info?.price_per_token ?? 0) +
+        sum,
+      0
+    ) ?? 0)
+  );
 }

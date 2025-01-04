@@ -1,8 +1,8 @@
 import { PublicKey } from "@solana/web3.js";
 import { FC, useEffect, useState } from "react";
 import { Spinner, YStack } from "tamagui";
+import { Page } from "utils/enums/page";
 import { SignerType } from "utils/enums/transaction";
-import { Page } from "utils/enums/wallet";
 import { getMultiSigFromAddress, getVaultFromAddress } from "utils/helper";
 import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
 import { DAS } from "utils/types/das";
@@ -13,11 +13,12 @@ import { CreateMultisigPage } from "./create";
 import { Deposit } from "./deposit";
 import { Main } from "./main";
 import { SearchPage } from "./search";
+import { SettingsPage } from "./settings";
 import { Withdrawal } from "./withdrawal";
 
 export const Wallet: FC<{
   walletAddress: PublicKey;
-  mint: PublicKey | undefined;
+  mint: PublicKey | null | undefined;
   close: () => void;
   type: SignerType;
 }> = ({ type, walletAddress, mint, close }) => {
@@ -53,7 +54,6 @@ export const Wallet: FC<{
           walletAddress={walletAddress}
           setPage={setPage}
           setViewAsset={setViewAsset}
-          close={close}
           setArgs={setTransactionArgs}
           setWithdrawAsset={setWithdrawAsset}
         />
@@ -109,6 +109,15 @@ export const Wallet: FC<{
           setPage={setPage}
           args={transactionArgs}
           setArgs={setTransactionArgs}
+        />
+      )}
+      {page === Page.Settings && (
+        <SettingsPage
+          type={type}
+          walletAddress={walletAddress}
+          setPage={setPage}
+          setArgs={setTransactionArgs}
+          closeSheet={close}
         />
       )}
       {page == Page.Loading && (

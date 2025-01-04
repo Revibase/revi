@@ -18,16 +18,16 @@ export const RenderWalletInfo: FC<{
   const copyToClipboard = useCopyToClipboard();
   return (
     <>
-      {walletInfo?.label && (
-        <Text numberOfLines={1}>{`Label: ${walletInfo.label}`}</Text>
-      )}
       {walletInfo?.threshold && (
-        <Text>{`Signatures Threshold: ${walletInfo.threshold}`}</Text>
+        <Text>{`Signature Threshold: ${walletInfo.threshold}`}</Text>
       )}
       {walletAddress && (
         <ListItem
           bordered
           borderRadius="$4"
+          hoverStyle={{ scale: 0.925 }}
+          pressStyle={{ scale: 0.925 }}
+          animation="bouncy"
           onPress={() =>
             copyToClipboard(
               (type === SignerType.NFC

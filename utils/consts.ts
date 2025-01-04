@@ -9,24 +9,17 @@ export const ADDRESS_LOOK_UP_TABLE = new PublicKey(
   "Hg5CGGARH2PSh7ceV8KVqZ6VqW5bnFqdFabziVddHsDZ"
 );
 
-export const ASSET_IDENTIFIER = [0x00, 0x00, 0x02, 0x00];
-
-export const AUTHENTICATION_ID = [0x7f, 0xff, 0x02, 0x01];
-
-export const ATTESTATION_KEY = [0xf0, 0x00, 0x00, 0x12];
-
-export const AID = [
-  0xa0, 0x00, 0x00, 0x03, 0x96, 0x54, 0x53, 0x00, 0x00, 0x00, 0x01, 0x03, 0x00,
-  0x00, 0x00, 0x00,
-];
-
 export const CHAIN: Record<string, Chain> = {
   SOLANA: {
-    identifier: [0x00, 0x00, 0x02, 0x01],
+    chainId: [0x00, 0x00, 0x00, 0x01],
     curve: 0x40,
     name: BLOCKCHAIN.SOLANA,
+    assetId: [0x00, 0x00, 0x01, 0x00],
   },
 };
+
+export const PLACEHOLDER_IMAGE =
+  "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png";
 
 export const RPC_ENDPOINT = "https://rpc.blinksfeed.com";
 

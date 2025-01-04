@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "horizon",
-    "slug": "horizon",
+    "name": "magpie",
+    "slug": "magpie",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -10,25 +10,31 @@
     "splash": {
       "image": "./assets/images/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#000000"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "config": {
         "usesNonExemptEncryption": false
       },
       "supportsTablet": true,
-      "associatedDomains": ["webcredentials:horizon.blinksfeed.com"],
-      "bundleIdentifier": "com.jychab.horizon",
+      "associatedDomains": [
+        "webcredentials:horizon.blinksfeed.com"
+      ],
+      "bundleIdentifier": "com.jychab.magpie",
       "newArchEnabled": true
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#000000"
       },
-      "permissions": ["android.permission.NFC"],
-      "package": "com.jychab.horizon",
+      "permissions": [
+        "android.permission.NFC"
+      ],
+      "package": "com.jychab.magpie",
       "newArchEnabled": true
     },
     "web": {
@@ -65,7 +71,7 @@
         "origin": false
       },
       "eas": {
-        "projectId": "a6772126-2343-43d3-ad5e-e4c1b9092e59"
+        "projectId": "091ab3d8-0e6f-4ad7-a9d8-f8c14cc70070"
       }
     },
     "owner": "jychab"

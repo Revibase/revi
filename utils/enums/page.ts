@@ -7,4 +7,5 @@ export enum Page {
   Create,
   Loading,
   Confirmation,
+  Settings,
 }

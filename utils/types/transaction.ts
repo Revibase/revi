@@ -8,23 +8,26 @@ import { SignerType } from "utils/enums/transaction";
 interface TransactionArgsBase {
   ixs?: TransactionInstruction[];
   changeConfig?: {
-    newOwners: TransactionSigner[] | null;
+    newOwners: TransactionSigner[];
   };
   signers?: TransactionSigner[];
   walletInfo?: {
-    members: PublicKey[];
+    members: Member[];
     threshold: number;
-    createKey: PublicKey;
   };
   callback?: () => void;
   lookUpTables?: AddressLookupTableAccount[];
 }
 
+type Member = {
+  pubkey: PublicKey;
+  label: number | null;
+};
+
 type WithWalletInfo = {
   walletInfo: {
-    members: PublicKey[];
+    members: Member[];
     threshold: number;
-    createKey: PublicKey;
   };
   signers?: never;
 };
@@ -40,7 +43,7 @@ type WithIxs = {
 };
 
 type WithChangeConfig = {
-  changeConfig: { newOwners: TransactionSigner[] | null };
+  changeConfig: { newOwners: TransactionSigner[] };
   ixs?: never;
 };
 type MembersOrSignersWithActions =

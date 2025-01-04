@@ -1,7 +1,8 @@
-import {BLOCKCHAIN} from '../enums/chain';
+import { BLOCKCHAIN } from "../enums/chain";
 
 export interface Chain {
-  identifier: number[];
+  chainId: number[];
   curve: number;
   name: BLOCKCHAIN;
+  assetId?: number[];
 }

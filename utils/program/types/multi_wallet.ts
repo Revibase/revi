@@ -15,6 +15,14 @@ export type MultiWallet = {
   instructions: [
     {
       name: "changeConfig";
+      docs: [
+        "# Parameters",
+        "- `ctx`: The context of the multi-action execution.",
+        "- `config_actions`: The list of actions to be executed.",
+        "",
+        "# Returns",
+        "- `Result<()>`: The result of the multi-action execution."
+      ];
       discriminator: [24, 158, 114, 115, 94, 210, 244, 233];
       accounts: [
         {
@@ -65,37 +73,31 @@ export type MultiWallet = {
       ];
       args: [
         {
-          name: "removeMembers";
+          name: "configActions";
           type: {
-            option: {
-              vec: "pubkey";
+            vec: {
+              defined: {
+                name: "configAction";
+              };
             };
-          };
-        },
-        {
-          name: "addMembers";
-          type: {
-            option: {
-              vec: "pubkey";
-            };
-          };
-        },
-        {
-          name: "newThreshold";
-          type: {
-            option: "u16";
-          };
-        },
-        {
-          name: "label";
-          type: {
-            option: "string";
           };
         }
       ];
     },
     {
       name: "create";
+      docs: [
+        "Creates a new multi-wallet.",
+        "",
+        "# Parameters",
+        "- `ctx`: The context of the multi-wallet creation.",
+        "- `create_key`: The member key used to create the multi-wallet.",
+        "- `metadata`: An optional metadata for the multi-wallet.",
+        "- `label`: An optional label for the multi-wallet.",
+        "",
+        "# Returns",
+        "- `Result<()>`: The result of the multi-wallet creation."
+      ];
       discriminator: [24, 30, 200, 40, 5, 28, 7, 119];
       accounts: [
         {
@@ -126,52 +128,11 @@ export type MultiWallet = {
                 ];
               },
               {
-                kind: "account";
-                path: "createKey";
+                kind: "arg";
+                path: "create_key.pubkey";
               }
             ];
           };
-        },
-        {
-          name: "vault";
-          writable: true;
-          pda: {
-            seeds: [
-              {
-                kind: "const";
-                value: [
-                  109,
-                  117,
-                  108,
-                  116,
-                  105,
-                  95,
-                  119,
-                  97,
-                  108,
-                  108,
-                  101,
-                  116
-                ];
-              },
-              {
-                kind: "account";
-                path: "multiWallet";
-              },
-              {
-                kind: "const";
-                value: [118, 97, 117, 108, 116];
-              },
-              {
-                kind: "const";
-                value: [0, 0];
-              }
-            ];
-          };
-        },
-        {
-          name: "createKey";
-          signer: true;
         },
         {
           name: "systemProgram";
@@ -180,15 +141,34 @@ export type MultiWallet = {
       ];
       args: [
         {
-          name: "label";
+          name: "createKey";
           type: {
-            option: "string";
+            defined: {
+              name: "member";
+            };
+          };
+        },
+        {
+          name: "metadata";
+          type: {
+            option: "pubkey";
           };
         }
       ];
     },
     {
       name: "vaultTransactionExecute";
+      docs: [
+        "Executes a vault transaction.",
+        "",
+        "# Parameters",
+        "- `ctx`: The context of the vault transaction execution.",
+        "- `vault_index`: The index of the vault.",
+        "- `transaction_message`: The transaction message to be executed.",
+        "",
+        "# Returns",
+        "- `Result<()>`: The result of the vault transaction execution."
+      ];
       discriminator: [194, 8, 161, 87, 153, 164, 25, 171];
       accounts: [
         {
@@ -268,37 +248,37 @@ export type MultiWallet = {
     {
       code: 6004;
       name: "invalidThreshold";
-      msg: "Invalid threshold, must be between 1 and number of members with Vote permission";
+      msg: "Invalid threshold, must be between 1 and number of members";
     },
     {
       code: 6005;
+      name: "thresholdTooHigh";
+      msg: "Threshold must be lower than 10";
+    },
+    {
+      code: 6006;
       name: "invalidTransactionMessage";
       msg: "TransactionMessage is malformed.";
     },
     {
-      code: 6006;
+      code: 6007;
       name: "notEnoughSigners";
       msg: "Number of signers does not meet the minumum threshold";
     },
     {
-      code: 6007;
+      code: 6008;
       name: "invalidNumberOfAccounts";
       msg: "Wrong number of accounts provided";
     },
     {
-      code: 6008;
+      code: 6009;
       name: "invalidAccount";
       msg: "Invalid account provided";
     },
     {
-      code: 6009;
+      code: 6010;
       name: "missingAccount";
       msg: "Missing account";
-    },
-    {
-      code: 6010;
-      name: "decimalsMismatch";
-      msg: "Decimals don't match the mint";
     },
     {
       code: 6011;
@@ -313,6 +293,64 @@ export type MultiWallet = {
   ];
   types: [
     {
+      name: "configAction";
+      type: {
+        kind: "enum";
+        variants: [
+          {
+            name: "addMembers";
+            fields: [
+              {
+                vec: {
+                  defined: {
+                    name: "member";
+                  };
+                };
+              }
+            ];
+          },
+          {
+            name: "removeMembers";
+            fields: [
+              {
+                vec: "pubkey";
+              }
+            ];
+          },
+          {
+            name: "setThreshold";
+            fields: ["u8"];
+          },
+          {
+            name: "setMetadata";
+            fields: [
+              {
+                option: "pubkey";
+              }
+            ];
+          }
+        ];
+      };
+    },
+    {
+      name: "member";
+      type: {
+        kind: "struct";
+        fields: [
+          {
+            name: "pubkey";
+            type: "pubkey";
+          },
+          {
+            name: "label";
+            type: {
+              option: "u8";
+            };
+          }
+        ];
+      };
+    },
+    {
       name: "multiWallet";
       type: {
         kind: "struct";
@@ -323,7 +361,7 @@ export type MultiWallet = {
           },
           {
             name: "threshold";
-            type: "u16";
+            type: "u8";
           },
           {
             name: "bump";
@@ -332,13 +370,17 @@ export type MultiWallet = {
           {
             name: "members";
             type: {
-              vec: "pubkey";
+              vec: {
+                defined: {
+                  name: "member";
+                };
+              };
             };
           },
           {
-            name: "label";
+            name: "metadata";
             type: {
-              option: "string";
+              option: "pubkey";
             };
           }
         ];

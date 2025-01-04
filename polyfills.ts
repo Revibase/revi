@@ -1,6 +1,5 @@
 import structuredClone from "@ungap/structured-clone";
 import { Buffer } from "buffer";
-import { getRandomValues as expoCryptoGetRandomValues } from "expo-crypto";
 import QuickCrypto from "react-native-quick-crypto";
 
 global.Buffer = Buffer;
@@ -20,7 +19,7 @@ if (!("structuredClone" in globalThis)) {
 
 class Crypto {
   subtle = QuickCrypto.subtle;
-  getRandomValues = expoCryptoGetRandomValues;
+  getRandomValues = QuickCrypto.getRandomValues;
 }
 
 const webCrypto = typeof crypto !== "undefined" ? crypto : new Crypto();

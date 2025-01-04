@@ -1,8 +1,9 @@
 import { PublicKey } from "@solana/web3.js";
+import { CustomButton } from "components/CustomButton";
 import { FC } from "react";
-import { Button, Image, YStack } from "tamagui";
+import { Image, YStack } from "tamagui";
+import { Page } from "utils/enums/page";
 import { SignerType } from "utils/enums/transaction";
-import { Page } from "utils/enums/wallet";
 import { getMultiSigFromAddress, getVaultFromAddress } from "utils/helper";
 import { useGetAssetsByOwner } from "utils/queries/useGetAssetsByOwner";
 import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
@@ -25,7 +26,7 @@ export const CollectiblesTab: FC<{
   });
   return (
     <YStack
-      height={"100%"}
+      flex={1}
       width={"100%"}
       flexWrap="wrap" // Allow items to wrap within the container
       flexDirection="row" // Make the children flow in rows
@@ -38,7 +39,7 @@ export const CollectiblesTab: FC<{
         )
         .map((x) => {
           return (
-            <Button
+            <CustomButton
               padded={false}
               key={x.id}
               width="45%"
@@ -60,7 +61,7 @@ export const CollectiblesTab: FC<{
                 source={{ uri: x?.content?.links?.image }}
                 alt="image"
               />
-            </Button>
+            </CustomButton>
           );
         })}
     </YStack>

@@ -1,11 +1,11 @@
 import { PublicKey } from "@solana/web3.js";
-import { ArrowDown, ArrowDownUp, ArrowUpRight } from "@tamagui/lucide-icons";
+import { ArrowDown, ArrowUpRight } from "@tamagui/lucide-icons";
 import { useToastController } from "@tamagui/toast";
+import { CustomButton } from "components/CustomButton";
 import { FC } from "react";
 import {
   Avatar,
   AvatarImage,
-  Button,
   ButtonIcon,
   ListItem,
   Text,
@@ -13,8 +13,8 @@ import {
   YStack,
 } from "tamagui";
 import { SOL_NATIVE_MINT } from "utils/consts";
+import { Page } from "utils/enums/page";
 import { SignerType } from "utils/enums/transaction";
-import { Page } from "utils/enums/wallet";
 import { getMultiSigFromAddress, getVaultFromAddress } from "utils/helper";
 import { useGetAssetsByOwner } from "utils/queries/useGetAssetsByOwner";
 import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
@@ -35,59 +35,45 @@ export const TokenTab: FC<{
   const { data: allAssets } = useGetAssetsByOwner({
     address: walletInfo ? getVaultFromAddress(walletAddress) : walletAddress,
   });
-
   const nativeAsset = SOL_NATIVE_MINT(allAssets?.nativeBalance);
   const toast = useToastController();
   return (
-    <YStack alignItems="center" gap="$8" height={"100%"} width={"100%"}>
+    <YStack alignItems="center" gap="$8" flex={1} width={"100%"}>
       <XStack alignItems="center" gap="$6">
         <YStack gap="$2" alignItems="center" justifyContent="center">
-          <Button
+          <CustomButton
             circular
             onPress={() => {
               setPage(Page.Deposit);
             }}
           >
-            <ButtonIcon
-              children={<ArrowDown size={"$2"} color={"$accentColor"} />}
-            />
-          </Button>
+            <ButtonIcon children={<ArrowDown size={"$2"} />} />
+          </CustomButton>
           <Text>Deposit</Text>
         </YStack>
         <YStack gap="$2" alignItems="center" justifyContent="center">
-          <Button
+          <CustomButton
             onPress={() => {
               setPage(Page.Search);
             }}
             circular
           >
-            <ButtonIcon
-              children={<ArrowUpRight size={"$2"} color={"$accentColor"} />}
-            />
-          </Button>
+            <ButtonIcon children={<ArrowUpRight size={"$2"} />} />
+          </CustomButton>
           <Text>Withdraw</Text>
         </YStack>
-        <YStack gap="$2" alignItems="center" justifyContent="center">
-          <Button
-            onPress={() => {
-              toast.show("Feature coming soon.");
-            }}
-            circular
-          >
-            <ButtonIcon
-              children={<ArrowDownUp size={"$2"} color={"$accentColor"} />}
-            />
-          </Button>
-          <Text>Swap</Text>
-        </YStack>
       </XStack>
-
       <YStack width={"100%"} gap="$2">
         <ListItem
           padded
           bordered
           width={"100%"}
           borderRadius={"$4"}
+          hoverStyle={{ scale: 0.925 }}
+          pressStyle={{ scale: 0.925 }}
+          animation="bouncy"
+          hoverTheme
+          pressTheme
           onPress={() => {
             setViewAsset(nativeAsset);
             setPage(Page.Asset);
@@ -118,7 +104,6 @@ export const TokenTab: FC<{
             </YStack>
           }
         />
-
         {allAssets?.items
           .filter(
             (x) =>
@@ -130,6 +115,11 @@ export const TokenTab: FC<{
                 key={x.id}
                 padded
                 bordered
+                hoverStyle={{ scale: 0.925 }}
+                pressStyle={{ scale: 0.925 }}
+                animation="bouncy"
+                hoverTheme
+                pressTheme
                 width={"100%"}
                 borderRadius={"$4"}
                 onPress={() => {

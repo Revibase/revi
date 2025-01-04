@@ -1,28 +1,33 @@
 import { Copy } from "@tamagui/lucide-icons";
+import { CustomButton } from "components/CustomButton";
 import { useCopyToClipboard } from "components/hooks/useCopyToClipboard";
 import { FC, useState } from "react";
-import { Button, ButtonIcon, ButtonText, Text, YGroup, YStack } from "tamagui";
+import { ButtonIcon, ButtonText, Text, YGroup, YStack } from "tamagui";
+import { WalletType } from "utils/enums/wallet";
+import { useExportWallet } from "utils/mutations/exportWallet";
 
 export const RenderSecretButtons: FC<{
-  exportFunction: any;
-}> = ({ exportFunction }) => {
+  walletType: WalletType;
+}> = ({ walletType }) => {
   const [secret, setSecret] = useState("");
   const copyToClipboard = useCopyToClipboard();
+  const exportWallet = useExportWallet();
   return (
     <>
-      <YGroup bordered>
+      <YGroup>
         {["Show Private Key", "Reveal Seed Phrase"].map((label, index) => (
           <YGroup.Item key={label}>
-            <Button
+            <CustomButton
               onPress={async () => {
-                const result = await exportFunction.mutateAsync({
+                const result = await exportWallet.mutateAsync({
+                  walletType: walletType,
                   returnMnemonic: index === 1,
                 });
                 if (result) setSecret(result);
               }}
             >
               <ButtonText>{label}</ButtonText>
-            </Button>
+            </CustomButton>
           </YGroup.Item>
         ))}
       </YGroup>
@@ -37,10 +42,10 @@ export const RenderSecretButtons: FC<{
           <Text textAlign="center" padding={"$2"}>
             {secret}
           </Text>
-          <Button onPress={() => copyToClipboard(secret)}>
+          <CustomButton onPress={() => copyToClipboard(secret)}>
             <ButtonText>Copy</ButtonText>
             <ButtonIcon children={<Copy />} />
-          </Button>
+          </CustomButton>
         </YStack>
       )}
     </>

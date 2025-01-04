@@ -1,12 +1,13 @@
 import { PublicKey } from "@solana/web3.js";
-import { ArrowLeft, AtSign } from "@tamagui/lucide-icons";
+import { AtSign } from "@tamagui/lucide-icons";
+import { useToastController } from "@tamagui/toast";
+import { CustomButton } from "components/CustomButton";
 import { useConnection } from "components/providers/connectionProvider";
 import { useGlobalVariables } from "components/providers/globalProvider";
 import { FC, useCallback, useMemo, useState } from "react";
 import {
   Avatar,
   AvatarImage,
-  Button,
   ButtonIcon,
   ButtonText,
   Form,
@@ -15,13 +16,14 @@ import {
   XStack,
   YStack,
 } from "tamagui";
+import { Page } from "utils/enums/page";
 import { SignerType } from "utils/enums/transaction";
-import { Page } from "utils/enums/wallet";
 import { getMultiSigFromAddress, getVaultFromAddress } from "utils/helper";
 import { transferAsset } from "utils/program/transfer";
 import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
 import { DAS } from "utils/types/das";
 import { SignerState, TransactionArgs } from "utils/types/transaction";
+import { Header } from "./header";
 
 export const Withdrawal: FC<{
   type: SignerType;
@@ -56,7 +58,8 @@ export const Withdrawal: FC<{
       type === SignerType.NFC ? getMultiSigFromAddress(walletAddress) : null,
   });
 
-  const { primaryAddress, secondaryAddress } = useGlobalVariables();
+  const { deviceWalletPublicKey, passkeyWalletPublicKey } =
+    useGlobalVariables();
   const { connection } = useConnection();
   const asset = withdrawal.asset;
   const hasOnlyOne = useMemo(() => {
@@ -64,85 +67,83 @@ export const Withdrawal: FC<{
       asset.token_info?.supply === 1 || asset.compression?.compressed === true
     );
   }, [asset]);
+  const toast = useToastController();
 
-  const handleWithdrawal = useCallback(() => {
-    if (!walletInfo) {
-      return;
-    }
-
-    transferAsset(
-      connection,
-      type === SignerType.NFC
-        ? getVaultFromAddress(walletAddress)
-        : walletAddress,
-      new PublicKey(recipient),
-      hasOnlyOne ? 1 : parseFloat(amount),
-      asset.id === PublicKey.default.toString(),
-      asset
-    )
-      .then(async (result) => {
-        if (type === SignerType.NFC) {
+  const handleWithdrawal = useCallback(async () => {
+    try {
+      const result = await transferAsset(
+        connection,
+        type === SignerType.NFC
+          ? getVaultFromAddress(walletAddress)
+          : walletAddress,
+        new PublicKey(recipient),
+        hasOnlyOne ? 1 : parseFloat(amount),
+        asset.id === PublicKey.default.toString(),
+        asset
+      );
+      if (type === SignerType.NFC) {
+        if (walletInfo) {
           setArgs({
             callback: () => setPage(Page.Withdrawal),
             walletInfo,
             ixs: result.ixs,
             lookUpTables: result.lookUpTables,
           });
-        } else {
-          setArgs({
-            callback: () => setPage(Page.Withdrawal),
-            signers: [
-              {
-                key: walletAddress,
-                type: type,
-                state: SignerState.Unsigned,
-              },
-            ],
-            ixs: result.ixs,
-            lookUpTables: result.lookUpTables,
-          });
         }
-
-        setPage(Page.Confirmation);
-      })
-      .catch((e) => {
-        console.log(e);
+      } else {
+        setArgs({
+          callback: () => setPage(Page.Withdrawal),
+          signers: [
+            {
+              key: walletAddress,
+              type: type,
+              state: SignerState.Unsigned,
+            },
+          ],
+          ixs: result.ixs,
+          lookUpTables: result.lookUpTables,
+        });
+      }
+      setPage(Page.Confirmation);
+    } catch (error) {
+      toast.show("Error", {
+        message: error.message,
+        customData: { preset: "error" },
       });
-  }, [asset, walletInfo, primaryAddress, secondaryAddress, recipient]);
+    }
+  }, [
+    walletAddress,
+    type,
+    asset,
+    walletInfo,
+    deviceWalletPublicKey,
+    passkeyWalletPublicKey,
+    recipient,
+    hasOnlyOne,
+    amount,
+    connection,
+  ]);
 
   return (
-    <YStack gap={"$8"} padding={"$4"} alignItems="center">
-      <XStack
-        padding="$2"
-        justifyContent="space-between"
-        alignItems="center"
-        width={"100%"}
-      >
-        <Button
-          backgroundColor={"$colorTransparent"}
-          onPress={() => {
-            if (withdrawal.callback) {
-              withdrawal.callback();
-            } else {
-              setPage(Page.Main);
-              setWithdrawAsset(undefined);
-            }
-          }}
-        >
-          <ArrowLeft />
-        </Button>
-        <Text
-          numberOfLines={1}
-          width={"70%"}
-          textAlign="center"
-          fontSize={"$8"}
-          fontWeight={800}
-        >{`Send ${asset.content?.metadata.name}`}</Text>
-        <Button opacity={0}>
-          <ArrowLeft />
-        </Button>
-      </XStack>
-      <Avatar size={"$16"} circular>
+    <YStack
+      enterStyle={{ opacity: 0, x: -25 }}
+      animation={"medium"}
+      gap={"$8"}
+      padding={"$4"}
+      alignItems="center"
+    >
+      <Header
+        text={`Send ${asset.content?.metadata.name}`}
+        reset={() => {
+          if (withdrawal.callback) {
+            withdrawal.callback();
+          } else {
+            setPage(Page.Main);
+            setWithdrawAsset(undefined);
+          }
+        }}
+      />
+      <Avatar size={"$12"} circular>
         <AvatarImage
           source={{ uri: asset.content?.links?.image }}
           alt="image"
@@ -158,16 +159,17 @@ export const Withdrawal: FC<{
             alignItems="center"
           >
             <Input
+              size={"$3"}
               value={recipient}
               onChangeText={setRecipient}
               borderWidth={0}
               flex={1}
               backgroundColor={"transparent"}
-              placeholder="Recipient's Solana PublicKey"
+              placeholder="Recipient's Solana Wallet Address"
             />
-            <Button circular size={"$3"}>
+            <CustomButton circular size={"$3"}>
               <ButtonIcon children={<AtSign size={"$1"} />} />
-            </Button>
+            </CustomButton>
           </XStack>
           {!hasOnlyOne && (
             <YStack gap="$2">
@@ -179,6 +181,7 @@ export const Withdrawal: FC<{
                 borderColor={"$gray10"}
               >
                 <Input
+                  size={"$3"}
                   value={amount}
                   onChangeText={setAmount}
                   placeholder="Amount"
@@ -187,7 +190,7 @@ export const Withdrawal: FC<{
                   backgroundColor={"transparent"}
                   borderWidth={0}
                 />
-                <Button
+                <CustomButton
                   borderRadius={"$12"}
                   onPress={() =>
                     setAmount(
@@ -200,7 +203,7 @@ export const Withdrawal: FC<{
                   size={"$3"}
                 >
                   <ButtonText>Max</ButtonText>
-                </Button>
+                </CustomButton>
               </XStack>
               <XStack justifyContent="flex-end">
                 <Text fontSize={"$1"} className="w-full text-right">
@@ -213,11 +216,9 @@ export const Withdrawal: FC<{
             </YStack>
           )}
           <Form.Trigger>
-            <Button onPress={handleWithdrawal}>
-              <ButtonText fontSize={"$6"} fontWeight={"600"}>
-                Confirm
-              </ButtonText>
-            </Button>
+            <CustomButton themeInverse size={"$4"} onPress={handleWithdrawal}>
+              <ButtonText>Confirm</ButtonText>
+            </CustomButton>
           </Form.Trigger>
         </Form>
       </YStack>

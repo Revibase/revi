@@ -9,9 +9,10 @@ import { useConnection } from "components/providers/connectionProvider";
 import { Alert } from "react-native";
 import { SignerType } from "utils/enums/transaction";
 import { program } from "utils/program";
-import { TransactionSigner } from "utils/types/transaction";
+import { SignerState, TransactionSigner } from "utils/types/transaction";
 import {
   getFeePayerFromSigners,
+  getLabelFromSignerType,
   getMultiSigFromAddress,
   getVaultFromAddress,
 } from "../helper";
@@ -27,53 +28,73 @@ export function useSetOwnerIxMutation({
       newOwners,
       signers,
     }: {
-      newOwners: TransactionSigner[] | null;
+      newOwners: TransactionSigner[];
       signers: TransactionSigner[];
     }) => {
       if (!wallet) return null;
       try {
         const multisigPda = getMultiSigFromAddress(wallet);
+
         const vaultPda = getVaultFromAddress(wallet);
+
         const multisigInfo = await program.account.multiWallet.fetch(
           multisigPda,
           "confirmed"
         );
-        newOwners =
-          newOwners?.filter((x) => x.toString() !== wallet.toString()) || null;
-        const ixs: TransactionInstruction[] = [];
 
+        const enumOrder = Object.values(SignerType);
+        if (newOwners.length === 0) {
+          newOwners = [
+            { key: wallet, state: SignerState.Unsigned, type: SignerType.NFC },
+          ];
+        }
+        newOwners = newOwners
+          .sort((a, b) => {
+            const indexA = enumOrder.indexOf(a.type);
+            const indexB = enumOrder.indexOf(b.type);
+            return indexA - indexB;
+          })
+          .map((x) => ({ ...x, key: new PublicKey(x.key) }));
+
+        const ixs: TransactionInstruction[] = [];
         await Promise.all(
-          (newOwners || []).map(async (x) => {
-            const accountInfo = await connection.getAccountInfo(x.key);
-            if (!accountInfo) {
-              ixs.push(
-                SystemProgram.transfer({
-                  fromPubkey: vaultPda,
-                  toPubkey: x.key,
-                  lamports: LAMPORTS_PER_SOL * 0.001,
-                })
+          newOwners.map(async (x) => {
+            try {
+              const accountInfo = await connection.getAccountInfo(
+                x.key,
+                "confirmed"
               );
+
+              if (!accountInfo) {
+                ixs.push(
+                  SystemProgram.transfer({
+                    fromPubkey: vaultPda,
+                    toPubkey: x.key,
+                    lamports: LAMPORTS_PER_SOL * 0.001,
+                  })
+                );
+              }
+            } catch (e) {
+              console.log(e);
             }
-            return Promise.resolve();
           })
         );
-        const enumOrder = Object.values(SignerType);
         ixs.push(
           await program.methods
-            .changeConfig(
-              multisigInfo.members.filter(
-                (x) => x.toString() !== wallet.toString()
-              ),
-              newOwners
-                ?.sort((a, b) => {
-                  const indexA = enumOrder.indexOf(a.type);
-                  const indexB = enumOrder.indexOf(b.type);
-                  return indexA - indexB;
-                })
-                .map((x) => x.key) || null,
-              (newOwners?.length || 0) > 1 ? 2 : 1,
-              null
-            )
+            .changeConfig([
+              {
+                removeMembers: [multisigInfo.members.map((x) => x.pubkey)],
+              },
+              {
+                addMembers: [
+                  newOwners.map((x) => ({
+                    pubkey: x.key,
+                    label: getLabelFromSignerType(x.type),
+                  })),
+                ],
+              },
+              { setThreshold: [newOwners.length > 1 ? 2 : 1] },
+            ])
             .accountsPartial({
               multiWallet: multisigPda,
               payer: vaultPda,
@@ -83,7 +104,8 @@ export function useSetOwnerIxMutation({
                 pubkey: x.key,
                 isSigner: true,
                 isWritable:
-                  getFeePayerFromSigners(signers).toString() === x.toString(),
+                  getFeePayerFromSigners(signers).toString() ===
+                  x.key.toString(),
               }))
             )
             .instruction()

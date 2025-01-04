@@ -9,6 +9,14 @@
   "instructions": [
     {
       "name": "change_config",
+      "docs": [
+        "# Parameters",
+        "- `ctx`: The context of the multi-action execution.",
+        "- `config_actions`: The list of actions to be executed.",
+        "",
+        "# Returns",
+        "- `Result<()>`: The result of the multi-action execution."
+      ],
       "discriminator": [24, 158, 114, 115, 94, 210, 244, 233],
       "accounts": [
         {
@@ -48,37 +56,31 @@
       ],
       "args": [
         {
-          "name": "remove_members",
+          "name": "config_actions",
           "type": {
-            "option": {
-              "vec": "pubkey"
+            "vec": {
+              "defined": {
+                "name": "ConfigAction"
+              }
             }
-          }
-        },
-        {
-          "name": "add_members",
-          "type": {
-            "option": {
-              "vec": "pubkey"
-            }
-          }
-        },
-        {
-          "name": "new_threshold",
-          "type": {
-            "option": "u16"
-          }
-        },
-        {
-          "name": "label",
-          "type": {
-            "option": "string"
           }
         }
       ]
     },
     {
       "name": "create",
+      "docs": [
+        "Creates a new multi-wallet.",
+        "",
+        "# Parameters",
+        "- `ctx`: The context of the multi-wallet creation.",
+        "- `create_key`: The member key used to create the multi-wallet.",
+        "- `metadata`: An optional metadata for the multi-wallet.",
+        "- `label`: An optional label for the multi-wallet.",
+        "",
+        "# Returns",
+        "- `Result<()>`: The result of the multi-wallet creation."
+      ],
       "discriminator": [24, 30, 200, 40, 5, 28, 7, 119],
       "accounts": [
         {
@@ -98,41 +100,11 @@
                 ]
               },
               {
-                "kind": "account",
-                "path": "create_key"
+                "kind": "arg",
+                "path": "create_key.pubkey"
               }
             ]
           }
-        },
-        {
-          "name": "vault",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  109, 117, 108, 116, 105, 95, 119, 97, 108, 108, 101, 116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "multi_wallet"
-              },
-              {
-                "kind": "const",
-                "value": [118, 97, 117, 108, 116]
-              },
-              {
-                "kind": "const",
-                "value": [0, 0]
-              }
-            ]
-          }
-        },
-        {
-          "name": "create_key",
-          "signer": true
         },
         {
           "name": "system_program",
@@ -141,15 +113,34 @@
       ],
       "args": [
         {
-          "name": "label",
+          "name": "create_key",
           "type": {
-            "option": "string"
+            "defined": {
+              "name": "Member"
+            }
+          }
+        },
+        {
+          "name": "metadata",
+          "type": {
+            "option": "pubkey"
           }
         }
       ]
     },
     {
       "name": "vault_transaction_execute",
+      "docs": [
+        "Executes a vault transaction.",
+        "",
+        "# Parameters",
+        "- `ctx`: The context of the vault transaction execution.",
+        "- `vault_index`: The index of the vault.",
+        "- `transaction_message`: The transaction message to be executed.",
+        "",
+        "# Returns",
+        "- `Result<()>`: The result of the vault transaction execution."
+      ],
       "discriminator": [194, 8, 161, 87, 153, 164, 25, 171],
       "accounts": [
         {
@@ -218,37 +209,37 @@
     {
       "code": 6004,
       "name": "InvalidThreshold",
-      "msg": "Invalid threshold, must be between 1 and number of members with Vote permission"
+      "msg": "Invalid threshold, must be between 1 and number of members"
     },
     {
       "code": 6005,
+      "name": "ThresholdTooHigh",
+      "msg": "Threshold must be lower than 10"
+    },
+    {
+      "code": 6006,
       "name": "InvalidTransactionMessage",
       "msg": "TransactionMessage is malformed."
     },
     {
-      "code": 6006,
+      "code": 6007,
       "name": "NotEnoughSigners",
       "msg": "Number of signers does not meet the minumum threshold"
     },
     {
-      "code": 6007,
+      "code": 6008,
       "name": "InvalidNumberOfAccounts",
       "msg": "Wrong number of accounts provided"
     },
     {
-      "code": 6008,
+      "code": 6009,
       "name": "InvalidAccount",
       "msg": "Invalid account provided"
     },
     {
-      "code": 6009,
+      "code": 6010,
       "name": "MissingAccount",
       "msg": "Missing account"
-    },
-    {
-      "code": 6010,
-      "name": "DecimalsMismatch",
-      "msg": "Decimals don't match the mint"
     },
     {
       "code": 6011,
@@ -263,6 +254,64 @@
   ],
   "types": [
     {
+      "name": "ConfigAction",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "AddMembers",
+            "fields": [
+              {
+                "vec": {
+                  "defined": {
+                    "name": "Member"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "RemoveMembers",
+            "fields": [
+              {
+                "vec": "pubkey"
+              }
+            ]
+          },
+          {
+            "name": "SetThreshold",
+            "fields": ["u8"]
+          },
+          {
+            "name": "SetMetadata",
+            "fields": [
+              {
+                "option": "pubkey"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Member",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pubkey",
+            "type": "pubkey"
+          },
+          {
+            "name": "label",
+            "type": {
+              "option": "u8"
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "MultiWallet",
       "type": {
         "kind": "struct",
@@ -273,7 +322,7 @@
           },
           {
             "name": "threshold",
-            "type": "u16"
+            "type": "u8"
           },
           {
             "name": "bump",
@@ -282,13 +331,17 @@
           {
             "name": "members",
             "type": {
-              "vec": "pubkey"
+              "vec": {
+                "defined": {
+                  "name": "Member"
+                }
+              }
             }
           },
           {
-            "name": "label",
+            "name": "metadata",
             "type": {
-              "option": "string"
+              "option": "pubkey"
             }
           }
         ]

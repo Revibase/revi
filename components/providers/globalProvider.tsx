@@ -6,23 +6,24 @@ import {
   type FC,
   type ReactNode,
 } from "react";
-import { useGetPrimaryAddress } from "utils/queries/useGetPrimaryAddress";
-import { useGetSecondaryAddress } from "utils/queries/useGetSecondaryAddress";
+import { useGetDevicePublicKey } from "utils/queries/useGetDevicePublicKey";
+import { useGetPasskeyPublicKey } from "utils/queries/useGetPasskeyPublicKey";
 
 export interface GlobalProviderProps {
   children: ReactNode;
 }
 
 export const GlobalProvider: FC<GlobalProviderProps> = ({ children }) => {
-  const { data: primaryAddress } = useGetPrimaryAddress();
-  const { data: secondaryData } = useGetSecondaryAddress();
+  const { data: deviceWalletPublicKey } = useGetDevicePublicKey();
+  const { data: passkeyWallet } = useGetPasskeyPublicKey();
   const [isNfcSheetVisible, setNfcSheetVisible] = useState(false);
+
   return (
     <GlobalContext.Provider
       value={{
-        primaryAddress,
-        secondaryAddress: secondaryData?.address,
-        subOrganizationId: secondaryData?.subOrganizationId,
+        deviceWalletPublicKey,
+        passkeyWalletPublicKey: passkeyWallet?.address,
+        subOrganizationId: passkeyWallet?.subOrganizationId,
         isNfcSheetVisible,
         setNfcSheetVisible,
       }}
@@ -33,8 +34,8 @@ export const GlobalProvider: FC<GlobalProviderProps> = ({ children }) => {
 };
 
 export interface GlobalContextState {
-  primaryAddress: PublicKey | null | undefined;
-  secondaryAddress: PublicKey | null | undefined;
+  deviceWalletPublicKey: PublicKey | null | undefined;
+  passkeyWalletPublicKey: PublicKey | null | undefined;
   subOrganizationId: string | undefined;
   isNfcSheetVisible: boolean;
   setNfcSheetVisible: React.Dispatch<React.SetStateAction<boolean>>;

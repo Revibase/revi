@@ -4,6 +4,7 @@ import * as NavigationBar from "expo-navigation-bar";
 import { SplashScreen, Stack } from "expo-router";
 import { useEffect } from "react";
 import { Platform, useColorScheme } from "react-native";
+
 export const unstable_settings = {
   // Ensure that reloading on `/user` keeps a back button present.
   initialRouteName: "(tabs)",
@@ -37,12 +38,16 @@ export default function App() {
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
+
   return (
     <Provider defaultTheme={colorScheme || "light"}>
       <Stack>
         <Stack.Screen
           name="(tabs)"
           options={{
+            contentStyle: {
+              backgroundColor: "background",
+            },
             headerShown: false,
           }}
         />

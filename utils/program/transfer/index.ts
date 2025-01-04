@@ -26,41 +26,49 @@ export async function transferAsset(
   let lookUpTables: AddressLookupTableAccount[] = [];
   asset =
     asset instanceof PublicKey ? await getAsset(asset, connection) : asset;
-  const amountNormalized =
-    amount * 10 ** (isNative ? 9 : asset?.token_info?.decimals || 0);
-  if (!asset) {
-    if (isNative) {
-      ixs = nativeTransfer(source, destination, amountNormalized);
-    } else {
+  const amountNormalized = Math.round(
+    amount * 10 ** (isNative ? 9 : asset?.token_info?.decimals || 0)
+  );
+  if (isNative) {
+    ixs = await nativeTransfer(
+      connection,
+      source,
+      destination,
+      amountNormalized
+    );
+  } else {
+    if (!asset) {
       throw new Error("Asset can't be undefined if it is a non native asset!");
     }
-  } else if (asset.interface === "ProgrammableNFT") {
-    const { instructions, addressLookUpTable } = await programmableNftTransfer(
-      connection,
-      source,
-      destination,
-      amountNormalized,
-      asset
-    );
-    ixs = instructions;
-    if (addressLookUpTable) {
-      lookUpTables.push(addressLookUpTable);
+    if (asset.interface === "ProgrammableNFT") {
+      const { instructions, addressLookUpTable } =
+        await programmableNftTransfer(
+          connection,
+          source,
+          destination,
+          amountNormalized,
+          asset
+        );
+      ixs = instructions;
+      if (addressLookUpTable) {
+        lookUpTables.push(addressLookUpTable);
+      }
+    } else if (asset.compression?.compressed) {
+      const { instructions, addressLookUpTable } = await compressedNftTransfer(
+        connection,
+        source,
+        destination,
+        asset
+      );
+      ixs = instructions;
+      if (addressLookUpTable) {
+        lookUpTables.push(addressLookUpTable);
+      }
+    } else if (asset.compressedToken) {
+      // compressed zk token (TBD)
+    } else {
+      ixs = splTokenTransfer(source, destination, amountNormalized, asset);
     }
-  } else if (asset.compression?.compressed) {
-    const { instructions, addressLookUpTable } = await compressedNftTransfer(
-      connection,
-      source,
-      destination,
-      asset
-    );
-    ixs = instructions;
-    if (addressLookUpTable) {
-      lookUpTables.push(addressLookUpTable);
-    }
-  } else if (asset.compressedToken) {
-    // compressed zk token (TBD)
-  } else {
-    ixs = splTokenTransfer(source, destination, amountNormalized, asset);
   }
   return { ixs, lookUpTables };
 }

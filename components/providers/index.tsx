@@ -21,11 +21,7 @@ export function Provider({
       >
         <GlobalProvider>
           <TamaguiProvider config={tamaguiConfig} {...rest}>
-            <ToastProvider
-              swipeDirection="horizontal"
-              duration={1000}
-              native={false}
-            >
+            <ToastProvider swipeDirection="horizontal" native={false}>
               {children}
               <CurrentToast />
               <ToastViewport top={top} alignSelf="center" width="80%" />

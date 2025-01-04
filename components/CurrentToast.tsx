@@ -7,18 +7,15 @@ import { Text, useTheme, XStack, YStack } from "tamagui";
 const presetStyles = (theme: any) => ({
   success: {
     icon: CheckCircle,
-    borderColor: theme.green10.val,
-    textColor: theme.green10.val,
+    toastColor: theme.green10.val,
   },
   error: {
     icon: AlertCircle,
-    borderColor: theme.red10.val,
-    textColor: theme.red10.val,
+    toastColor: theme.red10.val,
   },
   info: {
     icon: Info,
-    borderColor: theme.blue10.val,
-    textColor: theme.blue10.val,
+    toastColor: theme.blue10.val,
   },
 });
 
@@ -28,11 +25,8 @@ export function CurrentToast() {
   if (!currentToast || currentToast.isHandledNatively) return null;
 
   const preset = currentToast.customData?.preset || "info";
-  const {
-    icon: Icon,
-    borderColor,
-    textColor,
-  } = presetStyles(theme)[preset] || presetStyles(theme).info;
+  const { icon: Icon, toastColor } =
+    presetStyles(theme)[preset] || presetStyles(theme).info;
 
   return (
     <Toast
@@ -45,25 +39,19 @@ export function CurrentToast() {
       scale={1}
       animation="100ms"
       viewportName={currentToast.viewportName}
-      backgroundColor={theme.backgroundPress.val}
-      borderColor={borderColor}
-      borderWidth={"$1"}
+      backgroundColor={toastColor}
       maxWidth={400}
+      borderRadius={"$4"}
     >
-      <YStack
-        padding="$0"
-        gap="$0"
-        backgroundColor={"$colorTransparent"}
-        width="90%"
-      >
-        <XStack width={"100%"} alignItems="center" padding={"$0"} gap="$2">
-          <Icon size={"$1"} color={textColor} />
-          <Text numberOfLines={1} color={textColor} fontSize="$4">
+      <YStack padding="$1" gap="$1">
+        <XStack width={"100%"} alignItems="center" padding={"$1"} gap="$2">
+          <Icon size={"$1"} color={"white"} />
+          <Text numberOfLines={1} color={"white"} fontSize="$4">
             {currentToast.title}
           </Text>
         </XStack>
         {!!currentToast.message && (
-          <Text numberOfLines={1} color={textColor} fontSize={"$3"}>
+          <Text numberOfLines={2} color={"white"} fontSize={"$3"}>
             {currentToast.message}
           </Text>
         )}

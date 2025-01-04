@@ -2,25 +2,26 @@ import { Keypair, VersionedTransaction } from "@solana/web3.js";
 import { useQuery } from "@tanstack/react-query";
 import * as Keychain from "react-native-keychain";
 import { APP_IDENTIFIER } from "utils/consts";
-export function useGetPrimaryAddress() {
+import { WalletType } from "utils/enums/wallet";
+export function useGetDevicePublicKey() {
   return useQuery({
-    queryKey: ["get-primary-address"],
+    queryKey: ["get-publickey", { walletType: WalletType.DEVICE }],
     queryFn: async () => {
-      return (await retrievePrimaryKeypair()).publicKey;
+      return (await retrieveDeviceWalletKeypair()).publicKey;
     },
     staleTime: Infinity,
   });
 }
 
-export const signWithPrimaryKeypair = async (tx: VersionedTransaction) => {
-  const keypair = await retrievePrimaryKeypair();
+export const signWithDeviceKeypair = async (tx: VersionedTransaction) => {
+  const keypair = await retrieveDeviceWalletKeypair();
   tx.sign([keypair]);
 };
 
-export const retrievePrimarySeedPhrase = async () => {
+export const retrieveDeviceWalletSeedPhrase = async () => {
   try {
     const credentials = await Keychain.getGenericPassword({
-      service: `${APP_IDENTIFIER}-PRIMARY`,
+      service: `${APP_IDENTIFIER}-DEVICE`,
       accessControl: Keychain.ACCESS_CONTROL.BIOMETRY_ANY_OR_DEVICE_PASSCODE,
     });
     if (credentials) {
@@ -33,10 +34,10 @@ export const retrievePrimarySeedPhrase = async () => {
   }
 };
 
-export const retrievePrimaryKeypair = async () => {
+export const retrieveDeviceWalletKeypair = async () => {
   try {
     const credentials = await Keychain.getGenericPassword({
-      service: `${APP_IDENTIFIER}-PRIMARY`,
+      service: `${APP_IDENTIFIER}-DEVICE`,
       accessControl: Keychain.ACCESS_CONTROL.BIOMETRY_ANY_OR_DEVICE_PASSCODE,
     });
     if (credentials) {

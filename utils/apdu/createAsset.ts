@@ -1,8 +1,10 @@
-import { ASSET_IDENTIFIER } from "../consts";
 import { Chain } from "../types/chain";
 
-// POLICY_ALLOW_READ
-export const createAsset = (blockchain: Chain, assetId: number[]) => {
+export const createAsset = (
+  blockchain: Chain,
+  assetIdentifier: number[],
+  assetId: number[]
+) => {
   const payload = [
     0x11,
     0x09,
@@ -17,7 +19,7 @@ export const createAsset = (blockchain: Chain, assetId: number[]) => {
     0x00,
     0x41,
     0x04,
-    ...ASSET_IDENTIFIER,
+    ...assetIdentifier,
     0x43,
     0x02,
     0x00,

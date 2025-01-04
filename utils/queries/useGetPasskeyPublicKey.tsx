@@ -2,15 +2,16 @@ import { PublicKey, VersionedTransaction } from "@solana/web3.js";
 import { useQuery } from "@tanstack/react-query";
 import * as Keychain from "react-native-keychain";
 import { APP_IDENTIFIER } from "utils/consts";
+import { WalletType } from "utils/enums/wallet";
 import { StamperType, turnKeyClient } from "utils/turnkey";
 
-export function useGetSecondaryAddress() {
+export function useGetPasskeyPublicKey() {
   return useQuery({
-    queryKey: ["get-secondary-address"],
+    queryKey: ["get-publickey", { walletType: WalletType.PASSKEY }],
     queryFn: async () => {
       try {
         const credentials = await Keychain.getGenericPassword({
-          service: `${APP_IDENTIFIER}-SECONDARY`,
+          service: `${APP_IDENTIFIER}-PASSKEY`,
           cloudSync: true,
         });
         if (credentials) {
@@ -28,13 +29,13 @@ export function useGetSecondaryAddress() {
   });
 }
 
-export const signWithSecondaryKeypair = async (
+export const signWithPasskeyKeypair = async (
   subOrganizationId: string | undefined,
   pubKey: PublicKey,
   tx: VersionedTransaction
 ) => {
   if (!subOrganizationId) {
-    throw new Error("Unable to sign transaction!");
+    throw new Error("No Organization ID Found");
   }
   const passKeyClient = turnKeyClient(StamperType.PASSKEY);
   const response = await passKeyClient.signRawPayload({

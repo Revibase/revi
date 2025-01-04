@@ -24,22 +24,16 @@ export const estimateFees = async (
   ixs: TransactionInstruction[],
   feePayer: PublicKey,
   signers: TransactionSigner[],
-  isMultiSig: boolean,
   lookUpTables?: AddressLookupTableAccount[]
 ) => {
   let [microLamports, units] = await Promise.all([
     getPriorityFeeEstimate(connection, ixs, feePayer, lookUpTables),
     getSimulationUnits(connection, ixs, feePayer, lookUpTables),
   ]);
-  if (isMultiSig) {
-    microLamports = Math.min(Math.ceil(microLamports), 100_000);
-    units = units
-      ? Math.max(Math.ceil(units * 2.25), units + 40_000)
-      : undefined;
-  } else {
-    microLamports = Math.ceil(microLamports);
-    units = units ? Math.ceil(units) * 1.1 : undefined;
-  }
+
+  microLamports = Math.ceil(microLamports);
+  units = units ? Math.ceil(units) * 1.1 : undefined;
+
   const numSigners = new Set();
   ixs.forEach((ix) => {
     ix.keys

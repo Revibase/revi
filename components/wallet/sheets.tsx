@@ -1,5 +1,5 @@
 import { PublicKey } from "@solana/web3.js";
-import { FC } from "react";
+import { FC, memo, useCallback } from "react";
 import { Sheet } from "tamagui";
 import { SignerType } from "utils/enums/transaction";
 import { Wallet } from ".";
@@ -8,8 +8,17 @@ export const WalletSheets: FC<{
   type: SignerType;
   address: PublicKey | null | undefined;
   reset: () => void;
-  mint: PublicKey | undefined;
-}> = ({ type, address, reset, mint }) => {
+  mint: PublicKey | null | undefined;
+}> = memo(({ type, address, reset, mint }) => {
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        reset();
+      }
+    },
+    [reset]
+  );
+
   return (
     <Sheet
       forceRemoveScrollEnabled={true}
@@ -20,32 +29,27 @@ export const WalletSheets: FC<{
       zIndex={100_000}
       animation="medium"
       snapPointsMode={"percent"}
-      onOpenChange={(open) => {
-        if (!open) {
-          reset();
-        }
-      }}
+      onOpenChange={handleOpenChange}
     >
       <Sheet.Overlay
-        animation="lazy"
+        animation="medium"
         enterStyle={{ opacity: 0 }}
         exitStyle={{ opacity: 0 }}
-        key="overlay"
         opacity={0.5}
       />
       <Sheet.Handle />
-      <Sheet.Frame>
+      <Sheet.Frame theme={"active"}>
         <Sheet.ScrollView showsVerticalScrollIndicator={false}>
-          {address && (
+          {!!address && (
             <Wallet
               type={type}
               walletAddress={address}
               mint={mint}
-              close={() => reset()}
+              close={reset}
             />
           )}
         </Sheet.ScrollView>
       </Sheet.Frame>
     </Sheet>
   );
-};
+});

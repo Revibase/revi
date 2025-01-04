@@ -1,8 +1,5 @@
 import { Chain } from "../types/chain";
 
-// POLICY_ALLOW_READ
-// POLICY_ALLOW_SIGN
-// POLICY_ALLOW_VERIFY
 export const createAddress = (blockchain: Chain) => [
   0x80,
   0x01,
@@ -22,7 +19,7 @@ export const createAddress = (blockchain: Chain) => [
   0x00,
   0x41,
   0x04,
-  ...blockchain.identifier,
+  ...blockchain.chainId,
   0x42,
   0x01,
   blockchain.curve,

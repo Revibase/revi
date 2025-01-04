@@ -1,17 +1,12 @@
 import { PublicKey } from "@solana/web3.js";
-import {
-  ArrowLeft,
-  ArrowUpDown,
-  DollarSign,
-  Send,
-} from "@tamagui/lucide-icons";
+import { Send } from "@tamagui/lucide-icons";
 import { useToastController } from "@tamagui/toast";
+import { CustomButton } from "components/CustomButton";
 import { useGlobalVariables } from "components/providers/globalProvider";
 import { FC, useMemo } from "react";
 import {
   Avatar,
   AvatarImage,
-  Button,
   ButtonIcon,
   ButtonText,
   Card,
@@ -22,12 +17,13 @@ import {
   XStack,
   YStack,
 } from "tamagui";
+import { Page } from "utils/enums/page";
 import { SignerType } from "utils/enums/transaction";
-import { Page } from "utils/enums/wallet";
 import { getMultiSigFromAddress } from "utils/helper";
 import { useGetAsset } from "utils/queries/useGetAsset";
 import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
 import { DAS } from "utils/types/das";
+import { Header } from "./header";
 
 export const AssetPage: FC<{
   type: SignerType;
@@ -45,8 +41,16 @@ export const AssetPage: FC<{
   >;
 }> = ({ type, walletAddress, asset, setPage, setWithdrawAsset }) => {
   return (
-    <YStack gap="$6" padding={"$4"}>
-      <Header setPage={setPage} asset={asset} />
+    <YStack
+      enterStyle={{ opacity: 0, x: -25 }}
+      animation={"medium"}
+      gap="$6"
+      padding={"$4"}
+    >
+      <Header
+        text={asset.content?.metadata.name || ""}
+        reset={() => setPage(Page.Main)}
+      />
       <Asset
         type={type}
         walletAddress={walletAddress}
@@ -85,7 +89,8 @@ export const Asset: FC<{
       type === SignerType.NFC ? getMultiSigFromAddress(walletAddress) : null,
   });
   const toast = useToastController();
-  const { primaryAddress, secondaryAddress } = useGlobalVariables();
+  const { deviceWalletPublicKey, passkeyWalletPublicKey } =
+    useGlobalVariables();
   const { data: collection } = useGetAsset({
     mint: asset?.grouping?.find((x) => x.group_key == "collection")?.group_value
       ? new PublicKey(
@@ -112,43 +117,49 @@ export const Asset: FC<{
     () => (assetBalance && assetPrice ? assetBalance * assetPrice : 0),
     [assetBalance, assetPrice]
   );
-
-  const noOwners =
-    !!walletInfo?.members &&
-    (
-      walletInfo?.members.filter(
-        (x) => x.toString() !== walletAddress.toString()
-      ) || []
-    ).length === 0;
-
-  const primaryAddressIsMember =
-    !noOwners &&
-    !!primaryAddress &&
-    ((walletInfo?.members &&
-      walletInfo.members.findIndex(
-        (x) => x.toString() === primaryAddress.toString()
-      ) !== -1) ||
-      walletAddress.toString() === primaryAddress.toString());
-
-  const secondaryAddressIsMember =
-    !noOwners &&
-    !!secondaryAddress &&
-    ((walletInfo?.members &&
-      walletInfo.members.findIndex(
-        (x) => x.toString() === secondaryAddress.toString()
-      ) !== -1) ||
-      walletAddress.toString() === secondaryAddress.toString());
-
-  const isAllowed = useMemo(
-    () => noOwners || primaryAddressIsMember || secondaryAddressIsMember,
-    [noOwners, primaryAddressIsMember, secondaryAddressIsMember]
+  const noOwners = useMemo(
+    () =>
+      !!walletInfo?.members &&
+      (
+        walletInfo?.members.filter(
+          (x) => x.pubkey.toString() !== walletAddress.toString()
+        ) || []
+      ).length === 0,
+    [walletInfo, walletAddress]
   );
 
-  const isNonFungible = useMemo(() => {
-    return (
-      asset?.token_info?.supply === 1 || asset?.compression?.compressed === true
-    );
-  }, [asset]);
+  const deviceWalletPublicKeyIsMember = useMemo(
+    () =>
+      !noOwners &&
+      !!deviceWalletPublicKey &&
+      ((walletInfo?.members &&
+        walletInfo.members.findIndex(
+          (x) => x.pubkey.toString() === deviceWalletPublicKey.toString()
+        ) !== -1) ||
+        walletAddress.toString() === deviceWalletPublicKey.toString()),
+    [noOwners, deviceWalletPublicKey, walletInfo, walletAddress]
+  );
+
+  const passkeyWalletPublicKeyIsMember = useMemo(
+    () =>
+      !noOwners &&
+      !!passkeyWalletPublicKey &&
+      ((walletInfo?.members &&
+        walletInfo.members.findIndex(
+          (x) => x.pubkey.toString() === passkeyWalletPublicKey.toString()
+        ) !== -1) ||
+        walletAddress.toString() === passkeyWalletPublicKey.toString()),
+    [noOwners, passkeyWalletPublicKey, walletInfo, walletAddress]
+  );
+
+  const isAllowed = useMemo(
+    () =>
+      noOwners ||
+      deviceWalletPublicKeyIsMember ||
+      passkeyWalletPublicKeyIsMember,
+    [noOwners, deviceWalletPublicKeyIsMember, passkeyWalletPublicKeyIsMember]
+  );
+
   return (
     <YStack width={"100%"} gap={"$6"} alignItems="center">
       <Avatar size={"$20"} borderRadius={"$4"}>
@@ -163,58 +174,40 @@ export const Asset: FC<{
         justifyContent="center"
         gap="$4"
       >
-        <Button
-          onPress={() => {
-            if (!isAllowed) {
-              toast.show("Unauthorised action", {
-                message: "You are not the owner of this wallet.",
-                customData: {
-                  preset: "error",
-                },
-              });
-            } else {
-              if (
-                !(
-                  asset.compression?.compressed &&
-                  (!primaryAddressIsMember || !secondaryAddressIsMember)
-                )
-              ) {
-                setWithdrawAsset({ asset, callback });
-                setPage(Page.Withdrawal);
-              } else {
+        {assetBalance > 0 && (
+          <CustomButton
+            onPress={() => {
+              if (!isAllowed) {
                 toast.show("Unauthorised action", {
-                  message: "An owner needs to be set first.",
+                  message: "You are not the owner of this wallet.",
                   customData: {
                     preset: "error",
                   },
                 });
+              } else {
+                if (
+                  !(
+                    asset.compression?.compressed &&
+                    (!deviceWalletPublicKeyIsMember ||
+                      !passkeyWalletPublicKeyIsMember)
+                  )
+                ) {
+                  setWithdrawAsset({ asset, callback });
+                  setPage(Page.Withdrawal);
+                } else {
+                  toast.show("Unauthorised action", {
+                    message: "An owner needs to be set first.",
+                    customData: {
+                      preset: "error",
+                    },
+                  });
+                }
               }
-            }
-          }}
-        >
-          <ButtonText>Send</ButtonText>
-          <ButtonIcon children={<Send size={"$1"} />} />
-        </Button>
-        {(asset?.interface === "FungibleToken" ||
-          asset?.id === PublicKey.default.toString()) && (
-          <Button
-            onPress={() => {
-              toast.show("Feature coming soon.");
             }}
           >
-            <ButtonText>Swap</ButtonText>
-            <ButtonIcon children={<ArrowUpDown size={"$1"} />} />
-          </Button>
-        )}
-        {isNonFungible && (
-          <Button
-            onPress={() => {
-              toast.show("Feature coming soon.");
-            }}
-          >
-            <ButtonText>Sell</ButtonText>
-            <ButtonIcon children={<DollarSign size={"$1"} />} />
-          </Button>
+            <ButtonText>Send</ButtonText>
+            <ButtonIcon children={<Send size={"$1"} />} />
+          </CustomButton>
         )}
       </XStack>
       {(asset?.interface === "FungibleToken" ||
@@ -274,7 +267,7 @@ export const Asset: FC<{
                   return (
                     <ListItem
                       key={index}
-                      width={"32%"}
+                      width={"30%"}
                       title={x.value}
                       subTitle={x.trait_type}
                       bordered
@@ -292,7 +285,7 @@ export const Asset: FC<{
               <Avatar size={"$3"} circular>
                 <AvatarImage
                   source={{ uri: collection.content?.links?.image }}
-                ></AvatarImage>
+                />
               </Avatar>
               <Heading size={"$3"}>{collection.content?.metadata.name}</Heading>
             </XStack>
@@ -301,38 +294,5 @@ export const Asset: FC<{
         )}
       </YStack>
     </YStack>
-  );
-};
-
-const Header: FC<{
-  asset: DAS.GetAssetResponse | undefined;
-  setPage: React.Dispatch<React.SetStateAction<Page>>;
-}> = ({ asset, setPage }) => {
-  return (
-    <XStack
-      padding="$2"
-      justifyContent="space-between"
-      alignItems="center"
-      width={"100%"}
-    >
-      <Button
-        backgroundColor={"$colorTransparent"}
-        onPress={() => setPage(Page.Main)}
-      >
-        <ArrowLeft />
-      </Button>
-      <Text
-        numberOfLines={1}
-        width={"70%"}
-        textAlign="center"
-        fontSize={"$8"}
-        fontWeight={800}
-      >
-        {asset?.content?.metadata.name}
-      </Text>
-      <Button opacity={0}>
-        <ArrowLeft />
-      </Button>
-    </XStack>
   );
 };
