@@ -1,9 +1,5 @@
 export enum WalletType {
+  MULTIWALLET = "Multiwallet",
   DEVICE = "Device",
-  PASSKEY = "Passkey",
-}
-
-export enum WalletFlow {
-  UseExisting,
-  CreateNew,
+  CLOUD = "Cloud",
 }

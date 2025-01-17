@@ -1,4 +1,4 @@
-import { LAMPORTS_PER_SOL, PublicKey, SystemProgram } from "@solana/web3.js";
+import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { Copy } from "@tamagui/lucide-icons";
 import { CustomButton } from "components/CustomButton";
 import { useCopyToClipboard } from "components/hooks/useCopyToClipboard";
@@ -7,8 +7,7 @@ import { FC, useEffect, useState } from "react";
 import { ButtonIcon, ButtonText, Heading, Text, YStack } from "tamagui";
 import { Page } from "utils/enums/page";
 import { SignerType } from "utils/enums/transaction";
-import { getVaultFromAddress } from "utils/helper";
-import { program } from "utils/program";
+import { useCreateWallet } from "utils/mutations/createWallet";
 import { SignerState, TransactionArgs } from "utils/types/transaction";
 
 export const CreateMultisigPage: FC<{
@@ -20,6 +19,7 @@ export const CreateMultisigPage: FC<{
   const copyToClipboard = useCopyToClipboard();
   const [lamports, setLamports] = useState(0);
   const { connection } = useConnection();
+  const createWalletMutation = useCreateWallet({ walletAddress, mint });
   useEffect(() => {
     connection.getAccountInfo(walletAddress).then((resutl) => {
       setLamports(resutl?.lamports || 0);
@@ -55,35 +55,21 @@ export const CreateMultisigPage: FC<{
         <CustomButton
           disabled={lamports < LAMPORTS_PER_SOL * 0.006}
           onPress={async () => {
-            const createWalletIx = await program.methods
-              .create(
-                {
-                  pubkey: walletAddress,
-                  label: 0,
-                },
-                mint || null
-              )
-              .accounts({
-                payer: walletAddress,
-              })
-              .instruction();
-            const transferSolIx = SystemProgram.transfer({
-              fromPubkey: walletAddress,
-              toPubkey: getVaultFromAddress(walletAddress),
-              lamports: LAMPORTS_PER_SOL * 0.003,
-            });
-            setArgs({
-              callback: () => setPage(Page.Create),
-              signers: [
-                {
-                  key: walletAddress,
-                  type: SignerType.NFC,
-                  state: SignerState.Unsigned,
-                },
-              ],
-              ixs: [createWalletIx, transferSolIx],
-            });
-            setPage(Page.Confirmation);
+            const ixs = await createWalletMutation.mutateAsync();
+            if (ixs) {
+              setArgs({
+                callback: () => setPage(Page.Create),
+                signers: [
+                  {
+                    key: walletAddress,
+                    type: SignerType.NFC,
+                    state: SignerState.Unsigned,
+                  },
+                ],
+                ixs,
+              });
+              setPage(Page.Confirmation);
+            }
           }}
         >
           <ButtonText width={"60%"} textAlign="center">
@@ -92,7 +78,7 @@ export const CreateMultisigPage: FC<{
         </CustomButton>
         {lamports < LAMPORTS_PER_SOL * 0.006 && (
           <Text color={"red"} textAlign="center" fontSize={"$1"}>
-            Require at least 0.0006 SOL
+            Require at least 0.006 SOL
           </Text>
         )}
       </YStack>

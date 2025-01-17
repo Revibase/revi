@@ -166,10 +166,10 @@ export async function accountsForTransactionExecute({
           const { value } = await connection.getAddressLookupTable(key);
           if (!value) {
             throw new Error(
-              `Address lookup table account ${key.toBase58()} not found`
+              `Address lookup table account ${key.toString()} not found`
             );
           }
-          return [key.toBase58(), value] as const;
+          return [key.toString(), value] as const;
         })
       )
     );
@@ -200,11 +200,11 @@ export async function accountsForTransactionExecute({
   // Then add accounts that will be loaded with address lookup tables.
   for (const lookup of vaultMessage.addressTableLookups) {
     const lookupTableAccount = addressLookupTableAccounts.get(
-      lookup.accountKey.toBase58()
+      lookup.accountKey.toString()
     );
     invariant(
       lookupTableAccount,
-      `Address lookup table account ${lookup.accountKey.toBase58()} not found`
+      `Address lookup table account ${lookup.accountKey.toString()} not found`
     );
 
     for (const accountIndex of lookup.writableIndexes) {
@@ -212,7 +212,7 @@ export async function accountsForTransactionExecute({
         lookupTableAccount.state.addresses[accountIndex];
       invariant(
         pubkey,
-        `Address lookup table account ${lookup.accountKey.toBase58()} does not contain address at index ${accountIndex}`
+        `Address lookup table account ${lookup.accountKey.toString()} does not contain address at index ${accountIndex}`
       );
       accountMetas.push({
         pubkey,
@@ -226,7 +226,7 @@ export async function accountsForTransactionExecute({
         lookupTableAccount.state.addresses[accountIndex];
       invariant(
         pubkey,
-        `Address lookup table account ${lookup.accountKey.toBase58()} does not contain address at index ${accountIndex}`
+        `Address lookup table account ${lookup.accountKey.toString()} does not contain address at index ${accountIndex}`
       );
       accountMetas.push({
         pubkey,

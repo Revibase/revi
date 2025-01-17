@@ -40,15 +40,27 @@ type WithSigners = {
 type WithIxs = {
   ixs: TransactionInstruction[];
   changeConfig?: never;
+  escrowConfig?: never;
 };
 
 type WithChangeConfig = {
   changeConfig: { newOwners: TransactionSigner[] };
   ixs?: never;
+  escrowConfig?: never;
+};
+
+type WithEscrowConfig = {
+  escrowConfig: {
+    identifier: number;
+    type: "CancelAsOwner" | "AcceptAsOwner";
+    proposer: PublicKey;
+  };
+  ixs?: never;
+  changeConfig?: never;
 };
 type MembersOrSignersWithActions =
-  | (WithWalletInfo & (WithChangeConfig | WithIxs))
-  | (WithSigners & (WithChangeConfig | WithIxs));
+  | (WithWalletInfo & (WithEscrowConfig | WithChangeConfig | WithIxs))
+  | (WithSigners & (WithChangeConfig | WithIxs | WithEscrowConfig));
 
 export type TransactionArgs = TransactionArgsBase & MembersOrSignersWithActions;
 

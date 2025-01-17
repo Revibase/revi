@@ -1,24 +1,28 @@
 import { PublicKey } from "@solana/web3.js";
 import { Copy, Edit3, Trash2, User, UserPlus } from "@tamagui/lucide-icons";
-import { useToastController } from "@tamagui/toast";
 import { CustomButton } from "components/CustomButton";
+import { CustomListItem } from "components/CustomListItem";
 import { useCopyToClipboard } from "components/hooks/useCopyToClipboard";
-import { useGlobalVariables } from "components/providers/globalProvider";
+import { useValidateWallet } from "components/hooks/useValidateWallet";
+import { useWallets } from "components/hooks/useWallets";
 import { router } from "expo-router";
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
+import { Alert } from "react-native";
 import {
   ButtonIcon,
   ButtonText,
   Heading,
   Input,
-  ListItem,
+  Label,
   Text,
   XStack,
   YGroup,
 } from "tamagui";
 import { Page } from "utils/enums/page";
 import { SignerType } from "utils/enums/transaction";
+import { WalletType } from "utils/enums/wallet";
 import { getMultiSigFromAddress, getSignerTypeFromAddress } from "utils/helper";
+import { useInitiateEscrow } from "utils/mutations/initiateEscrow";
 import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
 import {
   SignerState,
@@ -39,14 +43,30 @@ export const RenderWalletMembers: FC<{
     []
   );
 
+  const [offer, setOffer] = useState(false);
   const [edit, setEdit] = useState(false);
   const [add, setAdd] = useState(false);
+
+  if (offer) {
+    return (
+      <>
+        <Header text={"Make an Offer"} reset={reset} />
+        <RenderOffer
+          walletAddress={walletAddress}
+          setOffer={setOffer}
+          setArgs={setArgs}
+          setPage={setPage}
+        />
+      </>
+    );
+  }
 
   if (add) {
     return (
       <>
         <Header text={"Add Member"} reset={reset} />
         <RenderAddMembers
+          walletAddress={walletAddress}
           filteredMembers={filteredMembers}
           setFilteredMembers={setFilteredMembers}
           setAdd={setAdd}
@@ -76,7 +96,10 @@ export const RenderWalletMembers: FC<{
   return (
     <>
       <Header text={"Wallet Details"} reset={reset} />
-      <RenderWalletInfo type={SignerType.NFC} walletAddress={walletAddress} />
+      <RenderWalletInfo
+        type={WalletType.MULTIWALLET}
+        walletAddress={walletAddress}
+      />
       <RenderMembers
         setFilteredMembers={setFilteredMembers}
         filteredMembers={filteredMembers}
@@ -84,135 +107,64 @@ export const RenderWalletMembers: FC<{
         setEdit={setEdit}
         setArgs={setArgs}
         setPage={setPage}
-        reset={reset}
+        setOffer={setOffer}
         closeSheet={closeSheet}
       />
     </>
   );
 };
-const RenderAddMembers: FC<{
-  filteredMembers: TransactionSigner[];
-  setFilteredMembers: React.Dispatch<React.SetStateAction<TransactionSigner[]>>;
-  setAdd: React.Dispatch<React.SetStateAction<boolean>>;
-}> = ({ filteredMembers, setFilteredMembers, setAdd }) => {
-  const { deviceWalletPublicKey, passkeyWalletPublicKey } =
-    useGlobalVariables();
-  const [value, setValue] = useState("");
+
+const RenderOffer: FC<{
+  walletAddress: PublicKey;
+  setOffer: React.Dispatch<React.SetStateAction<boolean>>;
+  setArgs: React.Dispatch<React.SetStateAction<TransactionArgs | null>>;
+  setPage: React.Dispatch<React.SetStateAction<Page>>;
+}> = ({ walletAddress, setOffer, setArgs, setPage }) => {
+  const initiateEscrowMutation = useInitiateEscrow({ walletAddress });
+  const [amount, setAmount] = useState("");
   const reset = () => {
-    setAdd(false);
-    setValue("");
+    setOffer(false);
+    setAmount("");
   };
+
+  const handleConfirm = useCallback(async () => {
+    const result = await initiateEscrowMutation.mutateAsync({
+      amount,
+    });
+    if (result) {
+      setArgs({
+        signers: result.signers,
+        ixs: [result.ix],
+      });
+      setPage(Page.Confirmation);
+    }
+  }, [amount]);
   return (
     <>
-      {(filteredMembers.findIndex(
-        (x) => x.key.toString() === deviceWalletPublicKey?.toString()
-      ) === -1 ||
-        filteredMembers.findIndex(
-          (x) => x.key.toString() === passkeyWalletPublicKey?.toString()
-        ) === -1) && (
-        <>
-          <Heading size={"$1"}>Use Recommended</Heading>
-          <YGroup>
-            {filteredMembers.findIndex(
-              (x) => x.key.toString() === deviceWalletPublicKey?.toString()
-            ) === -1 && (
-              <YGroup.Item>
-                <ListItem
-                  hoverStyle={{ scale: 0.925 }}
-                  pressStyle={{ scale: 0.925 }}
-                  animation="bouncy"
-                  onPress={() => {
-                    if (deviceWalletPublicKey) {
-                      setFilteredMembers((prev) => [
-                        ...prev.filter(
-                          (x) =>
-                            x.key.toString() !==
-                            deviceWalletPublicKey.toString()
-                        ),
-                        {
-                          key: deviceWalletPublicKey,
-                          type: SignerType.DEVICE,
-                          state: SignerState.Unsigned,
-                        },
-                      ]);
-                      reset();
-                    }
-                  }}
-                  pressTheme
-                  hoverTheme
-                  bordered
-                  icon={<User size={"$1"} />}
-                  title={deviceWalletPublicKey?.toString()}
-                  subTitle={SignerType.DEVICE}
-                />
-              </YGroup.Item>
-            )}
-            {filteredMembers.findIndex(
-              (x) => x.key.toString() === passkeyWalletPublicKey?.toString()
-            ) === -1 && (
-              <YGroup.Item>
-                <ListItem
-                  hoverStyle={{ scale: 0.925 }}
-                  pressStyle={{ scale: 0.925 }}
-                  animation="bouncy"
-                  onPress={() => {
-                    if (passkeyWalletPublicKey) {
-                      setFilteredMembers((prev) => [
-                        ...prev.filter(
-                          (x) =>
-                            x.key.toString() !==
-                            passkeyWalletPublicKey.toString()
-                        ),
-                        {
-                          key: passkeyWalletPublicKey,
-                          type: SignerType.DEVICE,
-                          state: SignerState.Unsigned,
-                        },
-                      ]);
-                      reset();
-                    }
-                  }}
-                  bordered
-                  pressTheme
-                  hoverTheme
-                  icon={<User size={"$1"} />}
-                  title={passkeyWalletPublicKey?.toString()}
-                  subTitle={SignerType.PASSKEY}
-                />
-              </YGroup.Item>
-            )}
-          </YGroup>
-          <Heading size={"$1"} textAlign="center">
-            Or
-          </Heading>
-        </>
-      )}
-      <Input
-        size="$3"
-        value={value}
-        onChangeText={setValue}
-        placeholder="Enter a custom wallet address"
-      />
-      <CustomButton
-        onPress={() => {
-          try {
-            new PublicKey(value);
-          } catch (e) {
-            return;
-          }
-          setFilteredMembers((prev) => [
-            ...prev.filter((x) => x.key.toString() !== value),
-            {
-              key: new PublicKey(value),
-              type: SignerType.UNKNOWN,
-              state: SignerState.Unsigned,
-            },
-          ]);
-          reset();
-        }}
-        themeInverse
+      <XStack
+        alignItems="center"
+        borderWidth={1}
+        borderRadius={"$4"}
+        padding={"$2"}
+        borderColor={"$gray10"}
       >
-        <ButtonText>{"Add Member"}</ButtonText>
+        <Input
+          id={"amount"}
+          size={"$3"}
+          inputMode="decimal"
+          value={amount}
+          onChangeText={setAmount}
+          backgroundColor={"$colorTransparent"}
+          borderWidth={"$0"}
+          flex={1}
+          placeholder={`Enter an amount (minimum 0.001 SOL)`}
+        />
+        <Label htmlFor="amount" paddingHorizontal={"$2"}>
+          SOL
+        </Label>
+      </XStack>
+      <CustomButton onPress={handleConfirm} themeInverse>
+        <ButtonText>{`Submit ${amount} Sol Offer`}</ButtonText>
       </CustomButton>
       <CustomButton
         onPress={() => {
@@ -225,86 +177,171 @@ const RenderAddMembers: FC<{
   );
 };
 
+const RenderAddMembers: FC<{
+  walletAddress: PublicKey;
+  filteredMembers: TransactionSigner[];
+  setFilteredMembers: React.Dispatch<React.SetStateAction<TransactionSigner[]>>;
+  setAdd: React.Dispatch<React.SetStateAction<boolean>>;
+}> = ({ walletAddress, filteredMembers, setFilteredMembers, setAdd }) => {
+  const { deviceWalletPublicKey, cloudWalletPublicKey } = useWallets();
+  const [value, setValue] = useState("");
+
+  const reset = () => {
+    setAdd(false);
+    setValue("");
+  };
+
+  const addMember = (
+    key: PublicKey,
+    type: SignerType,
+    state: SignerState = SignerState.Unsigned
+  ) => {
+    setFilteredMembers((prev) => [
+      ...prev.filter((x) => x.key.toString() !== key.toString()),
+      { key, type, state },
+    ]);
+    reset();
+  };
+
+  const isMember = (key: PublicKey) =>
+    filteredMembers.some((x) => x.key.toString() === key.toString());
+
+  const renderListItem = (key: PublicKey, type: SignerType, title: string) => (
+    <YGroup.Item>
+      <CustomListItem
+        onPress={() => addMember(key, type)}
+        bordered
+        icon={<User size={"$1"} />}
+        title={title}
+        subTitle={type}
+      />
+    </YGroup.Item>
+  );
+
+  const renderRecommendedMembers = () => {
+    if (
+      cloudWalletPublicKey &&
+      deviceWalletPublicKey &&
+      (!isMember(deviceWalletPublicKey) ||
+        !isMember(cloudWalletPublicKey) ||
+        !isMember(walletAddress))
+    ) {
+      return (
+        <>
+          <Heading size={"$1"}>Use Recommended</Heading>
+          <YGroup>
+            {!isMember(walletAddress) &&
+              renderListItem(
+                walletAddress,
+                SignerType.NFC,
+                walletAddress.toString()
+              )}
+            {!isMember(deviceWalletPublicKey) &&
+              renderListItem(
+                deviceWalletPublicKey,
+                SignerType.DEVICE,
+                deviceWalletPublicKey.toString()
+              )}
+            {!isMember(cloudWalletPublicKey) &&
+              renderListItem(
+                cloudWalletPublicKey,
+                SignerType.CLOUD,
+                cloudWalletPublicKey.toString()
+              )}
+          </YGroup>
+          <Heading size={"$1"} textAlign="center">
+            Or
+          </Heading>
+        </>
+      );
+    }
+    return null;
+  };
+
+  const handleCustomAddressAdd = () => {
+    try {
+      const newKey = new PublicKey(value);
+      addMember(newKey, SignerType.UNKNOWN);
+    } catch {
+      Alert.alert("Invalid Publickey");
+    }
+  };
+
+  return (
+    <>
+      {renderRecommendedMembers()}
+      <Input
+        size="$3"
+        value={value}
+        onChangeText={setValue}
+        placeholder="Enter a custom wallet address"
+      />
+      <CustomButton onPress={handleCustomAddressAdd} themeInverse>
+        <ButtonText>{"Add Member"}</ButtonText>
+      </CustomButton>
+      <CustomButton onPress={reset}>
+        <ButtonText>{"Back"}</ButtonText>
+      </CustomButton>
+    </>
+  );
+};
+
 const RenderMembers: FC<{
   filteredMembers: TransactionSigner[];
   setFilteredMembers: React.Dispatch<React.SetStateAction<TransactionSigner[]>>;
   walletAddress: PublicKey;
+  setOffer: React.Dispatch<React.SetStateAction<boolean>>;
   setEdit: React.Dispatch<React.SetStateAction<boolean>>;
   setArgs: React.Dispatch<React.SetStateAction<TransactionArgs | null>>;
   setPage: React.Dispatch<React.SetStateAction<Page>>;
-  reset: () => void;
   closeSheet: () => void;
 }> = ({
   filteredMembers,
   setFilteredMembers,
   walletAddress,
+  setOffer,
   setEdit,
   setArgs,
   setPage,
-  reset,
   closeSheet,
 }) => {
-  const { deviceWalletPublicKey, passkeyWalletPublicKey } =
-    useGlobalVariables();
+  const { deviceWalletPublicKey, cloudWalletPublicKey } = useWallets();
   const { data: walletInfo } = useGetWalletInfo({
     address: getMultiSigFromAddress(walletAddress),
   });
   const copyToClipboard = useCopyToClipboard();
-  const toast = useToastController();
-  const noOwners = useMemo(() => {
-    return (
-      !!walletInfo?.members &&
-      (
-        walletInfo?.members.filter(
-          (x) => x.pubkey.toString() !== walletAddress.toString()
-        ) || []
-      ).length === 0
-    );
-  }, [walletInfo?.members, walletAddress]);
 
-  const isMultisigMember = useMemo(() => {
-    return (
-      !!walletInfo &&
-      !!deviceWalletPublicKey &&
-      !!passkeyWalletPublicKey &&
-      (walletInfo.members.findIndex(
-        (x) => x.pubkey.toString() === deviceWalletPublicKey.toString()
-      ) !== -1 ||
-        walletInfo.members.findIndex(
-          (x) => x.pubkey.toString() === passkeyWalletPublicKey.toString()
-        ) !== -1)
-    );
-  }, [deviceWalletPublicKey, passkeyWalletPublicKey, walletInfo?.members]);
+  const {
+    noOwners,
+    deviceWalletPublicKeyIsMember,
+    cloudWalletPublicKeyIsMember,
+  } = useValidateWallet(walletAddress, WalletType.MULTIWALLET);
 
-  const originalMembers = useMemo(() => {
-    return (
+  useEffect(() => {
+    const originalMembers =
       walletInfo?.members.map((x) => ({
         key: x.pubkey,
         type: getSignerTypeFromAddress(
           x,
           deviceWalletPublicKey,
-          passkeyWalletPublicKey
+          cloudWalletPublicKey
         ),
         state: SignerState.Unsigned,
-      })) || []
-    );
-  }, [walletInfo?.members, deviceWalletPublicKey, passkeyWalletPublicKey]);
-  useEffect(() => {
+      })) || [];
     setFilteredMembers(originalMembers);
-  }, [walletInfo?.members]);
+  }, [walletInfo?.members, deviceWalletPublicKey, cloudWalletPublicKey]);
 
   const handleConfirm = useCallback(async () => {
-    if (isMultisigMember) {
+    if (deviceWalletPublicKeyIsMember || cloudWalletPublicKeyIsMember) {
       setEdit(true);
       return;
     }
-    if (!deviceWalletPublicKey || !passkeyWalletPublicKey) {
-      reset();
+    if (!deviceWalletPublicKey || !cloudWalletPublicKey) {
       closeSheet();
-      toast.show("Error", {
-        message: "Device and Passkey Wallet needs to be created first.",
-        customData: { preset: "error" },
-      });
+      Alert.alert(
+        "Wallet not found.",
+        "You need to complete your wallet set up first."
+      );
       router.replace("/(tabs)/profile");
       return;
     }
@@ -323,30 +360,27 @@ const RenderMembers: FC<{
               state: SignerState.Unsigned,
             },
             {
-              key: passkeyWalletPublicKey,
-              type: SignerType.PASSKEY,
+              key: cloudWalletPublicKey,
+              type: SignerType.CLOUD,
               state: SignerState.Unsigned,
             },
           ],
         },
         walletInfo,
       });
-      reset();
       setPage(Page.Confirmation);
     } else {
-      //send notification to current owner
-      toast.show("Success", {
-        message: "Request to become owner has been sent to current owner.",
-        customData: { preset: "success" },
-      });
+      setOffer(true);
+      return;
     }
   }, [
     walletAddress,
     noOwners,
-    isMultisigMember,
+    deviceWalletPublicKeyIsMember,
+    cloudWalletPublicKeyIsMember,
     walletInfo,
     deviceWalletPublicKey,
-    passkeyWalletPublicKey,
+    cloudWalletPublicKey,
   ]);
 
   return (
@@ -358,13 +392,8 @@ const RenderMembers: FC<{
         {filteredMembers.map((member, index) => {
           return (
             <YGroup.Item key={member.key.toString()}>
-              <ListItem
-                hoverStyle={{ scale: 0.925 }}
-                pressStyle={{ scale: 0.925 }}
-                animation="bouncy"
+              <CustomListItem
                 onPress={() => copyToClipboard(member.key.toString())}
-                hoverTheme
-                pressTheme
                 bordered
                 title={member.key.toString()}
                 subTitle={`Member ${index + 1} ${
@@ -377,15 +406,20 @@ const RenderMembers: FC<{
           );
         })}
       </YGroup>
-      <CustomButton onPress={handleConfirm} themeInverse={!isMultisigMember}>
+      <CustomButton
+        onPress={handleConfirm}
+        themeInverse={
+          !(deviceWalletPublicKeyIsMember || cloudWalletPublicKeyIsMember)
+        }
+      >
         <ButtonText>
-          {isMultisigMember
+          {deviceWalletPublicKeyIsMember || cloudWalletPublicKeyIsMember
             ? "Edit Members"
             : noOwners
-            ? "Take Over as Owner"
-            : "Request To Become Owner"}
+            ? "Claim Ownership"
+            : "Make an Offer"}
         </ButtonText>
-        {isMultisigMember && (
+        {(deviceWalletPublicKeyIsMember || cloudWalletPublicKeyIsMember) && (
           <ButtonIcon>
             <Edit3 size={"$1"} />
           </ButtonIcon>
@@ -414,8 +448,7 @@ const RenderEditMembers: FC<{
   setPage,
   reset,
 }) => {
-  const { deviceWalletPublicKey, passkeyWalletPublicKey } =
-    useGlobalVariables();
+  const { deviceWalletPublicKey, cloudWalletPublicKey } = useWallets();
   const { data: walletInfo } = useGetWalletInfo({
     address: getMultiSigFromAddress(walletAddress),
   });
@@ -426,12 +459,12 @@ const RenderEditMembers: FC<{
         type: getSignerTypeFromAddress(
           x,
           deviceWalletPublicKey,
-          passkeyWalletPublicKey
+          cloudWalletPublicKey
         ),
         state: SignerState.Unsigned,
       })) || []
     );
-  }, [walletInfo?.members, deviceWalletPublicKey, passkeyWalletPublicKey]);
+  }, [walletInfo?.members, deviceWalletPublicKey, cloudWalletPublicKey]);
   const handleConfirm = useCallback(async () => {
     if (walletInfo) {
       setArgs({
@@ -449,13 +482,7 @@ const RenderEditMembers: FC<{
     <>
       <XStack justifyContent="space-between" alignItems="center" width={"99%"}>
         <Text>Members:</Text>
-        <CustomButton
-          onPress={() => setAdd(true)}
-          hoverTheme
-          pressTheme
-          bordered
-          size={"$3"}
-        >
+        <CustomButton onPress={() => setAdd(true)} bordered size={"$3"}>
           <ButtonIcon>
             <UserPlus size={"$1"} />
           </ButtonIcon>
@@ -466,27 +493,19 @@ const RenderEditMembers: FC<{
         {filteredMembers.map((member, index) => {
           return (
             <YGroup.Item key={member.key.toString()}>
-              <ListItem
-                hoverTheme
-                pressTheme
+              <CustomListItem
                 bordered
                 title={member.key.toString()}
                 subTitle={`Member ${index + 1} (${member.type})`}
-                icon={<User size={"$1"} />}
-                iconAfter={
-                  <CustomButton
-                    variant="outlined"
-                    borderWidth="$0"
-                    onPress={() =>
-                      setFilteredMembers((prev) =>
-                        prev.filter(
-                          (x) => x.key.toString() !== member.key.toString()
-                        )
-                      )
-                    }
-                    icon={<Trash2 color={"red"} size={"$1"} />}
-                  />
+                onPress={() =>
+                  setFilteredMembers((prev) =>
+                    prev.filter(
+                      (x) => x.key.toString() !== member.key.toString()
+                    )
+                  )
                 }
+                icon={<User size={"$1"} />}
+                iconAfter={<Trash2 color={"red"} size={"$1"} />}
               />
             </YGroup.Item>
           );

@@ -1,10 +1,10 @@
 import { PublicKey } from "@solana/web3.js";
 import { AtSign } from "@tamagui/lucide-icons";
-import { useToastController } from "@tamagui/toast";
 import { CustomButton } from "components/CustomButton";
+import { useWallets } from "components/hooks/useWallets";
 import { useConnection } from "components/providers/connectionProvider";
-import { useGlobalVariables } from "components/providers/globalProvider";
 import { FC, useCallback, useMemo, useState } from "react";
+import { Alert } from "react-native";
 import {
   Avatar,
   AvatarImage,
@@ -17,8 +17,12 @@ import {
   YStack,
 } from "tamagui";
 import { Page } from "utils/enums/page";
-import { SignerType } from "utils/enums/transaction";
-import { getMultiSigFromAddress, getVaultFromAddress } from "utils/helper";
+import { WalletType } from "utils/enums/wallet";
+import {
+  getMultiSigFromAddress,
+  getSignerTypeFromAddress,
+  getVaultFromAddress,
+} from "utils/helper";
 import { transferAsset } from "utils/program/transfer";
 import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
 import { DAS } from "utils/types/das";
@@ -26,7 +30,7 @@ import { SignerState, TransactionArgs } from "utils/types/transaction";
 import { Header } from "./header";
 
 export const Withdrawal: FC<{
-  type: SignerType;
+  type: WalletType;
   withdrawal: {
     asset: DAS.GetAssetResponse;
     callback?: () => void;
@@ -55,11 +59,11 @@ export const Withdrawal: FC<{
   const [amount, setAmount] = useState("");
   const { data: walletInfo } = useGetWalletInfo({
     address:
-      type === SignerType.NFC ? getMultiSigFromAddress(walletAddress) : null,
+      type === WalletType.MULTIWALLET
+        ? getMultiSigFromAddress(walletAddress)
+        : null,
   });
-
-  const { deviceWalletPublicKey, passkeyWalletPublicKey } =
-    useGlobalVariables();
+  const { deviceWalletPublicKey, cloudWalletPublicKey } = useWallets();
   const { connection } = useConnection();
   const asset = withdrawal.asset;
   const hasOnlyOne = useMemo(() => {
@@ -67,13 +71,13 @@ export const Withdrawal: FC<{
       asset.token_info?.supply === 1 || asset.compression?.compressed === true
     );
   }, [asset]);
-  const toast = useToastController();
 
   const handleWithdrawal = useCallback(async () => {
     try {
+      walletAddress = new PublicKey(walletAddress);
       const result = await transferAsset(
         connection,
-        type === SignerType.NFC
+        type === WalletType.MULTIWALLET
           ? getVaultFromAddress(walletAddress)
           : walletAddress,
         new PublicKey(recipient),
@@ -81,7 +85,7 @@ export const Withdrawal: FC<{
         asset.id === PublicKey.default.toString(),
         asset
       );
-      if (type === SignerType.NFC) {
+      if (type === WalletType.MULTIWALLET) {
         if (walletInfo) {
           setArgs({
             callback: () => setPage(Page.Withdrawal),
@@ -96,7 +100,11 @@ export const Withdrawal: FC<{
           signers: [
             {
               key: walletAddress,
-              type: type,
+              type: getSignerTypeFromAddress(
+                { pubkey: walletAddress },
+                deviceWalletPublicKey,
+                cloudWalletPublicKey
+              ),
               state: SignerState.Unsigned,
             },
           ],
@@ -106,10 +114,7 @@ export const Withdrawal: FC<{
       }
       setPage(Page.Confirmation);
     } catch (error) {
-      toast.show("Error", {
-        message: error.message,
-        customData: { preset: "error" },
-      });
+      Alert.alert("Error", error.message);
     }
   }, [
     walletAddress,
@@ -117,7 +122,7 @@ export const Withdrawal: FC<{
     asset,
     walletInfo,
     deviceWalletPublicKey,
-    passkeyWalletPublicKey,
+    cloudWalletPublicKey,
     recipient,
     hasOnlyOne,
     amount,
@@ -127,10 +132,11 @@ export const Withdrawal: FC<{
   return (
     <YStack
       enterStyle={{ opacity: 0, x: -25 }}
-      animation={"medium"}
+      animation={"quick"}
       gap={"$8"}
       padding={"$4"}
       alignItems="center"
+      width={"100%"}
     >
       <Header
         text={`Send ${asset.content?.metadata.name}`}
@@ -185,7 +191,7 @@ export const Withdrawal: FC<{
                   value={amount}
                   onChangeText={setAmount}
                   placeholder="Amount"
-                  inputMode="numeric"
+                  inputMode="decimal"
                   flex={1}
                   backgroundColor={"transparent"}
                   borderWidth={0}

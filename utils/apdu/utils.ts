@@ -1,5 +1,7 @@
 import { ec as EC } from "elliptic";
+import * as Crypto from "expo-crypto";
 import { ASN1HEX, X509 } from "jsrsasign";
+
 const ec = new EC("p256");
 const x509 = new X509();
 /**
@@ -113,7 +115,10 @@ export async function verifyAndExtractParsedAddress(
     Buffer.from(parsedData["TAG_4"]),
     Buffer.from(parsedData["TAG_5"]),
   ]);
-  const hash = await crypto.subtle.digest("SHA-256", dataToVerify);
+  const hash = await Crypto.digest(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    new Uint8Array(dataToVerify)
+  );
   if (
     attestationKey.verify(Buffer.from(hash), Buffer.from(parsedData["TAG_6"]))
   ) {
@@ -155,7 +160,7 @@ export function extractAttributes(parsedData: number[]): Record<string, any> {
  * @returns {Promise<{data: number[], attributes: any}>} The verified data and its attributes.
  * @throws Will throw an error if verification fails.
  */
-export async function verifyStoredData(
+export async function verifyData(
   response: number[],
   attestationKey: EC.KeyPair,
   errorMsg: string
@@ -181,9 +186,9 @@ export async function parseX509FromNumberArray(
   x509.readCertHex(hexCert);
   const tbsCert = ASN1HEX.getTLVbyList(x509.hex, 0, [0], "30");
   if (tbsCert) {
-    const hash = await crypto.subtle.digest(
-      "SHA-256",
-      Buffer.from(tbsCert, "hex")
+    const hash = await Crypto.digest(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      new Uint8Array(Buffer.from(tbsCert, "hex"))
     );
     const signature = x509.getSignatureValueHex();
     if (certificatePubkey.verify(Buffer.from(hash), signature)) {

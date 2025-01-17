@@ -1,7 +1,7 @@
 import { AlertCircle, CheckCircle, Info } from "@tamagui/lucide-icons";
 import { Toast, useToastState } from "@tamagui/toast";
 
-import { Text, useTheme, XStack, YStack } from "tamagui";
+import { Text, useTheme, XStack } from "tamagui";
 
 // Define a mapping for icons and colors based on the preset
 const presetStyles = (theme: any) => ({
@@ -40,22 +40,27 @@ export function CurrentToast() {
       animation="100ms"
       viewportName={currentToast.viewportName}
       backgroundColor={toastColor}
-      maxWidth={400}
+      width={"90%"}
       borderRadius={"$4"}
+      padding={"$3"}
+      gap={"$1"}
     >
-      <YStack padding="$1" gap="$1">
-        <XStack width={"100%"} alignItems="center" padding={"$1"} gap="$2">
-          <Icon size={"$1"} color={"white"} />
-          <Text numberOfLines={1} color={"white"} fontSize="$4">
-            {currentToast.title}
-          </Text>
-        </XStack>
-        {!!currentToast.message && (
-          <Text numberOfLines={2} color={"white"} fontSize={"$3"}>
-            {currentToast.message}
-          </Text>
-        )}
-      </YStack>
+      <XStack alignItems="center" gap="$2">
+        <Icon size={"$1"} color={"white"} />
+        <Text maxWidth={"90%"} numberOfLines={1} color={"white"} fontSize="$4">
+          {currentToast.title}
+        </Text>
+      </XStack>
+      {!!currentToast.message && (
+        <Text
+          maxWidth={"90%"}
+          numberOfLines={2}
+          color={"white"}
+          fontSize={"$3"}
+        >
+          {currentToast.message}
+        </Text>
+      )}
     </Toast>
   );
 }

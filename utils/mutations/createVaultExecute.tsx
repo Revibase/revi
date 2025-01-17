@@ -22,7 +22,7 @@ import {
   getVaultFromAddress,
 } from "../helper";
 
-export function useCreateVaultExecuteIxMutation({
+export function useCreateVaultExecute({
   wallet,
 }: {
   wallet: PublicKey | null | undefined;

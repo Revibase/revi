@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "1018601631301",
+    "project_id": "revi-wallet-490e3",
+    "storage_bucket": "revi-wallet-490e3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1018601631301:android:cb84c13b6483039ddafd2c",
+        "android_client_info": {
+          "package_name": "com.jychab.revi"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1018601631301-d3qboc7m7nnqau8ne2jqdu7puf3m060j.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.jychab.revi",
+            "certificate_hash": "de7dd5b3e64be0c01a1fb874d33de69004163c5c"
+          }
+        },
+        {
+          "client_id": "1018601631301-rht4q83v6ocncrcgr35rbkse8m3isc96.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAt0CiDkwH3dLrwhrf0XJxiMjMgtW-vwfA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1018601631301-rht4q83v6ocncrcgr35rbkse8m3isc96.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1018601631301-o0cc2cj6jk2e9e6rftk5se8geakjt1ed.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.jychab.revi"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

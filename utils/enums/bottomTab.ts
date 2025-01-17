@@ -1,5 +1,5 @@
 export enum BottomTabs {
   Home = "Home",
-  Explore = "Explore",
+  Offers = "Offers",
   Wallets = "Wallets",
 }

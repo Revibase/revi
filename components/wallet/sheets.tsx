@@ -1,17 +1,21 @@
 import { PublicKey } from "@solana/web3.js";
 import { FC, memo, useCallback } from "react";
+import { Keyboard } from "react-native";
 import { Sheet } from "tamagui";
-import { SignerType } from "utils/enums/transaction";
+import { WalletType } from "utils/enums/wallet";
+import { TransactionArgs } from "utils/types/transaction";
 import { Wallet } from ".";
 
 export const WalletSheets: FC<{
-  type: SignerType;
+  type: WalletType;
   address: PublicKey | null | undefined;
   reset: () => void;
   mint: PublicKey | null | undefined;
-}> = memo(({ type, address, reset, mint }) => {
+  onEntry?: TransactionArgs;
+}> = memo(({ type, address, reset, mint, onEntry }) => {
   const handleOpenChange = useCallback(
     (open: boolean) => {
+      Keyboard.dismiss();
       if (!open) {
         reset();
       }
@@ -45,7 +49,8 @@ export const WalletSheets: FC<{
               type={type}
               walletAddress={address}
               mint={mint}
-              close={reset}
+              closeSheet={reset}
+              onEntry={onEntry}
             />
           )}
         </Sheet.ScrollView>

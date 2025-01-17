@@ -7,16 +7,15 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { useConnection } from "components/providers/connectionProvider";
 import { Alert } from "react-native";
-import { SignerType } from "utils/enums/transaction";
 import { program } from "utils/program";
-import { SignerState, TransactionSigner } from "utils/types/transaction";
+import { TransactionSigner } from "utils/types/transaction";
 import {
   getFeePayerFromSigners,
   getLabelFromSignerType,
   getMultiSigFromAddress,
   getVaultFromAddress,
 } from "../helper";
-export function useSetOwnerIxMutation({
+export function useSetOwner({
   wallet,
 }: {
   wallet: PublicKey | null | undefined;
@@ -42,20 +41,6 @@ export function useSetOwnerIxMutation({
           "confirmed"
         );
 
-        const enumOrder = Object.values(SignerType);
-        if (newOwners.length === 0) {
-          newOwners = [
-            { key: wallet, state: SignerState.Unsigned, type: SignerType.NFC },
-          ];
-        }
-        newOwners = newOwners
-          .sort((a, b) => {
-            const indexA = enumOrder.indexOf(a.type);
-            const indexB = enumOrder.indexOf(b.type);
-            return indexA - indexB;
-          })
-          .map((x) => ({ ...x, key: new PublicKey(x.key) }));
-
         const ixs: TransactionInstruction[] = [];
         await Promise.all(
           newOwners.map(async (x) => {
@@ -69,7 +54,7 @@ export function useSetOwnerIxMutation({
                 ixs.push(
                   SystemProgram.transfer({
                     fromPubkey: vaultPda,
-                    toPubkey: x.key,
+                    toPubkey: new PublicKey(x.key),
                     lamports: LAMPORTS_PER_SOL * 0.001,
                   })
                 );
@@ -88,7 +73,7 @@ export function useSetOwnerIxMutation({
               {
                 addMembers: [
                   newOwners.map((x) => ({
-                    pubkey: x.key,
+                    pubkey: new PublicKey(x.key),
                     label: getLabelFromSignerType(x.type),
                   })),
                 ],

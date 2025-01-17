@@ -2,7 +2,7 @@ import { PublicKey } from "@solana/web3.js";
 import { FC, useEffect, useState } from "react";
 import { Spinner, YStack } from "tamagui";
 import { Page } from "utils/enums/page";
-import { SignerType } from "utils/enums/transaction";
+import { WalletType } from "utils/enums/wallet";
 import { getMultiSigFromAddress, getVaultFromAddress } from "utils/helper";
 import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
 import { DAS } from "utils/types/das";
@@ -19,9 +19,10 @@ import { Withdrawal } from "./withdrawal";
 export const Wallet: FC<{
   walletAddress: PublicKey;
   mint: PublicKey | null | undefined;
-  close: () => void;
-  type: SignerType;
-}> = ({ type, walletAddress, mint, close }) => {
+  closeSheet: () => void;
+  type: WalletType;
+  onEntry?: TransactionArgs;
+}> = ({ type, walletAddress, mint, closeSheet, onEntry }) => {
   const [page, setPage] = useState<Page>(Page.Loading);
   const [withdrawAsset, setWithdrawAsset] = useState<{
     asset: DAS.GetAssetResponse;
@@ -32,18 +33,23 @@ export const Wallet: FC<{
     useState<TransactionArgs | null>(null);
   const { data: walletInfo, isLoading } = useGetWalletInfo({
     address:
-      type === SignerType.NFC ? getMultiSigFromAddress(walletAddress) : null,
+      type === WalletType.MULTIWALLET
+        ? getMultiSigFromAddress(walletAddress)
+        : null,
   });
   useEffect(() => {
     if (page === Page.Loading) {
       if (isLoading) return;
-      if (!walletInfo && type === SignerType.NFC) {
+      if (onEntry) {
+        setTransactionArgs(onEntry);
+        setPage(Page.Confirmation);
+      } else if (!walletInfo && type === WalletType.MULTIWALLET) {
         setPage(Page.Create);
       } else {
         setPage(Page.Main);
       }
     }
-  }, [walletInfo, type, isLoading, page]);
+  }, [walletInfo, type, isLoading, page, onEntry]);
 
   return (
     <YStack minHeight={"100%"}>
@@ -56,12 +62,13 @@ export const Wallet: FC<{
           setViewAsset={setViewAsset}
           setArgs={setTransactionArgs}
           setWithdrawAsset={setWithdrawAsset}
+          closeSheet={closeSheet}
         />
       )}
       {page == Page.Deposit && (
         <Deposit
           walletAddress={
-            type === SignerType.NFC
+            type === WalletType.MULTIWALLET
               ? getVaultFromAddress(walletAddress)
               : walletAddress
           }
@@ -117,7 +124,7 @@ export const Wallet: FC<{
           walletAddress={walletAddress}
           setPage={setPage}
           setArgs={setTransactionArgs}
-          closeSheet={close}
+          closeSheet={closeSheet}
         />
       )}
       {page == Page.Loading && (

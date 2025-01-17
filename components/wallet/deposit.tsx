@@ -15,7 +15,7 @@ export const Deposit: FC<{
   return (
     <YStack
       enterStyle={{ opacity: 0, x: -25 }}
-      animation={"medium"}
+      animation={"quick"}
       gap={"$8"}
       padding={"$4"}
       alignItems="center"

@@ -40,7 +40,7 @@ export class CompiledKeys {
   ): CompiledKeys {
     const keyMetaMap: KeyMetaMap = new Map();
     const getOrInsertDefault = (pubkey: PublicKey): CompiledKeyMeta => {
-      const address = pubkey.toBase58();
+      const address = pubkey.toString();
       let keyMeta = keyMetaMap.get(address);
       if (keyMeta === undefined) {
         keyMeta = {
@@ -102,7 +102,7 @@ export class CompiledKeys {
       );
       const [payerAddress] = writableSigners[0];
       assert(
-        payerAddress === this.payer.toBase58(),
+        payerAddress === this.payer.toString(),
         "Expected first writable signer key to be the fee payer"
       );
     }

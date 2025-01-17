@@ -14,7 +14,6 @@ export function useGetWalletInfo({ address }: { address: PublicKey | null }) {
         return null;
       }
     },
-    staleTime: 1000 * 60 * 15,
     enabled: !!address,
   });
 }

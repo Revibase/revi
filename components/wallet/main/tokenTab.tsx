@@ -1,27 +1,23 @@
 import { PublicKey } from "@solana/web3.js";
 import { ArrowDown, ArrowUpRight } from "@tamagui/lucide-icons";
-import { useToastController } from "@tamagui/toast";
 import { CustomButton } from "components/CustomButton";
+import { CustomListItem } from "components/CustomListItem";
 import { FC } from "react";
-import {
-  Avatar,
-  AvatarImage,
-  ButtonIcon,
-  ListItem,
-  Text,
-  XStack,
-  YStack,
-} from "tamagui";
-import { SOL_NATIVE_MINT } from "utils/consts";
+import { Avatar, AvatarImage, ButtonIcon, Text, XStack, YStack } from "tamagui";
 import { Page } from "utils/enums/page";
-import { SignerType } from "utils/enums/transaction";
-import { getMultiSigFromAddress, getVaultFromAddress } from "utils/helper";
+import { WalletType } from "utils/enums/wallet";
+import {
+  formatAmount,
+  getMultiSigFromAddress,
+  getVaultFromAddress,
+  SOL_NATIVE_MINT,
+} from "utils/helper";
 import { useGetAssetsByOwner } from "utils/queries/useGetAssetsByOwner";
 import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
 import { DAS } from "utils/types/das";
 
 export const TokenTab: FC<{
-  type: SignerType;
+  type: WalletType;
   walletAddress: PublicKey;
   setPage: React.Dispatch<React.SetStateAction<Page>>;
   setViewAsset: React.Dispatch<
@@ -30,13 +26,15 @@ export const TokenTab: FC<{
 }> = ({ type, walletAddress, setPage, setViewAsset }) => {
   const { data: walletInfo } = useGetWalletInfo({
     address:
-      type === SignerType.NFC ? getMultiSigFromAddress(walletAddress) : null,
+      type === WalletType.MULTIWALLET
+        ? getMultiSigFromAddress(walletAddress)
+        : null,
   });
   const { data: allAssets } = useGetAssetsByOwner({
     address: walletInfo ? getVaultFromAddress(walletAddress) : walletAddress,
   });
   const nativeAsset = SOL_NATIVE_MINT(allAssets?.nativeBalance);
-  const toast = useToastController();
+
   return (
     <YStack alignItems="center" gap="$8" flex={1} width={"100%"}>
       <XStack alignItems="center" gap="$6">
@@ -64,16 +62,11 @@ export const TokenTab: FC<{
         </YStack>
       </XStack>
       <YStack width={"100%"} gap="$2">
-        <ListItem
+        <CustomListItem
           padded
           bordered
           width={"100%"}
           borderRadius={"$4"}
-          hoverStyle={{ scale: 0.925 }}
-          pressStyle={{ scale: 0.925 }}
-          animation="bouncy"
-          hoverTheme
-          pressTheme
           onPress={() => {
             setViewAsset(nativeAsset);
             setPage(Page.Asset);
@@ -93,15 +86,13 @@ export const TokenTab: FC<{
             10 ** (nativeAsset.token_info?.decimals || 0)
           } ${nativeAsset.content?.metadata.symbol}`}
           iconAfter={
-            <YStack maxWidth={"25%"}>
-              <Text numberOfLines={1}>
-                {`$${
-                  (nativeAsset.token_info?.price_info?.price_per_token || 0) *
+            <Text numberOfLines={1}>
+              {`$${formatAmount(
+                (nativeAsset.token_info?.price_info?.price_per_token || 0) *
                   ((nativeAsset.token_info?.balance || 0) /
                     10 ** (nativeAsset.token_info?.decimals || 0))
-                }`}
-              </Text>
-            </YStack>
+              )}`}
+            </Text>
           }
         />
         {allAssets?.items
@@ -111,15 +102,10 @@ export const TokenTab: FC<{
           )
           .map((x) => {
             return (
-              <ListItem
+              <CustomListItem
                 key={x.id}
                 padded
                 bordered
-                hoverStyle={{ scale: 0.925 }}
-                pressStyle={{ scale: 0.925 }}
-                animation="bouncy"
-                hoverTheme
-                pressTheme
                 width={"100%"}
                 borderRadius={"$4"}
                 onPress={() => {
@@ -141,15 +127,13 @@ export const TokenTab: FC<{
                   10 ** (x.token_info?.decimals || 0)
                 } ${x.content?.metadata.symbol}`}
                 iconAfter={
-                  <YStack maxWidth={"25%"}>
-                    <Text numberOfLines={1}>
-                      {`$${
-                        (x.token_info?.price_info?.price_per_token || 0) *
+                  <Text numberOfLines={1}>
+                    {`$${formatAmount(
+                      (x.token_info?.price_info?.price_per_token || 0) *
                         ((x.token_info?.balance || 0) /
                           10 ** (x.token_info?.decimals || 0))
-                      }`}
-                    </Text>
-                  </YStack>
+                    )}`}
+                  </Text>
                 }
               />
             );

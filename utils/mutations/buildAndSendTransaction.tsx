@@ -6,12 +6,14 @@ import {
   VersionedTransaction,
 } from "@solana/web3.js";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useWallets } from "components/hooks/useWallets";
 import { useConnection } from "components/providers/connectionProvider";
 import { useGlobalVariables } from "components/providers/globalProvider";
 import { Platform } from "react-native";
+import { CloudStorage } from "react-native-cloud-storage";
 import { SignerType } from "utils/enums/transaction";
+import { signWithCloudKeypair } from "utils/queries/useGetCloudPublicKey";
 import { signWithDeviceKeypair } from "utils/queries/useGetDevicePublicKey";
-import { signWithPasskeyKeypair } from "utils/queries/useGetPasskeyPublicKey";
 import { SignerState, TransactionSigner } from "utils/types/transaction";
 import NfcProxy from "../apdu/index";
 import {
@@ -28,13 +30,8 @@ export function useBuildAndSendTransaction({
 }) {
   const { connection } = useConnection();
   const client = useQueryClient();
-  const {
-    setNfcSheetVisible,
-    subOrganizationId,
-    deviceWalletPublicKey,
-    passkeyWalletPublicKey,
-  } = useGlobalVariables();
-
+  const { cloudStorage, setNfcSheetVisible } = useGlobalVariables();
+  const { deviceWalletPublicKey, cloudWalletPublicKey } = useWallets();
   return useMutation({
     mutationKey: ["send-vault-transaction", { wallet }],
     mutationFn: async ({
@@ -77,7 +74,7 @@ export function useBuildAndSendTransaction({
         );
         for (const signer of sortedSingers) {
           try {
-            await signTx(signer, tx, subOrganizationId, setNfcSheetVisible);
+            await signTx(signer, tx, setNfcSheetVisible, cloudStorage);
             callback({
               key: signer.key,
               type: signer.type,
@@ -121,8 +118,17 @@ export function useBuildAndSendTransaction({
             queryKey: [
               "get-multisig-by-owner",
               {
-                connection: connection.rpcEndpoint,
-                passkeyWalletPublicKey,
+                deviceWalletPublicKey,
+                cloudWalletPublicKey,
+              },
+            ],
+          }),
+          client.invalidateQueries({
+            queryKey: [
+              "get-your-offers",
+              {
+                deviceWalletPublicKey,
+                cloudWalletPublicKey,
               },
             ],
           }),
@@ -135,8 +141,8 @@ export function useBuildAndSendTransaction({
 async function signTx(
   signer: TransactionSigner,
   tx: VersionedTransaction,
-  subOrganizationId: string | undefined,
-  setNfcSheetVisible: React.Dispatch<React.SetStateAction<boolean>>
+  setNfcSheetVisible: React.Dispatch<React.SetStateAction<boolean>>,
+  cloudStorage: CloudStorage | null
 ) {
   try {
     switch (signer.type) {
@@ -160,13 +166,8 @@ async function signTx(
       case SignerType.DEVICE:
         await signWithDeviceKeypair(tx);
         break;
-      case SignerType.PASSKEY:
-        const passKeySignature = await signWithPasskeyKeypair(
-          subOrganizationId,
-          signer.key,
-          tx
-        );
-        tx.addSignature(signer.key, new Uint8Array(passKeySignature));
+      case SignerType.CLOUD:
+        await signWithCloudKeypair(tx, cloudStorage);
         break;
       default:
         throw new Error("Signer type is unknown.");

@@ -1,18 +1,21 @@
 import { ArrowLeft } from "@tamagui/lucide-icons";
 import { CustomButton } from "components/CustomButton";
 import { FC } from "react";
-import { Text, XStack } from "tamagui";
+import { Text, XStack, XStackProps } from "tamagui";
 
-export const Header: FC<{ text: string; reset: () => void }> = ({
-  text,
-  reset,
-}) => {
+export const Header: FC<
+  {
+    text: string;
+    reset: () => void;
+  } & XStackProps
+> = ({ text, reset, ...props }) => {
   return (
     <XStack
       padding="$2"
       justifyContent="space-between"
       alignItems="center"
       width={"100%"}
+      {...props}
     >
       <CustomButton
         size={"$3"}

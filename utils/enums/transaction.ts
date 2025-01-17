@@ -1,6 +1,6 @@
 export enum SignerType {
-  NFC = "NFC Hardware",
   DEVICE = "Device",
-  PASSKEY = "Passkey",
+  CLOUD = "Cloud",
   UNKNOWN = "Unknown",
+  NFC = "NFC Hardware",
 }

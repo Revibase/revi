@@ -3,14 +3,14 @@ import { CustomButton } from "components/CustomButton";
 import { FC } from "react";
 import { Image, YStack } from "tamagui";
 import { Page } from "utils/enums/page";
-import { SignerType } from "utils/enums/transaction";
+import { WalletType } from "utils/enums/wallet";
 import { getMultiSigFromAddress, getVaultFromAddress } from "utils/helper";
 import { useGetAssetsByOwner } from "utils/queries/useGetAssetsByOwner";
 import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
 import { DAS } from "utils/types/das";
 
 export const CollectiblesTab: FC<{
-  type: SignerType;
+  type: WalletType;
   walletAddress: PublicKey;
   setViewAsset: React.Dispatch<
     React.SetStateAction<DAS.GetAssetResponse | undefined>
@@ -19,7 +19,9 @@ export const CollectiblesTab: FC<{
 }> = ({ type, walletAddress, setViewAsset, setPage }) => {
   const { data: walletInfo } = useGetWalletInfo({
     address:
-      type === SignerType.NFC ? getMultiSigFromAddress(walletAddress) : null,
+      type === WalletType.MULTIWALLET
+        ? getMultiSigFromAddress(walletAddress)
+        : null,
   });
   const { data: allAssets } = useGetAssetsByOwner({
     address: walletInfo ? getVaultFromAddress(walletAddress) : walletAddress,

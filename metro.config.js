@@ -12,7 +12,7 @@ const config = getDefaultConfig(__dirname, {
 // Add polyfill resolvers
 config.resolver.extraNodeModules = {
   ...(config.resolver.extraNodeModules || {}),
-  crypto: require.resolve("react-native-quick-crypto"),
+  crypto: require.resolve("expo-crypto"),
   stream: require.resolve("stream-browserify"),
 };
 

@@ -1,25 +1,11 @@
-import {
-  Globe2,
-  Home,
-  ShieldCheck,
-  SmartphoneNfc,
-} from "@tamagui/lucide-icons";
-import { CustomButton } from "components/CustomButton";
+import { Handshake, Home, ShieldCheck } from "@tamagui/lucide-icons";
+import { AndroidNfcSheet } from "components/AndroidNfcSheet";
 import { useGlobalVariables } from "components/providers/globalProvider";
-
-import { ScreenWrapper } from "components/ScreenWrapper";
+import * as Haptics from "expo-haptics";
 import { Tabs } from "expo-router";
 import { useCallback, useState } from "react";
-import { Platform } from "react-native";
-import {
-  ButtonText,
-  Heading,
-  PortalProvider,
-  Sheet,
-  Spinner,
-  useTheme,
-  YStack,
-} from "tamagui";
+import { Platform, TouchableOpacity } from "react-native";
+import { PortalProvider, useTheme } from "tamagui";
 import { BottomTabs } from "utils/enums/bottomTab";
 import NfcProxy from "../../utils/apdu";
 
@@ -30,9 +16,9 @@ const bottomTabs = [
     name: "index",
   },
   {
-    icon: ({ color }) => <Globe2 color={color} />,
-    label: BottomTabs.Explore,
-    name: "explore",
+    icon: ({ color }) => <Handshake color={color} />,
+    label: BottomTabs.Offers,
+    name: "offers",
   },
   {
     icon: ({ color }) => <ShieldCheck color={color} />,
@@ -55,89 +41,61 @@ export default function TabLayout() {
     }
     setLoading(false);
   }, [loading, setNfcSheetVisible]);
+  const theme = useTheme();
   return (
     <PortalProvider shouldAddRootHost>
-      <ScreenWrapper>
-        <Tabs
-          screenOptions={{
-            sceneStyle: { backgroundColor: background?.val },
-            animation: "fade",
-            tabBarAllowFontScaling: true,
-            tabBarActiveTintColor: color?.val,
-            tabBarStyle: {
-              paddingTop: "2%",
-              height: "10%",
-              backgroundColor: background?.val,
-              borderTopColor: borderColor?.val,
-            },
-          }}
-        >
-          {bottomTabs.map((tab) => (
-            <Tabs.Screen
-              key={tab.label}
-              name={tab.name}
-              options={{
-                headerShown: false,
-                title: tab.label,
-                tabBarIcon: tab.icon,
+      <Tabs
+        screenOptions={{
+          sceneStyle: {
+            backgroundColor: theme.background.val,
+          },
+          animation: "none",
+          tabBarAllowFontScaling: true,
+          tabBarActiveTintColor: color?.val,
+          tabBarButton: (props) => (
+            <TouchableOpacity
+              onPress={(event) => {
+                if (props.accessibilityState?.selected) {
+                  Haptics.selectionAsync();
+                } else {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                props.onPress?.(event);
               }}
-            />
-          ))}
-        </Tabs>
-      </ScreenWrapper>
-      <Sheet
-        key="nfc-sheet"
-        forceRemoveScrollEnabled
-        modal={true}
-        open={isNfcSheetVisible && Platform.OS === "android"}
-        snapPoints={[50]}
-        defaultOpen={false}
-        zIndex={200_000}
-        animation="medium"
-        snapPointsMode="percent"
-      >
-        <Sheet.Overlay
-          animation="medium"
-          enterStyle={{ opacity: 0 }}
-          exitStyle={{ opacity: 0 }}
-          onPress={handleCloseNfc}
-        />
-        <Sheet.Handle />
-        <Sheet.Frame
-          alignItems="center"
-          justifyContent="flex-start"
-          backgroundColor={"$colorTransparent"}
-        >
-          <YStack
-            elevation={"$4"}
-            shadowColor={"$background05"}
-            borderRadius={"$8"}
-            width={"90%"}
-            height={"90%"}
-            backgroundColor={"white"}
-            padding={"$8"}
-            justifyContent="space-between"
-            alignItems="center"
-            gap={"$4"}
-          >
-            <Heading>Ready To Scan</Heading>
-            <SmartphoneNfc
-              color={"$blue10"}
-              size={"$12"}
-              strokeWidth={"$0.3"}
-            />
-            <CustomButton
-              width={"100%"}
-              size={"$5"}
-              backgroundColor={"$gray5"}
-              onPress={handleCloseNfc}
+              style={{
+                flex: 1,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
             >
-              {loading && <Spinner />}
-              <ButtonText>Cancel</ButtonText>
-            </CustomButton>
-          </YStack>
-        </Sheet.Frame>
-      </Sheet>
+              {props.children}
+            </TouchableOpacity>
+          ),
+          tabBarStyle: {
+            paddingTop: "2%",
+            height: "10%",
+            backgroundColor: background?.val,
+            borderTopColor: borderColor?.val,
+          },
+        }}
+      >
+        {bottomTabs.map((tab) => (
+          <Tabs.Screen
+            key={tab.label}
+            name={tab.name}
+            options={{
+              headerShown: false,
+              title: tab.label,
+              tabBarIcon: tab.icon,
+            }}
+          />
+        ))}
+      </Tabs>
+      <AndroidNfcSheet
+        isNfcSheetVisible={isNfcSheetVisible}
+        handleCloseNfc={handleCloseNfc}
+        loading={loading}
+      />
     </PortalProvider>
   );
 }

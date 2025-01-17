@@ -8,6 +8,374 @@
   },
   "instructions": [
     {
+      "name": "cancel_escrow_as_owner",
+      "docs": [
+        "Cancels an escrow as an owner. This function unlocks the multi-wallet and invalidates the escrow,",
+        "preventing it from being executed.",
+        "",
+        "# Parameters",
+        "- `ctx`: The context containing all relevant accounts required for canceling the escrow.",
+        "",
+        "# Returns",
+        "- `Ok(())`: If the escrow is successfully canceled and the multi-wallet is unlocked.",
+        "- `Err`: If validation fails or the accounts provided are invalid.",
+        ""
+      ],
+      "discriminator": [22, 155, 132, 143, 51, 185, 186, 247],
+      "accounts": [
+        {
+          "name": "multi_wallet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109, 117, 108, 116, 105, 95, 119, 97, 108, 108, 101, 116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "escrow.create_key",
+                "account": "Escrow"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [101, 115, 99, 114, 111, 119]
+              },
+              {
+                "kind": "account",
+                "path": "escrow.create_key",
+                "account": "Escrow"
+              },
+              {
+                "kind": "account",
+                "path": "escrow.identifier",
+                "account": "Escrow"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_vault",
+          "writable": true,
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [101, 115, 99, 114, 111, 119]
+              },
+              {
+                "kind": "account",
+                "path": "escrow.create_key",
+                "account": "Escrow"
+              },
+              {
+                "kind": "account",
+                "path": "escrow.identifier",
+                "account": "Escrow"
+              },
+              {
+                "kind": "const",
+                "value": [118, 97, 117, 108, 116]
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_token_vault",
+          "writable": true,
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "escrow_vault"
+              },
+              {
+                "kind": "account",
+                "path": "token_program"
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142,
+                13, 131, 11, 90, 19, 153, 218, 255, 16, 132, 4, 142, 123, 216,
+                219, 233, 248, 89
+              ]
+            }
+          }
+        },
+        {
+          "name": "proposer_token_account",
+          "writable": true,
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "proposer"
+              },
+              {
+                "kind": "account",
+                "path": "token_program"
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142,
+                13, 131, 11, 90, 19, 153, 218, 255, 16, 132, 4, 142, 123, 216,
+                219, 233, 248, 89
+              ]
+            }
+          }
+        },
+        {
+          "name": "proposer",
+          "writable": true
+        },
+        {
+          "name": "instruction_sysvar",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        },
+        {
+          "name": "mint",
+          "optional": true
+        },
+        {
+          "name": "token_program",
+          "optional": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "cancel_escrow_as_proposer",
+      "docs": [
+        "Cancels an escrow as a proposer. This function returns the locked funds in the escrow",
+        "vault back to the proposer and invalidates the escrow, preventing further execution.",
+        "",
+        "# Parameters",
+        "- `ctx`: The context containing all relevant accounts required for canceling the escrow.",
+        "",
+        "# Returns",
+        "- `Ok(())`: If the escrow is successfully canceled and funds are returned to the proposer.",
+        "- `Err`: If any validation fails or the transfer operation encounters an issue.",
+        ""
+      ],
+      "discriminator": [240, 46, 180, 43, 223, 230, 14, 220],
+      "accounts": [
+        {
+          "name": "multi_wallet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109, 117, 108, 116, 105, 95, 119, 97, 108, 108, 101, 116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "escrow.create_key",
+                "account": "Escrow"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [101, 115, 99, 114, 111, 119]
+              },
+              {
+                "kind": "account",
+                "path": "escrow.create_key",
+                "account": "Escrow"
+              },
+              {
+                "kind": "account",
+                "path": "escrow.identifier",
+                "account": "Escrow"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [101, 115, 99, 114, 111, 119]
+              },
+              {
+                "kind": "account",
+                "path": "escrow.create_key",
+                "account": "Escrow"
+              },
+              {
+                "kind": "account",
+                "path": "escrow.identifier",
+                "account": "Escrow"
+              },
+              {
+                "kind": "const",
+                "value": [118, 97, 117, 108, 116]
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_token_vault",
+          "writable": true,
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "escrow_vault"
+              },
+              {
+                "kind": "account",
+                "path": "token_program"
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142,
+                13, 131, 11, 90, 19, 153, 218, 255, 16, 132, 4, 142, 123, 216,
+                219, 233, 248, 89
+              ]
+            }
+          }
+        },
+        {
+          "name": "proposer_token_account",
+          "writable": true,
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "proposer"
+              },
+              {
+                "kind": "account",
+                "path": "token_program"
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142,
+                13, 131, 11, 90, 19, 153, 218, 255, 16, 132, 4, 142, 123, 216,
+                219, 233, 248, 89
+              ]
+            }
+          }
+        },
+        {
+          "name": "mint",
+          "optional": true
+        },
+        {
+          "name": "proposer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "token_program",
+          "optional": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "change_config",
       "docs": [
         "# Parameters",
@@ -52,6 +420,23 @@
         {
           "name": "instruction_sysvar",
           "address": "Sysvar1nstructions1111111111111111111111111"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
         }
       ],
       "args": [
@@ -129,6 +514,721 @@
       ]
     },
     {
+      "name": "execute_escrow_as_non_owner",
+      "docs": [
+        "Executes an escrow. This function transfers funds from the escrow vault",
+        "to the recipient and updates the members of the multi-wallet as specified in the escrow.",
+        "",
+        "# Parameters",
+        "- `ctx`: The context containing all relevant accounts required for executing the escrow.",
+        "- `new_members`: A vector of new members to be added to the multi-wallet after the escrow is executed.",
+        "- `threshold`: Number of signatures required for the multisig transaction to be approved.",
+        "",
+        "# Returns",
+        "- `Ok(())`: If the escrow is successfully executed, funds are transferred, and the multi-wallet is updated.",
+        "- `Err`: If any validation fails, the escrow is not locked, or the transfer operation encounters an issue.",
+        ""
+      ],
+      "discriminator": [63, 186, 102, 94, 23, 177, 217, 130],
+      "accounts": [
+        {
+          "name": "multi_wallet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109, 117, 108, 116, 105, 95, 119, 97, 108, 108, 101, 116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "escrow.create_key",
+                "account": "Escrow"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [101, 115, 99, 114, 111, 119]
+              },
+              {
+                "kind": "account",
+                "path": "escrow.create_key",
+                "account": "Escrow"
+              },
+              {
+                "kind": "account",
+                "path": "escrow.identifier",
+                "account": "Escrow"
+              }
+            ]
+          }
+        },
+        {
+          "name": "recipient_token_account",
+          "writable": true,
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "recipient"
+              },
+              {
+                "kind": "account",
+                "path": "token_program"
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142,
+                13, 131, 11, 90, 19, 153, 218, 255, 16, 132, 4, 142, 123, 216,
+                219, 233, 248, 89
+              ]
+            }
+          }
+        },
+        {
+          "name": "payer_token_account",
+          "writable": true,
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "payer"
+              },
+              {
+                "kind": "account",
+                "path": "token_program"
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142,
+                13, 131, 11, 90, 19, 153, 218, 255, 16, 132, 4, 142, 123, 216,
+                219, 233, 248, 89
+              ]
+            }
+          }
+        },
+        {
+          "name": "mint",
+          "optional": true
+        },
+        {
+          "name": "recipient",
+          "writable": true
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "token_program",
+          "optional": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "new_members",
+          "type": {
+            "vec": {
+              "defined": {
+                "name": "Member"
+              }
+            }
+          }
+        },
+        {
+          "name": "threshold",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "execute_escrow_as_owner",
+      "docs": [
+        "Executes an escrow as an owner. This function transfers funds from the escrow vault",
+        "to the recipient, updates the multi-wallet's members as specified in the escrow, and",
+        "ensures the multi-wallet remains valid.",
+        "",
+        "# Parameters",
+        "- `ctx`: The context containing all relevant accounts required for executing the escrow.",
+        "",
+        "# Returns",
+        "- `Ok(())`: If the escrow is successfully executed, funds are transferred, and the multi-wallet is updated.",
+        "- `Err`: If validation fails, the escrow is not properly initialized, or the transfer encounters an issue.",
+        ""
+      ],
+      "discriminator": [119, 121, 203, 21, 159, 211, 44, 59],
+      "accounts": [
+        {
+          "name": "multi_wallet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109, 117, 108, 116, 105, 95, 119, 97, 108, 108, 101, 116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "escrow.create_key",
+                "account": "Escrow"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [101, 115, 99, 114, 111, 119]
+              },
+              {
+                "kind": "account",
+                "path": "escrow.create_key",
+                "account": "Escrow"
+              },
+              {
+                "kind": "account",
+                "path": "escrow.identifier",
+                "account": "Escrow"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [101, 115, 99, 114, 111, 119]
+              },
+              {
+                "kind": "account",
+                "path": "escrow.create_key",
+                "account": "Escrow"
+              },
+              {
+                "kind": "account",
+                "path": "escrow.identifier",
+                "account": "Escrow"
+              },
+              {
+                "kind": "const",
+                "value": [118, 97, 117, 108, 116]
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_token_vault",
+          "writable": true,
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "escrow_vault"
+              },
+              {
+                "kind": "account",
+                "path": "token_program"
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142,
+                13, 131, 11, 90, 19, 153, 218, 255, 16, 132, 4, 142, 123, 216,
+                219, 233, 248, 89
+              ]
+            }
+          }
+        },
+        {
+          "name": "recipient_token_account",
+          "writable": true,
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "recipient"
+              },
+              {
+                "kind": "account",
+                "path": "token_program"
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142,
+                13, 131, 11, 90, 19, 153, 218, 255, 16, 132, 4, 142, 123, 216,
+                219, 233, 248, 89
+              ]
+            }
+          }
+        },
+        {
+          "name": "mint",
+          "optional": true
+        },
+        {
+          "name": "instruction_sysvar",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        },
+        {
+          "name": "recipient",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "token_program",
+          "optional": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initiate_escrow_as_non_owner",
+      "docs": [
+        "Initializes an escrow. This function locks funds into an escrow vault",
+        "and sets up the necessary metadata for the escrow.",
+        "",
+        "# Parameters",
+        "- `ctx`: The context containing all relevant accounts for initializing the escrow.",
+        "- `identifier`: A unique identifier for the escrow, used to distinguish it from others.",
+        "- `new_members`: A vector of new members to be added to the multi-wallet after the escrow is executed.",
+        "- `amount`: The amount to be transferred to the escrow.",
+        "",
+        "# Returns",
+        "- `Ok(())`: If the escrow is successfully initialized and funds are transferred to the escrow vault.",
+        "- `Err`: If any validation fails or the transfer operation encounters an issue.",
+        ""
+      ],
+      "discriminator": [207, 60, 39, 74, 34, 156, 127, 180],
+      "accounts": [
+        {
+          "name": "multi_wallet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109, 117, 108, 116, 105, 95, 119, 97, 108, 108, 101, 116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "multi_wallet.create_key",
+                "account": "MultiWallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [101, 115, 99, 114, 111, 119]
+              },
+              {
+                "kind": "account",
+                "path": "multi_wallet.create_key",
+                "account": "MultiWallet"
+              },
+              {
+                "kind": "arg",
+                "path": "identifier"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [101, 115, 99, 114, 111, 119]
+              },
+              {
+                "kind": "account",
+                "path": "multi_wallet.create_key",
+                "account": "MultiWallet"
+              },
+              {
+                "kind": "arg",
+                "path": "identifier"
+              },
+              {
+                "kind": "const",
+                "value": [118, 97, 117, 108, 116]
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow_token_vault",
+          "writable": true,
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "escrow_vault"
+              },
+              {
+                "kind": "account",
+                "path": "token_program"
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142,
+                13, 131, 11, 90, 19, 153, 218, 255, 16, 132, 4, 142, 123, 216,
+                219, 233, 248, 89
+              ]
+            }
+          }
+        },
+        {
+          "name": "payer_token_account",
+          "writable": true,
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "payer"
+              },
+              {
+                "kind": "account",
+                "path": "token_program"
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142,
+                13, 131, 11, 90, 19, 153, 218, 255, 16, 132, 4, 142, 123, 216,
+                219, 233, 248, 89
+              ]
+            }
+          }
+        },
+        {
+          "name": "mint",
+          "optional": true
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "member",
+          "signer": true
+        },
+        {
+          "name": "token_program",
+          "optional": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "identifier",
+          "type": "u64"
+        },
+        {
+          "name": "new_members",
+          "type": {
+            "vec": {
+              "defined": {
+                "name": "Member"
+              }
+            }
+          }
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "threshold",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "initiate_escrow_as_owner",
+      "docs": [
+        "Initializes an escrow as an owner. This function locks the multi-wallet",
+        "and prepares the escrow account with the specified metadata and recipient details.",
+        "",
+        "# Parameters",
+        "- `ctx`: The context containing all relevant accounts required for initializing the escrow.",
+        "- `identifier`: A unique identifier for the escrow, used to distinguish it from others.",
+        "- `recipient`: The recipient's account,",
+        "- `amount`: The amount to be transferred.",
+        "- `mint`: Token mint that needs to be transferred(if any)",
+        "",
+        "# Returns",
+        "- `Ok(())`: If the escrow is successfully initialized and the multi-wallet is locked.",
+        "- `Err`: If any validation fails or the multi-wallet does not meet the required threshold.",
+        ""
+      ],
+      "discriminator": [255, 237, 252, 101, 179, 193, 143, 27],
+      "accounts": [
+        {
+          "name": "multi_wallet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109, 117, 108, 116, 105, 95, 119, 97, 108, 108, 101, 116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "multi_wallet.create_key",
+                "account": "MultiWallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [101, 115, 99, 114, 111, 119]
+              },
+              {
+                "kind": "account",
+                "path": "multi_wallet.create_key",
+                "account": "MultiWallet"
+              },
+              {
+                "kind": "arg",
+                "path": "identifier"
+              }
+            ]
+          }
+        },
+        {
+          "name": "instruction_sysvar",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "identifier",
+          "type": "u64"
+        },
+        {
+          "name": "recipient",
+          "type": "pubkey"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "mint",
+          "type": {
+            "option": "pubkey"
+          }
+        }
+      ]
+    },
+    {
+      "name": "migrate_account",
+      "discriminator": [177, 228, 60, 125, 13, 116, 44, 84],
+      "accounts": [
+        {
+          "name": "multi_wallet",
+          "writable": true
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "members_length",
+          "type": "u8"
+        },
+        {
+          "name": "num_offers",
+          "type": "u8"
+        }
+      ]
+    },
+    {
       "name": "vault_transaction_execute",
       "docs": [
         "Executes a vault transaction.",
@@ -181,78 +1281,154 @@
   ],
   "accounts": [
     {
+      "name": "Escrow",
+      "discriminator": [31, 213, 123, 187, 186, 22, 218, 155]
+    },
+    {
       "name": "MultiWallet",
       "discriminator": [100, 242, 252, 66, 54, 82, 77, 90]
+    }
+  ],
+  "events": [
+    {
+      "name": "ChangeConfigEvent",
+      "discriminator": [201, 112, 93, 219, 95, 244, 24, 240]
+    },
+    {
+      "name": "EscrowEvent",
+      "discriminator": [241, 51, 61, 3, 5, 32, 113, 144]
     }
   ],
   "errors": [
     {
       "code": 6000,
       "name": "DurableNonceDetected",
-      "msg": "Durable nonce is not allowed"
+      "msg": "Durable nonce detected. Durable nonce is not allowed for this transaction."
     },
     {
       "code": 6001,
       "name": "DuplicateMember",
-      "msg": "Found multiple members with the same pubkey"
+      "msg": "Duplicate public keys found in the members array. Each member must have a unique public key."
     },
     {
       "code": 6002,
       "name": "EmptyMembers",
-      "msg": "Members array is empty"
+      "msg": "The members array cannot be empty. Add at least one member."
     },
     {
       "code": 6003,
       "name": "TooManyMembers",
-      "msg": "Too many members, can be up to 65535"
+      "msg": "Too many members specified. A maximum of 65,535 members is allowed."
     },
     {
       "code": 6004,
       "name": "InvalidThreshold",
-      "msg": "Invalid threshold, must be between 1 and number of members"
+      "msg": "Invalid threshold specified. The threshold must be between 1 and the total number of members."
     },
     {
       "code": 6005,
       "name": "ThresholdTooHigh",
-      "msg": "Threshold must be lower than 10"
+      "msg": "Threshold exceeds the maximum allowed limit of 2. Please choose a lower value."
     },
     {
       "code": 6006,
       "name": "InvalidTransactionMessage",
-      "msg": "TransactionMessage is malformed."
+      "msg": "The provided TransactionMessage is malformed or improperly formatted."
     },
     {
       "code": 6007,
       "name": "NotEnoughSigners",
-      "msg": "Number of signers does not meet the minumum threshold"
+      "msg": "Insufficient signers. The number of signers must meet or exceed the minimum threshold."
     },
     {
       "code": 6008,
       "name": "InvalidNumberOfAccounts",
-      "msg": "Wrong number of accounts provided"
+      "msg": "Incorrect number of accounts provided. Verify the account count matches the expected number."
     },
     {
       "code": 6009,
       "name": "InvalidAccount",
-      "msg": "Invalid account provided"
+      "msg": "One or more accounts provided are invalid. Ensure all accounts meet the requirements."
     },
     {
       "code": 6010,
       "name": "MissingAccount",
-      "msg": "Missing account"
+      "msg": "Required account is missing. Ensure all necessary accounts are included."
     },
     {
       "code": 6011,
       "name": "IllegalAccountOwner",
-      "msg": "Account is not owned by Multisig program"
+      "msg": "Account is not owned by the Multisig program. Only accounts under the Multisig program can be used."
     },
     {
       "code": 6012,
-      "name": "ProtectedAccount",
-      "msg": "Account is protected, it cannot be passed into a CPI as writable"
+      "name": "MultisigIsCurrentlyLocked",
+      "msg": "The Multisig must be unlocked before performing this operation. Unlock it and try again."
+    },
+    {
+      "code": 6013,
+      "name": "EscrowDoesNotExist",
+      "msg": "The escrow account doesn't exist."
+    },
+    {
+      "code": 6014,
+      "name": "MissingOwner",
+      "msg": "The members array cannot have a length of one. Add an additional member."
+    },
+    {
+      "code": 6015,
+      "name": "InvalidEscrowProposer",
+      "msg": "The proposer must match the account stated in the escrow."
+    },
+    {
+      "code": 6016,
+      "name": "InvalidEscrowRecipient",
+      "msg": "The recipient nust match the account stated in the escrow."
+    },
+    {
+      "code": 6017,
+      "name": "RequiresAtLeastOneMember",
+      "msg": "You require at least one member from the Multisig to initiate an escrow."
+    },
+    {
+      "code": 6018,
+      "name": "UnauthorisedToAcceptEscrowOffer",
+      "msg": "You do not have permission to accept this offer."
     }
   ],
   "types": [
+    {
+      "name": "ChangeConfigEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "create_key",
+            "type": "pubkey"
+          },
+          {
+            "name": "members",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "Member"
+                }
+              }
+            }
+          },
+          {
+            "name": "threshold",
+            "type": "u8"
+          },
+          {
+            "name": "metadata",
+            "type": {
+              "option": "pubkey"
+            }
+          }
+        ]
+      }
+    },
     {
       "name": "ConfigAction",
       "type": {
@@ -289,6 +1465,126 @@
                 "option": "pubkey"
               }
             ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Escrow",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "create_key",
+            "type": "pubkey"
+          },
+          {
+            "name": "identifier",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "proposer",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "vault_bump",
+            "type": {
+              "option": "u8"
+            }
+          },
+          {
+            "name": "recipient",
+            "type": {
+              "defined": {
+                "name": "Recipient"
+              }
+            }
+          },
+          {
+            "name": "new_members",
+            "type": {
+              "option": {
+                "vec": {
+                  "defined": {
+                    "name": "Member"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "name": "threshold",
+            "type": {
+              "option": "u8"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "EscrowEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "create_key",
+            "type": "pubkey"
+          },
+          {
+            "name": "identifier",
+            "type": "u64"
+          },
+          {
+            "name": "is_pending",
+            "type": "bool"
+          },
+          {
+            "name": "is_rejected",
+            "type": "bool"
+          },
+          {
+            "name": "proposer",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "approver",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "recipient",
+            "type": {
+              "defined": {
+                "name": "Recipient"
+              }
+            }
+          },
+          {
+            "name": "new_members",
+            "type": {
+              "option": {
+                "vec": {
+                  "defined": {
+                    "name": "Member"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "name": "threshold",
+            "type": {
+              "option": "u8"
+            }
           }
         ]
       }
@@ -339,7 +1635,37 @@
             }
           },
           {
+            "name": "pending_offers",
+            "type": {
+              "vec": "pubkey"
+            }
+          },
+          {
             "name": "metadata",
+            "type": {
+              "option": "pubkey"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Recipient",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "pubkey",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "mint",
             "type": {
               "option": "pubkey"
             }

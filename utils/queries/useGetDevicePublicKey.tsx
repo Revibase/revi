@@ -1,13 +1,28 @@
-import { Keypair, VersionedTransaction } from "@solana/web3.js";
+import { Keypair, PublicKey, VersionedTransaction } from "@solana/web3.js";
 import { useQuery } from "@tanstack/react-query";
 import * as Keychain from "react-native-keychain";
-import { APP_IDENTIFIER } from "utils/consts";
+import {
+  DEVICE_PRIVATE_KEY,
+  DEVICE_PUBLIC_KEY,
+  DEVICE_SEED_PHRASE,
+} from "utils/consts";
 import { WalletType } from "utils/enums/wallet";
 export function useGetDevicePublicKey() {
   return useQuery({
     queryKey: ["get-publickey", { walletType: WalletType.DEVICE }],
     queryFn: async () => {
-      return (await retrieveDeviceWalletKeypair()).publicKey;
+      try {
+        const credentials = await Keychain.getGenericPassword({
+          service: DEVICE_PUBLIC_KEY,
+        });
+        if (credentials) {
+          return new PublicKey(credentials.password);
+        } else {
+          throw new Error("No key found.");
+        }
+      } catch (e) {
+        return null;
+      }
     },
     staleTime: Infinity,
   });
@@ -21,11 +36,12 @@ export const signWithDeviceKeypair = async (tx: VersionedTransaction) => {
 export const retrieveDeviceWalletSeedPhrase = async () => {
   try {
     const credentials = await Keychain.getGenericPassword({
-      service: `${APP_IDENTIFIER}-DEVICE`,
-      accessControl: Keychain.ACCESS_CONTROL.BIOMETRY_ANY_OR_DEVICE_PASSCODE,
+      service: DEVICE_SEED_PHRASE,
+      accessControl: Keychain.ACCESS_CONTROL.BIOMETRY_ANY,
+      authenticationPrompt: { title: "Authenticate", cancel: "Cancel" },
     });
     if (credentials) {
-      return credentials.username;
+      return credentials.password;
     } else {
       throw new Error("No seed phrase found.");
     }
@@ -37,8 +53,9 @@ export const retrieveDeviceWalletSeedPhrase = async () => {
 export const retrieveDeviceWalletKeypair = async () => {
   try {
     const credentials = await Keychain.getGenericPassword({
-      service: `${APP_IDENTIFIER}-DEVICE`,
-      accessControl: Keychain.ACCESS_CONTROL.BIOMETRY_ANY_OR_DEVICE_PASSCODE,
+      service: DEVICE_PRIVATE_KEY,
+      accessControl: Keychain.ACCESS_CONTROL.BIOMETRY_ANY,
+      authenticationPrompt: { title: "Authenticate", cancel: "Cancel" },
     });
     if (credentials) {
       return Keypair.fromSecretKey(Buffer.from(credentials.password, "hex"));

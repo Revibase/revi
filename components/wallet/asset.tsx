@@ -1,9 +1,10 @@
 import { PublicKey } from "@solana/web3.js";
 import { Send } from "@tamagui/lucide-icons";
-import { useToastController } from "@tamagui/toast";
 import { CustomButton } from "components/CustomButton";
-import { useGlobalVariables } from "components/providers/globalProvider";
+import { CustomListItem } from "components/CustomListItem";
+import { useValidateWallet } from "components/hooks/useValidateWallet";
 import { FC, useMemo } from "react";
+import { Alert } from "react-native";
 import {
   Avatar,
   AvatarImage,
@@ -11,22 +12,20 @@ import {
   ButtonText,
   Card,
   Heading,
-  ListItem,
   Text,
   XGroup,
   XStack,
   YStack,
 } from "tamagui";
 import { Page } from "utils/enums/page";
-import { SignerType } from "utils/enums/transaction";
-import { getMultiSigFromAddress } from "utils/helper";
+import { WalletType } from "utils/enums/wallet";
+import { formatAmount } from "utils/helper";
 import { useGetAsset } from "utils/queries/useGetAsset";
-import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
 import { DAS } from "utils/types/das";
 import { Header } from "./header";
 
 export const AssetPage: FC<{
-  type: SignerType;
+  type: WalletType;
   walletAddress: PublicKey;
   asset: DAS.GetAssetResponse;
   setPage: React.Dispatch<React.SetStateAction<Page>>;
@@ -43,7 +42,7 @@ export const AssetPage: FC<{
   return (
     <YStack
       enterStyle={{ opacity: 0, x: -25 }}
-      animation={"medium"}
+      animation={"quick"}
       gap="$6"
       padding={"$4"}
     >
@@ -62,7 +61,7 @@ export const AssetPage: FC<{
   );
 };
 export const Asset: FC<{
-  type: SignerType;
+  type: WalletType;
   walletAddress: PublicKey;
   asset: DAS.GetAssetResponse;
   setPage: React.Dispatch<React.SetStateAction<Page>>;
@@ -84,13 +83,6 @@ export const Asset: FC<{
   setWithdrawAsset,
   callback = () => setPage(Page.Asset),
 }) => {
-  const { data: walletInfo } = useGetWalletInfo({
-    address:
-      type === SignerType.NFC ? getMultiSigFromAddress(walletAddress) : null,
-  });
-  const toast = useToastController();
-  const { deviceWalletPublicKey, passkeyWalletPublicKey } =
-    useGlobalVariables();
   const { data: collection } = useGetAsset({
     mint: asset?.grouping?.find((x) => x.group_key == "collection")?.group_value
       ? new PublicKey(
@@ -100,6 +92,11 @@ export const Asset: FC<{
         )
       : undefined,
   });
+  const {
+    deviceWalletPublicKeyIsMember,
+    cloudWalletPublicKeyIsMember,
+    validateAction,
+  } = useValidateWallet(walletAddress, type);
 
   const assetBalance = useMemo(
     () =>
@@ -116,48 +113,6 @@ export const Asset: FC<{
   const total = useMemo(
     () => (assetBalance && assetPrice ? assetBalance * assetPrice : 0),
     [assetBalance, assetPrice]
-  );
-  const noOwners = useMemo(
-    () =>
-      !!walletInfo?.members &&
-      (
-        walletInfo?.members.filter(
-          (x) => x.pubkey.toString() !== walletAddress.toString()
-        ) || []
-      ).length === 0,
-    [walletInfo, walletAddress]
-  );
-
-  const deviceWalletPublicKeyIsMember = useMemo(
-    () =>
-      !noOwners &&
-      !!deviceWalletPublicKey &&
-      ((walletInfo?.members &&
-        walletInfo.members.findIndex(
-          (x) => x.pubkey.toString() === deviceWalletPublicKey.toString()
-        ) !== -1) ||
-        walletAddress.toString() === deviceWalletPublicKey.toString()),
-    [noOwners, deviceWalletPublicKey, walletInfo, walletAddress]
-  );
-
-  const passkeyWalletPublicKeyIsMember = useMemo(
-    () =>
-      !noOwners &&
-      !!passkeyWalletPublicKey &&
-      ((walletInfo?.members &&
-        walletInfo.members.findIndex(
-          (x) => x.pubkey.toString() === passkeyWalletPublicKey.toString()
-        ) !== -1) ||
-        walletAddress.toString() === passkeyWalletPublicKey.toString()),
-    [noOwners, passkeyWalletPublicKey, walletInfo, walletAddress]
-  );
-
-  const isAllowed = useMemo(
-    () =>
-      noOwners ||
-      deviceWalletPublicKeyIsMember ||
-      passkeyWalletPublicKeyIsMember,
-    [noOwners, deviceWalletPublicKeyIsMember, passkeyWalletPublicKeyIsMember]
   );
 
   return (
@@ -177,31 +132,21 @@ export const Asset: FC<{
         {assetBalance > 0 && (
           <CustomButton
             onPress={() => {
-              if (!isAllowed) {
-                toast.show("Unauthorised action", {
-                  message: "You are not the owner of this wallet.",
-                  customData: {
-                    preset: "error",
-                  },
-                });
+              if (!validateAction()) return;
+              if (
+                !(
+                  asset.compression?.compressed &&
+                  (!deviceWalletPublicKeyIsMember ||
+                    !cloudWalletPublicKeyIsMember)
+                )
+              ) {
+                setWithdrawAsset({ asset, callback });
+                setPage(Page.Withdrawal);
               } else {
-                if (
-                  !(
-                    asset.compression?.compressed &&
-                    (!deviceWalletPublicKeyIsMember ||
-                      !passkeyWalletPublicKeyIsMember)
-                  )
-                ) {
-                  setWithdrawAsset({ asset, callback });
-                  setPage(Page.Withdrawal);
-                } else {
-                  toast.show("Unauthorised action", {
-                    message: "An owner needs to be set first.",
-                    customData: {
-                      preset: "error",
-                    },
-                  });
-                }
+                Alert.alert(
+                  "Unauthorised action",
+                  "An owner needs to be set first."
+                );
               }
             }}
           >
@@ -220,31 +165,27 @@ export const Asset: FC<{
           alignSelf="center"
         >
           <XGroup.Item>
-            <ListItem
+            <CustomListItem
               width={"33%"}
-              hoverTheme
-              pressTheme
-              title={`${assetBalance} ${asset.content?.metadata.symbol}`}
+              title={`${formatAmount(assetBalance)} ${
+                asset.content?.metadata.symbol
+              }`}
               subTitle={"Amount"}
             />
           </XGroup.Item>
 
           <XGroup.Item>
-            <ListItem
+            <CustomListItem
               width={"33%"}
-              hoverTheme
-              pressTheme
-              title={`$${assetPrice}`}
+              title={`$${formatAmount(assetPrice || 0)}`}
               subTitle={"Price"}
             />
           </XGroup.Item>
 
           <XGroup.Item>
-            <ListItem
+            <CustomListItem
               width={"33%"}
-              hoverTheme
-              pressTheme
-              title={`$${total}`}
+              title={`$${formatAmount(total)}`}
               subTitle={"Total"}
             />
           </XGroup.Item>
@@ -265,7 +206,7 @@ export const Asset: FC<{
               <YStack gap="$2" flexDirection="row" flexWrap="wrap">
                 {asset?.content?.metadata.attributes?.map((x, index) => {
                   return (
-                    <ListItem
+                    <CustomListItem
                       key={index}
                       width={"30%"}
                       title={x.value}

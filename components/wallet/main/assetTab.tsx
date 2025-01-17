@@ -3,7 +3,7 @@ import { AlertTriangle } from "@tamagui/lucide-icons";
 import { FC } from "react";
 import { Text, XStack, YStack } from "tamagui";
 import { Page } from "utils/enums/page";
-import { SignerType } from "utils/enums/transaction";
+import { WalletType } from "utils/enums/wallet";
 import { getMultiSigFromAddress, getVaultFromAddress } from "utils/helper";
 import { useGetAsset } from "utils/queries/useGetAsset";
 import { useGetAssetsByOwner } from "utils/queries/useGetAssetsByOwner";
@@ -24,11 +24,13 @@ export const AssetTab: FC<{
     >
   >;
   walletAddress: PublicKey;
-  type: SignerType;
+  type: WalletType;
 }> = ({ mint, walletAddress, setPage, setWithdrawAsset, type }) => {
   const { data: walletInfo } = useGetWalletInfo({
     address:
-      type === SignerType.NFC ? getMultiSigFromAddress(walletAddress) : null,
+      type === WalletType.MULTIWALLET
+        ? getMultiSigFromAddress(walletAddress)
+        : null,
   });
   const { data: mintData } = useGetAsset({ mint });
   const { data: allAssets } = useGetAssetsByOwner({

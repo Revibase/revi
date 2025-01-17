@@ -13,6 +13,8 @@ import {
 } from "@tamagui/lucide-icons";
 import { useToastController } from "@tamagui/toast";
 import { CustomButton } from "components/CustomButton";
+import { CustomListItem } from "components/CustomListItem";
+import { useWallets } from "components/hooks/useWallets";
 import { useConnection } from "components/providers/connectionProvider";
 import { useGlobalVariables } from "components/providers/globalProvider";
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
@@ -21,7 +23,6 @@ import {
   ButtonText,
   Checkbox,
   Heading,
-  ListItem,
   Spinner,
   Text,
   XStack,
@@ -31,9 +32,10 @@ import {
 import { Page } from "utils/enums/page";
 import { SignerType } from "utils/enums/transaction";
 import { getFeePayerFromSigners, getSignerTypeFromAddress } from "utils/helper";
+import { useAcceptOrCancelEscrow } from "utils/mutations/acceptOrCancelEscrow";
 import { useBuildAndSendTransaction } from "utils/mutations/buildAndSendTransaction";
-import { useCreateVaultExecuteIxMutation } from "utils/mutations/createVaultExecuteIx";
-import { useSetOwnerIxMutation } from "utils/mutations/setOwnerIx";
+import { useCreateVaultExecute } from "utils/mutations/createVaultExecute";
+import { useSetOwner } from "utils/mutations/setOwner";
 import { estimateFees } from "utils/program";
 import {
   SignerState,
@@ -60,12 +62,13 @@ export const ConfirmationPage: FC<{
     lookUpTables?: AddressLookupTableAccount[];
   } | null>(null);
   const { connection } = useConnection();
-  const { setNfcSheetVisible, deviceWalletPublicKey, passkeyWalletPublicKey } =
-    useGlobalVariables();
-  const createVaultExecuteIx = useCreateVaultExecuteIxMutation({
+  const { setNfcSheetVisible } = useGlobalVariables();
+  const { deviceWalletPublicKey, cloudWalletPublicKey } = useWallets();
+  const createVaultExecuteIx = useCreateVaultExecute({
     wallet: walletAddress,
   });
-  const setOwnerIxMutation = useSetOwnerIxMutation({ wallet: walletAddress });
+  const setEscrowMutation = useAcceptOrCancelEscrow({ walletAddress });
+  const setOwnerIxMutation = useSetOwner({ wallet: walletAddress });
   const [loading, setLoading] = useState(true);
 
   const prepareTransaction = useCallback(
@@ -98,58 +101,102 @@ export const ConfirmationPage: FC<{
   const handleConfirmation = useCallback(
     async (signers: TransactionSigner[]) => {
       try {
-        let ixs = args.ixs;
-        if (args.changeConfig) {
+        let { ixs, lookUpTables, changeConfig, escrowConfig } = args;
+
+        if (changeConfig) {
           ixs =
             (await setOwnerIxMutation.mutateAsync({
-              newOwners: args.changeConfig.newOwners,
+              newOwners: changeConfig.newOwners,
+              signers,
+            })) || undefined;
+        } else if (escrowConfig) {
+          ixs =
+            (await setEscrowMutation.mutateAsync({
+              ...escrowConfig,
               signers,
             })) || undefined;
         }
-        if (!ixs) {
-          throw new Error("No instructions found.");
+
+        if (!ixs) throw new Error("No instructions found.");
+
+        let microLamports: number | undefined;
+        let units: number | undefined;
+        let totalFees: number | undefined;
+
+        if (escrowConfig) {
+          const {
+            microLamports: estMicroLamports,
+            units: estUnits,
+            totalFees: estTotalFees,
+          } = await estimateFees(
+            connection,
+            ixs,
+            getFeePayerFromSigners(signers),
+            signers,
+            lookUpTables
+          );
+
+          microLamports = estMicroLamports;
+          units = estUnits;
+          totalFees = estTotalFees;
+        } else {
+          const estimatedResult = await createVaultExecuteIx.mutateAsync({
+            signers,
+            totalFees: LAMPORTS_PER_SOL * 0.000005, // Rough estimate
+            ixs,
+            lookUpTables,
+          });
+
+          if (!estimatedResult)
+            throw new Error("Unable to create vault instruction!");
+
+          const {
+            microLamports: estMicroLamports,
+            units: estUnits,
+            totalFees: estTotalFees,
+          } = await estimateFees(
+            connection,
+            [estimatedResult.ixs],
+            getFeePayerFromSigners(signers),
+            signers,
+            estimatedResult.lookUpTables
+          );
+
+          microLamports = estMicroLamports;
+          units = estUnits;
+          totalFees = estTotalFees;
+
+          const result = await createVaultExecuteIx.mutateAsync({
+            signers,
+            totalFees,
+            ixs,
+            lookUpTables,
+          });
+
+          if (!result) throw new Error("Unable to create vault instruction!");
+
+          ixs = [result.ixs];
+          lookUpTables = result.lookUpTables;
         }
 
-        const estimatedResult = await createVaultExecuteIx.mutateAsync({
-          signers,
-          totalFees: LAMPORTS_PER_SOL * 0.000005, // rough estimate of total fee, doesn't really matter here because we are just estimating the computing units required
-          ixs,
-          lookUpTables: args.lookUpTables,
-        });
-        if (!estimatedResult) {
-          throw new Error("Unable to create vault instruction!");
+        // Add Compute Budget instructions
+        if (microLamports) {
+          ixs.unshift(
+            ComputeBudgetProgram.setComputeUnitPrice({ microLamports })
+          );
         }
-
-        const { microLamports, units, totalFees } = await estimateFees(
-          connection,
-          [estimatedResult.ixs],
-          getFeePayerFromSigners(signers),
-          signers,
-          estimatedResult.lookUpTables
-        );
-        const result = await createVaultExecuteIx.mutateAsync({
-          signers,
-          totalFees,
-          ixs,
-          lookUpTables: args.lookUpTables,
-        });
-        if (!result) {
-          throw new Error("Unable to create vault instruction!");
-        }
-        ixs = [
-          ComputeBudgetProgram.setComputeUnitPrice({ microLamports }),
-          result.ixs,
-        ];
         if (units) {
           ixs.unshift(ComputeBudgetProgram.setComputeUnitLimit({ units }));
         }
+
+        // Update state
         setConfirmedSigners(signers);
-        setTransaction({ ixs, lookUpTables: result.lookUpTables, totalFees });
+        setTransaction({ ixs, lookUpTables, totalFees });
       } catch (error) {
-        setError(error.message);
+        setError(error instanceof Error ? error.message : String(error));
       }
     },
-    [args.changeConfig, args.ixs, args.lookUpTables, connection]
+    [args, connection]
   );
 
   useEffect(() => {
@@ -158,23 +205,20 @@ export const ConfirmationPage: FC<{
       prepareTransaction(args.ixs, args.signers).then(() => setLoading(false));
     } else if (
       args.walletInfo?.members &&
-      args.walletInfo.threshold &&
       args.walletInfo.threshold === args.walletInfo.members.length
     ) {
-      handleConfirmation(
-        args.walletInfo.members.map((x) => ({
-          key: x.pubkey,
-          state: SignerState.Unsigned,
-          type: getSignerTypeFromAddress(
-            x,
-            deviceWalletPublicKey,
-            passkeyWalletPublicKey
-          ),
-        }))
-      ).then(() => setLoading(false));
+      const signers = args.walletInfo.members.map((x) => ({
+        key: x.pubkey,
+        state: SignerState.Unsigned,
+        type: getSignerTypeFromAddress(
+          x,
+          deviceWalletPublicKey,
+          cloudWalletPublicKey
+        ),
+      }));
+      handleConfirmation(signers).then(() => setLoading(false));
     } else if (
       args.walletInfo?.members &&
-      args.walletInfo.threshold &&
       args.walletInfo.threshold < args.walletInfo.members.length
     ) {
       setLoading(false);
@@ -184,7 +228,7 @@ export const ConfirmationPage: FC<{
     connection,
     loading,
     deviceWalletPublicKey,
-    passkeyWalletPublicKey,
+    cloudWalletPublicKey,
     handleConfirmation,
     prepareTransaction,
   ]);
@@ -241,7 +285,7 @@ export const ConfirmationPage: FC<{
   return (
     <YStack
       enterStyle={{ opacity: 0, x: -25 }}
-      animation={"medium"}
+      animation={"quick"}
       gap={"$4"}
       padding={"$4"}
     >
@@ -258,9 +302,11 @@ export const ConfirmationPage: FC<{
         reset={() => reset(args.callback)}
       />
       {renderConfirmation}
-      <YStack alignItems="center" justifyContent="center" width={"100%"}>
-        {error && <Text color="red">{error}</Text>}
-      </YStack>
+      {error && (
+        <YStack alignItems="center" justifyContent="center" width={"100%"}>
+          <Text color="red">{error}</Text>
+        </YStack>
+      )}
       <CustomButton width="100%" onPress={() => reset(args.callback)}>
         <ButtonText>{error ? "Back To Home" : "Cancel"}</ButtonText>
       </CustomButton>
@@ -273,8 +319,7 @@ const SelectSignersState: FC<{
   handleConfirmation: (signers: TransactionSigner[]) => void;
 }> = ({ args, handleConfirmation }) => {
   const [selectedSigners, setSelectedSigners] = useState<TransactionSigner[]>();
-  const { deviceWalletPublicKey, passkeyWalletPublicKey } =
-    useGlobalVariables();
+  const { deviceWalletPublicKey, cloudWalletPublicKey } = useWallets();
 
   useEffect(() => {
     if (!selectedSigners && args.walletInfo?.members) {
@@ -284,11 +329,11 @@ const SelectSignersState: FC<{
             const type = getSignerTypeFromAddress(
               x,
               deviceWalletPublicKey,
-              passkeyWalletPublicKey
+              cloudWalletPublicKey
             );
             return (
               type === SignerType.DEVICE ||
-              type === SignerType.PASSKEY ||
+              type === SignerType.CLOUD ||
               (args.walletInfo.members.length === 1 && type === SignerType.NFC)
             );
           })
@@ -298,7 +343,7 @@ const SelectSignersState: FC<{
             type: getSignerTypeFromAddress(
               x,
               deviceWalletPublicKey,
-              passkeyWalletPublicKey
+              cloudWalletPublicKey
             ),
           })) || [];
       setSelectedSigners(preSelectedSigners);
@@ -307,7 +352,7 @@ const SelectSignersState: FC<{
     args.walletInfo,
     selectedSigners,
     deviceWalletPublicKey,
-    passkeyWalletPublicKey,
+    cloudWalletPublicKey,
   ]);
 
   return (
@@ -320,16 +365,11 @@ const SelectSignersState: FC<{
           const type = getSignerTypeFromAddress(
             x,
             deviceWalletPublicKey,
-            passkeyWalletPublicKey
+            cloudWalletPublicKey
           );
           return (
             <YGroup.Item key={x.pubkey.toString()}>
-              <ListItem
-                hoverStyle={{ scale: 0.925 }}
-                pressStyle={{ scale: 0.925 }}
-                animation="bouncy"
-                hoverTheme
-                pressTheme
+              <CustomListItem
                 bordered
                 padded
                 title={x.pubkey.toString()}
@@ -339,7 +379,7 @@ const SelectSignersState: FC<{
                     theme={"active"}
                     defaultChecked={
                       type === SignerType.DEVICE ||
-                      type === SignerType.PASSKEY ||
+                      type === SignerType.CLOUD ||
                       (args.walletInfo.members.length === 1 &&
                         type === SignerType.NFC)
                     }
@@ -471,18 +511,16 @@ const ConfirmationState: FC<{
         setError(error.message);
       });
   };
-
+  const enumOrder = Object.values(SignerType);
   return (
     <>
       <Heading size="$3">Getting Required Signatures</Heading>
       <YGroup>
         {confirmedSigners
-          .sort((a, _) => (a.type == SignerType.NFC ? -1 : 1))
+          .sort((a, b) => enumOrder.indexOf(a.type) - enumOrder.indexOf(b.type))
           .map((x) => (
             <YGroup.Item key={x.key.toString()}>
-              <ListItem
-                hoverTheme
-                pressTheme
+              <CustomListItem
                 bordered
                 padded
                 title={x.key.toString()}
@@ -517,7 +555,12 @@ const ConfirmationState: FC<{
         )}
       </YStack>
       {!error && (
-        <XStack alignItems="center" gap="$2">
+        <XStack
+          alignItems="center"
+          width={"100%"}
+          justifyContent={"center"}
+          gap="$2"
+        >
           <Spinner />
           <Text>{`${
             confirmedSigners.every((x) => x.state === SignerState.Signed)

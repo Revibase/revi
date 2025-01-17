@@ -1,18 +1,22 @@
 import { PublicKey } from "@solana/web3.js";
 import { Search } from "@tamagui/lucide-icons";
+import { CustomListItem } from "components/CustomListItem";
 import { FC, useMemo, useState } from "react";
-import { Avatar, AvatarImage, Input, ListItem, XStack, YStack } from "tamagui";
-import { SOL_NATIVE_MINT } from "utils/consts";
+import { Avatar, AvatarImage, Input, XStack, YStack } from "tamagui";
 import { Page } from "utils/enums/page";
-import { SignerType } from "utils/enums/transaction";
-import { getMultiSigFromAddress, getVaultFromAddress } from "utils/helper";
+import { WalletType } from "utils/enums/wallet";
+import {
+  getMultiSigFromAddress,
+  getVaultFromAddress,
+  SOL_NATIVE_MINT,
+} from "utils/helper";
 import { useGetAssetsByOwner } from "utils/queries/useGetAssetsByOwner";
 import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
 import { DAS } from "utils/types/das";
 import { Header } from "./header";
 
 export const SearchPage: FC<{
-  type: SignerType;
+  type: WalletType;
   walletAddress: PublicKey;
   setPage: React.Dispatch<React.SetStateAction<Page>>;
   setViewAsset: React.Dispatch<
@@ -21,7 +25,9 @@ export const SearchPage: FC<{
 }> = ({ type, walletAddress, setPage, setViewAsset }) => {
   const { data: walletInfo } = useGetWalletInfo({
     address:
-      type === SignerType.NFC ? getMultiSigFromAddress(walletAddress) : null,
+      type === WalletType.MULTIWALLET
+        ? getMultiSigFromAddress(walletAddress)
+        : null,
   });
   const { data: allAssets } = useGetAssetsByOwner({
     address: walletInfo ? getVaultFromAddress(walletAddress) : walletAddress,
@@ -52,7 +58,7 @@ export const SearchPage: FC<{
   return (
     <YStack
       enterStyle={{ opacity: 0, x: -25 }}
-      animation={"medium"}
+      animation={"quick"}
       width={"100%"}
       padding={"$4"}
       gap="$4"
@@ -79,13 +85,8 @@ export const SearchPage: FC<{
       <YStack width={"100%"} gap="$2">
         {filteredTokenList.map((x) => {
           return (
-            <ListItem
+            <CustomListItem
               key={x.id}
-              pressTheme
-              hoverTheme
-              hoverStyle={{ scale: 0.925 }}
-              pressStyle={{ scale: 0.925 }}
-              animation="bouncy"
               padded
               bordered
               width={"100%"}

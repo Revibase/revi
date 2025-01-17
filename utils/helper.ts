@@ -1,6 +1,7 @@
 import { Connection, PublicKey } from "@solana/web3.js";
 
 import { BN } from "@coral-xyz/anchor";
+import { Timestamp } from "@react-native-firebase/firestore";
 import Constants from "expo-constants";
 import * as IntentLauncher from "expo-intent-launcher";
 import { Linking, Platform } from "react-native";
@@ -12,11 +13,39 @@ import { TransactionSigner } from "./types/transaction";
 
 export function getMultiSigFromAddress(address: PublicKey) {
   const [multisigPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("multi_wallet"), address.toBuffer()],
+    [Buffer.from("multi_wallet"), new PublicKey(address).toBuffer()],
     program.programId
   );
 
   return multisigPda;
+}
+
+export function getEscrow(walletAddress: PublicKey, identifier: number) {
+  const [escrow] = PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("escrow"),
+      new PublicKey(walletAddress).toBuffer(),
+      new BN(identifier).toArrayLike(Buffer, "le", 8),
+    ],
+    program.programId
+  );
+  return escrow;
+}
+
+export function getEscrowNativeVault(
+  walletAddress: PublicKey,
+  identifier: number
+) {
+  const [escrow] = PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("escrow"),
+      new PublicKey(walletAddress).toBuffer(),
+      new BN(identifier).toArrayLike(Buffer, "le", 8),
+      Buffer.from("vault"),
+    ],
+    program.programId
+  );
+  return escrow;
 }
 
 export function getVaultFromAddress(address: PublicKey, vault_index = 0) {
@@ -136,7 +165,7 @@ export const getFeePayerFromSigners = (signers: TransactionSigner[]) => {
   const feePayer =
     signers.find((x) => x.type === SignerType.NFC)?.key ||
     signers.find((x) => x.type === SignerType.DEVICE)?.key ||
-    signers.find((x) => x.type === SignerType.PASSKEY)?.key ||
+    signers.find((x) => x.type === SignerType.CLOUD)?.key ||
     null;
   if (!feePayer) {
     throw new Error("Fee payer not found.");
@@ -145,16 +174,16 @@ export const getFeePayerFromSigners = (signers: TransactionSigner[]) => {
 };
 
 export function getSignerTypeFromAddress(
-  x: { pubkey: PublicKey; label: number | null },
+  x: { pubkey: PublicKey; label?: number | null },
   deviceWalletPublicKey: PublicKey | null | undefined,
-  passkeyWalletPublicKey: PublicKey | null | undefined
+  cloudWalletPublicKey: PublicKey | null | undefined
 ): SignerType {
   return deviceWalletPublicKey &&
     x.pubkey.toString() === deviceWalletPublicKey.toString()
     ? SignerType.DEVICE
-    : passkeyWalletPublicKey &&
-      x.pubkey.toString() === passkeyWalletPublicKey.toString()
-    ? SignerType.PASSKEY
+    : cloudWalletPublicKey &&
+      x.pubkey.toString() === cloudWalletPublicKey.toString()
+    ? SignerType.CLOUD
     : x.label === 0
     ? SignerType.NFC
     : SignerType.UNKNOWN;
@@ -166,7 +195,7 @@ export function getLabelFromSignerType(type: SignerType) {
       return 0;
     case SignerType.DEVICE:
       return 1;
-    case SignerType.PASSKEY:
+    case SignerType.CLOUD:
       return 2;
     default:
       return null;
@@ -186,3 +215,134 @@ export function getTotalValueFromWallet(assets: DAS.GetAssetResponseList) {
     ) ?? 0)
   );
 }
+
+export function getRandomU64() {
+  // Generate a random number within the safe integer range
+  const maxSafeInt = Number.MAX_SAFE_INTEGER;
+  return Math.floor(Math.random() * (maxSafeInt + 1)); // +1 to include the maximum value
+}
+
+export function formatFirebaseTimestampToRelativeTime(
+  timestamp: Timestamp | null | undefined
+) {
+  if (!timestamp) {
+    return "";
+  }
+  const now = new Date().getTime() / 1000;
+  const date = timestamp.seconds;
+  const diffInSeconds = Math.floor(now - date); // Difference in seconds
+
+  if (diffInSeconds < 60) {
+    return diffInSeconds === 1
+      ? `one second ago`
+      : `${diffInSeconds} seconds ago`;
+  }
+
+  const diffInMinutes = Math.floor(diffInSeconds / 60);
+  if (diffInMinutes < 60) {
+    return diffInMinutes === 1
+      ? "one minute ago"
+      : `${diffInMinutes} minutes ago`;
+  }
+
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) {
+    return diffInHours === 1 ? "one hour ago" : `${diffInHours} hours ago`;
+  }
+
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays < 7) {
+    return diffInDays === 1 ? "one day ago" : `${diffInDays} days ago`;
+  }
+
+  const diffInWeeks = Math.floor(diffInDays / 7);
+  if (diffInWeeks < 4) {
+    return diffInWeeks === 1 ? "one week ago" : `${diffInWeeks} weeks ago`;
+  }
+
+  const diffInMonths = Math.floor(diffInDays / 30);
+  if (diffInMonths < 12) {
+    return diffInMonths === 1 ? "one month ago" : `${diffInMonths} months ago`;
+  }
+
+  const diffInYears = Math.floor(diffInDays / 365);
+  return diffInYears === 1 ? "one year ago" : `${diffInYears} years ago`;
+}
+
+export function formatAmount(amount: number, maxDecimals = 5) {
+  if (typeof amount !== "number") {
+    throw new Error("Amount must be a number");
+  }
+
+  return `${amount.toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: maxDecimals,
+  })}`;
+}
+export const SOL_NATIVE_MINT = (
+  nativeBalance:
+    | {
+        lamports: number;
+        price_per_sol: number;
+        total_price: number;
+      }
+    | undefined
+) => {
+  return {
+    authorities: [
+      {
+        address: "AqH29mZfQFgRpfwaPoTMWSKJ5kqauoc1FwVBRksZyQrt",
+        scopes: [],
+      },
+    ],
+    burnt: false,
+    compression: {
+      asset_hash: "",
+      compressed: false,
+      creator_hash: "",
+      data_hash: "",
+      eligible: false,
+      leaf_id: 0,
+      seq: 0,
+      tree: "",
+    },
+    content: {
+      $schema: "https://schema.metaplex.com/nft1.0.json",
+      files: [[Object]],
+      json_uri: "",
+      links: {
+        image:
+          "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
+      },
+      metadata: { name: "Solana", symbol: "SOL", description: "" },
+    },
+    creators: [],
+    grouping: [],
+    id: PublicKey.default.toString(),
+    interface: "Custom",
+    mutable: true,
+    ownership: {
+      delegated: false,
+      frozen: false,
+      owner: "",
+      ownership_model: "token",
+    },
+    royalty: {
+      basis_points: 0,
+      locked: false,
+      percent: 0,
+      primary_sale_happened: false,
+      royalty_model: "creators",
+    },
+    token_info: {
+      decimals: 9,
+      price_info: {
+        currency: "USDC",
+        price_per_token: nativeBalance?.price_per_sol || 0,
+      },
+      balance: nativeBalance?.lamports,
+      symbol: "SOL",
+      token_program: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    },
+  } as DAS.GetAssetResponse;
+};
