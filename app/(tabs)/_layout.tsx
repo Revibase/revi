@@ -1,13 +1,14 @@
 import { Handshake, Home, ShieldCheck } from "@tamagui/lucide-icons";
-import { AndroidNfcSheet } from "components/AndroidNfcSheet";
-import { useGlobalVariables } from "components/providers/globalProvider";
+import { useInit, useNotifications } from "components/hooks";
+import { AndroidNfcSheet } from "components/sheets/AndroidNfcSheet";
+import { TransactionConfirmationSheet } from "components/sheets/TransactionConfirmationSheet";
+import { WalletSheet } from "components/sheets/WalletSheet";
 import * as Haptics from "expo-haptics";
 import { Tabs } from "expo-router";
-import { useCallback, useState } from "react";
-import { Platform, TouchableOpacity } from "react-native";
+import { useEffect } from "react";
+import { TouchableOpacity } from "react-native";
 import { PortalProvider, useTheme } from "tamagui";
-import { BottomTabs } from "utils/enums/bottomTab";
-import NfcProxy from "../../utils/apdu";
+import { BottomTabs } from "utils";
 
 const bottomTabs = [
   {
@@ -29,25 +30,33 @@ const bottomTabs = [
 
 export default function TabLayout() {
   const { color, background, borderColor } = useTheme();
-  const { isNfcSheetVisible, setNfcSheetVisible } = useGlobalVariables();
-  const [loading, setLoading] = useState(false);
 
-  const handleCloseNfc = useCallback(async () => {
-    if (loading) return;
-    setLoading(true);
-    await NfcProxy.close();
-    if (Platform.OS === "android") {
-      setNfcSheetVisible(false);
-    }
-    setLoading(false);
-  }, [loading, setNfcSheetVisible]);
-  const theme = useTheme();
+  const {
+    initializeCloudWallet,
+    initializeDeviceWallet,
+    initializeDefaultWallet,
+  } = useInit();
+  const { initializeNotification } = useNotifications();
+
+  useEffect(() => {
+    initializeNotification();
+  }, []);
+
+  useEffect(() => {
+    initializeCloudWallet();
+    initializeDeviceWallet();
+  }, []);
+
+  useEffect(() => {
+    initializeDefaultWallet();
+  }, [initializeDefaultWallet]);
+
   return (
     <PortalProvider shouldAddRootHost>
       <Tabs
         screenOptions={{
           sceneStyle: {
-            backgroundColor: theme.background.val,
+            backgroundColor: background.val,
           },
           animation: "none",
           tabBarAllowFontScaling: true,
@@ -91,11 +100,9 @@ export default function TabLayout() {
           />
         ))}
       </Tabs>
-      <AndroidNfcSheet
-        isNfcSheetVisible={isNfcSheetVisible}
-        handleCloseNfc={handleCloseNfc}
-        loading={loading}
-      />
+      <WalletSheet />
+      <TransactionConfirmationSheet />
+      <AndroidNfcSheet />
     </PortalProvider>
   );
 }

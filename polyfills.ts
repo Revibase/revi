@@ -1,8 +1,9 @@
 import structuredClone from "@ungap/structured-clone";
 import { Buffer } from "buffer";
-import { getRandomValues as expoCryptoGetRandomValues } from "expo-crypto";
+import getRandomValues from "react-native-get-random-values";
 
 global.Buffer = Buffer;
+
 Buffer.prototype.subarray = function subarray(
   begin: number | undefined,
   end: number | undefined
@@ -21,7 +22,7 @@ global.Buffer = Buffer;
 
 // getRandomValues polyfill
 class Crypto {
-  getRandomValues = expoCryptoGetRandomValues;
+  getRandomValues = getRandomValues;
 }
 
 const webCrypto = typeof crypto !== "undefined" ? crypto : new Crypto();

@@ -1,7 +1,7 @@
 export default {
   expo: {
-    name: "Revi",
-    slug: "revi",
+    name: "Revi Vault",
+    slug: "revi-vault",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
@@ -10,7 +10,7 @@ export default {
     splash: {
       image: "./assets/images/splash.png",
       resizeMode: "contain",
-      backgroundColor: "#000000",
+      backgroundColor: "#ffffff",
     },
     assetBundlePatterns: ["**/*"],
     ios: {
@@ -18,17 +18,17 @@ export default {
         usesNonExemptEncryption: false,
       },
       supportsTablet: true,
-      bundleIdentifier: "com.jychab.revi",
+      bundleIdentifier: "com.jychab.revivault",
       newArchEnabled: true,
       googleServicesFile: "./assets/google/GoogleService-Info.plist",
     },
     android: {
       adaptiveIcon: {
         foregroundImage: "./assets/images/adaptive-icon.png",
-        backgroundColor: "#000000",
+        backgroundColor: "#ffffff",
       },
-      permissions: ["android.permission.NFC", "VIBRATE"],
-      package: "com.jychab.revi",
+      permissions: ["android.permission.NFC"],
+      package: "com.jychab.revivault",
       newArchEnabled: true,
       googleServicesFile: "./assets/google/google-services.json",
     },
@@ -63,15 +63,24 @@ export default {
           newArchEnabled: true,
         },
       ],
+      "@react-native-firebase/app-check",
       "react-native-cloud-storage",
       "@react-native-firebase/app",
-      "@react-native-firebase/auth",
       [
         "expo-build-properties",
         {
           ios: {
             useFrameworks: "static",
           },
+        },
+      ],
+      [
+        "expo-notifications",
+        {
+          icon: "./assets/images/notification-icon.png",
+          color: "#000000",
+          defaultChannel: "default",
+          enableBackgroundRemoteNotifications: false,
         },
       ],
     ],
@@ -83,9 +92,9 @@ export default {
         origin: false,
       },
       eas: {
-        projectId: "b85f5693-2371-4df9-bc89-94e4ac290d66",
+        projectId: "e7fd109a-36ed-4ec0-ac7e-6c6c1a0ffb87",
       },
     },
-    owner: "jychab",
+    owner: "revibase",
   },
 };

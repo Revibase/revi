@@ -6,6 +6,9 @@ export enum Page {
   Asset,
   Create,
   Loading,
-  Confirmation,
   Settings,
+  Blinks,
+  BlinksPage,
+  Offer,
+  OffersPage,
 }

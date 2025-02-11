@@ -1,70 +1,51 @@
+import { getVaultFromAddress } from "@revibase/multi-wallet";
 import { PublicKey } from "@solana/web3.js";
 import { AlertTriangle } from "@tamagui/lucide-icons";
+import { CustomCard } from "components/CustomCard";
+import { useWalletInfo } from "components/hooks";
 import { FC } from "react";
 import { Text, XStack, YStack } from "tamagui";
-import { Page } from "utils/enums/page";
-import { WalletType } from "utils/enums/wallet";
-import { getMultiSigFromAddress, getVaultFromAddress } from "utils/helper";
-import { useGetAsset } from "utils/queries/useGetAsset";
-import { useGetAssetsByOwner } from "utils/queries/useGetAssetsByOwner";
-import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
-import { DAS } from "utils/types/das";
+import {
+  Page,
+  PLACEHOLDER_IMAGE,
+  useGetAsset,
+  useGetAssetsByOwner,
+  useGlobalStore,
+} from "utils";
 import { Asset } from "../asset";
 
-export const AssetTab: FC<{
-  mint: PublicKey;
-  setPage: React.Dispatch<React.SetStateAction<Page>>;
-  setWithdrawAsset: React.Dispatch<
-    React.SetStateAction<
-      | {
-          asset: DAS.GetAssetResponse;
-          callback?: () => void;
-        }
-      | undefined
-    >
-  >;
-  walletAddress: PublicKey;
-  type: WalletType;
-}> = ({ mint, walletAddress, setPage, setWithdrawAsset, type }) => {
-  const { data: walletInfo } = useGetWalletInfo({
-    address:
-      type === WalletType.MULTIWALLET
-        ? getMultiSigFromAddress(walletAddress)
-        : null,
-  });
+export const AssetTab: FC = () => {
+  const { walletSheetArgs, setPage } = useGlobalStore();
+  const { mint, type, walletAddress } = walletSheetArgs ?? {};
+  const { walletInfo } = useWalletInfo({ walletAddress, type });
   const { data: mintData } = useGetAsset({ mint });
   const { data: allAssets } = useGetAssetsByOwner({
-    address: walletInfo ? getVaultFromAddress(walletAddress) : walletAddress,
+    address:
+      walletInfo && walletAddress
+        ? getVaultFromAddress(new PublicKey(walletAddress)).toString()
+        : walletAddress,
   });
-  const hasAsset =
-    allAssets?.items.findIndex((x) => x.id === mint?.toString()) !== -1;
+  const asset = allAssets?.items.find((x) => x.id === mint?.toString());
   return (
     mintData && (
-      <YStack width={"100%"} gap="$4" alignItems="center">
-        <YStack
-          width={"80%"}
-          alignItems="center"
-          gap="$1"
-          justifyContent="center"
-        >
+      <YStack width={"100%"} gap="$4" items="center">
+        <YStack width={"80%"} items="center" gap="$1" justify="center">
           <Text numberOfLines={1} fontSize={"$7"} fontWeight={800}>
             {mintData?.content?.metadata.name}
           </Text>
-          {!hasAsset && (
-            <XStack gap="$2" alignItems="center" justifyContent="center">
+          {!asset && (
+            <XStack gap="$2" items="center" justify="center">
               <AlertTriangle color="red" />
               <Text color="red">{`${mintData.content?.metadata.name} not found.`}</Text>
             </XStack>
           )}
         </YStack>
-        <Asset
-          type={type}
-          walletAddress={walletAddress}
-          asset={mintData}
-          callback={() => setPage(Page.Main)}
-          setPage={setPage}
-          setWithdrawAsset={setWithdrawAsset}
+        <CustomCard
+          height={"$20"}
+          shadowColor={"white"}
+          url={mintData.content?.links?.image || PLACEHOLDER_IMAGE}
         />
+        <Asset asset={asset ?? mintData} callback={() => setPage(Page.Main)} />
       </YStack>
     )
   );

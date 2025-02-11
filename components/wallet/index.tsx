@@ -1,140 +1,79 @@
-import { PublicKey } from "@solana/web3.js";
-import { FC, useEffect, useState } from "react";
+import { useWalletInfo } from "components/hooks";
+import { Image } from "expo-image";
+import { FC, useEffect } from "react";
 import { Spinner, YStack } from "tamagui";
-import { Page } from "utils/enums/page";
-import { WalletType } from "utils/enums/wallet";
-import { getMultiSigFromAddress, getVaultFromAddress } from "utils/helper";
-import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
-import { DAS } from "utils/types/das";
-import { TransactionArgs } from "utils/types/transaction";
+import { Page, useGetAsset, useGlobalStore, WalletType } from "utils";
 import { AssetPage } from "./asset";
-import { ConfirmationPage } from "./confirmation";
+import { BlinksPage } from "./blinks";
+import { BlinksCard } from "./blinks/card";
 import { CreateMultisigPage } from "./create";
 import { Deposit } from "./deposit";
 import { Main } from "./main";
+import { OffersPage } from "./offers";
+import { OfferCard } from "./offers/card";
 import { SearchPage } from "./search";
 import { SettingsPage } from "./settings";
 import { Withdrawal } from "./withdrawal";
 
-export const Wallet: FC<{
-  walletAddress: PublicKey;
-  mint: PublicKey | null | undefined;
-  closeSheet: () => void;
-  type: WalletType;
-  onEntry?: TransactionArgs;
-}> = ({ type, walletAddress, mint, closeSheet, onEntry }) => {
-  const [page, setPage] = useState<Page>(Page.Loading);
-  const [withdrawAsset, setWithdrawAsset] = useState<{
-    asset: DAS.GetAssetResponse;
-    callback?: () => void;
-  }>();
-  const [viewAsset, setViewAsset] = useState<DAS.GetAssetResponse>();
-  const [transactionArgs, setTransactionArgs] =
-    useState<TransactionArgs | null>(null);
-  const { data: walletInfo, isLoading } = useGetWalletInfo({
-    address:
-      type === WalletType.MULTIWALLET
-        ? getMultiSigFromAddress(walletAddress)
-        : null,
-  });
+export const Wallet: FC = () => {
+  const { walletSheetArgs, setPage } = useGlobalStore();
+  const {
+    type,
+    mint,
+    walletAddress,
+    page = Page.Loading,
+  } = walletSheetArgs ?? {};
+
+  const { walletInfo, isLoading } = useWalletInfo({ walletAddress, type });
+
   useEffect(() => {
-    if (page === Page.Loading) {
-      if (isLoading) return;
-      if (onEntry) {
-        setTransactionArgs(onEntry);
-        setPage(Page.Confirmation);
-      } else if (!walletInfo && type === WalletType.MULTIWALLET) {
+    if (page === Page.Loading && !isLoading) {
+      if (
+        (!walletInfo ||
+          (!!walletInfo.metadata && walletInfo.metadata.toString() !== mint)) &&
+        type === WalletType.MULTIWALLET
+      ) {
         setPage(Page.Create);
       } else {
         setPage(Page.Main);
       }
     }
-  }, [walletInfo, type, isLoading, page, onEntry]);
+  }, [walletInfo, type, isLoading, mint, page]);
 
+  const { data: asset } = useGetAsset({
+    mint,
+  });
   return (
-    <YStack minHeight={"100%"}>
-      {page == Page.Main && (
-        <Main
-          type={type}
-          mint={mint}
-          walletAddress={walletAddress}
-          setPage={setPage}
-          setViewAsset={setViewAsset}
-          setArgs={setTransactionArgs}
-          setWithdrawAsset={setWithdrawAsset}
-          closeSheet={closeSheet}
+    <YStack minH={"100%"} position="relative">
+      {asset?.content?.links?.image && (
+        <Image
+          priority={"high"}
+          style={{
+            height: "100%",
+            width: "100%",
+            position: "absolute",
+            opacity: 0.1,
+          }}
+          source={{
+            uri: asset.content.links.image,
+          }}
+          contentFit="cover"
         />
       )}
-      {page == Page.Deposit && (
-        <Deposit
-          walletAddress={
-            type === WalletType.MULTIWALLET
-              ? getVaultFromAddress(walletAddress)
-              : walletAddress
-          }
-          setPage={setPage}
-        />
-      )}
-      {page == Page.Withdrawal && withdrawAsset && (
-        <Withdrawal
-          type={type}
-          withdrawal={withdrawAsset}
-          setArgs={setTransactionArgs}
-          setPage={setPage}
-          setWithdrawAsset={setWithdrawAsset}
-          walletAddress={walletAddress}
-        />
-      )}
-      {page == Page.Asset && viewAsset && (
-        <AssetPage
-          type={type}
-          walletAddress={walletAddress}
-          asset={viewAsset}
-          setPage={setPage}
-          setWithdrawAsset={setWithdrawAsset}
-        />
-      )}
-      {page == Page.Create && (
-        <CreateMultisigPage
-          walletAddress={walletAddress}
-          mint={mint}
-          setPage={setPage}
-          setArgs={setTransactionArgs}
-        />
-      )}
-      {page == Page.Search && (
-        <SearchPage
-          type={type}
-          walletAddress={walletAddress}
-          setPage={setPage}
-          setViewAsset={setViewAsset}
-        />
-      )}
-      {page == Page.Confirmation && transactionArgs && (
-        <ConfirmationPage
-          walletAddress={walletAddress}
-          setPage={setPage}
-          args={transactionArgs}
-          setArgs={setTransactionArgs}
-        />
-      )}
-      {page === Page.Settings && (
-        <SettingsPage
-          type={type}
-          walletAddress={walletAddress}
-          setPage={setPage}
-          setArgs={setTransactionArgs}
-          closeSheet={closeSheet}
-        />
-      )}
+      {page == Page.Main && <Main />}
+      {page == Page.Deposit && <Deposit />}
+      {page == Page.Withdrawal && <Withdrawal />}
+      {page == Page.Asset && <AssetPage />}
+      {page == Page.Create && <CreateMultisigPage />}
+      {page == Page.Search && <SearchPage />}
+      {page === Page.Settings && <SettingsPage />}
+      {page === Page.BlinksPage && <BlinksPage />}
+      {page === Page.Blinks && <BlinksCard />}
+      {page === Page.OffersPage && <OffersPage />}
+      {page === Page.Offer && <OfferCard />}
       {page == Page.Loading && (
-        <YStack
-          flex={1}
-          backgroundColor={"transparent"}
-          justifyContent="center"
-          alignItems="center"
-        >
-          <Spinner backgroundColor={"transparent"} size="large" />
+        <YStack flex={1} bg={"transparent"} justify="center" items="center">
+          <Spinner bg={"transparent"} size="large" />
         </YStack>
       )}
     </YStack>

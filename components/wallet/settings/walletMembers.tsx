@@ -1,10 +1,10 @@
-import { PublicKey } from "@solana/web3.js";
+import { initiateEscrowAsNonOwner } from "@revibase/multi-wallet";
+import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { Copy, Edit3, Trash2, User, UserPlus } from "@tamagui/lucide-icons";
 import { CustomButton } from "components/CustomButton";
 import { CustomListItem } from "components/CustomListItem";
-import { useCopyToClipboard } from "components/hooks/useCopyToClipboard";
-import { useValidateWallet } from "components/hooks/useValidateWallet";
-import { useWallets } from "components/hooks/useWallets";
+import { useCopyToClipboard, useWallet, useWalletInfo } from "components/hooks";
+import { useConnection } from "components/providers/connectionProvider";
 import { router } from "expo-router";
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Alert } from "react-native";
@@ -14,139 +14,257 @@ import {
   Heading,
   Input,
   Label,
+  Spinner,
   Text,
   XStack,
   YGroup,
+  YStack,
 } from "tamagui";
-import { Page } from "utils/enums/page";
-import { SignerType } from "utils/enums/transaction";
-import { WalletType } from "utils/enums/wallet";
-import { getMultiSigFromAddress, getSignerTypeFromAddress } from "utils/helper";
-import { useInitiateEscrow } from "utils/mutations/initiateEscrow";
-import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
 import {
+  getPermissionsFromSignerType,
+  getRandomU64,
+  getSignerTypeFromAddress,
+  getSponsoredFeePayer,
+  logError,
+  Page,
   SignerState,
-  TransactionArgs,
+  SignerType,
   TransactionSigner,
-} from "utils/types/transaction";
-import { Header } from "../header";
+  useGlobalStore,
+} from "utils";
+import { ScreenWrapper } from "../screenWrapper";
 import { RenderWalletInfo } from "./walletInfo";
 
-export const RenderWalletMembers: FC<{
-  walletAddress: PublicKey;
-  setArgs: React.Dispatch<React.SetStateAction<TransactionArgs | null>>;
-  setPage: React.Dispatch<React.SetStateAction<Page>>;
-  reset: () => void;
-  closeSheet: () => void;
-}> = ({ walletAddress, setArgs, setPage, reset, closeSheet }) => {
-  const [filteredMembers, setFilteredMembers] = useState<TransactionSigner[]>(
-    []
-  );
+export const RenderWalletMembers: FC = () => {
+  const {
+    setPage,
+    walletSheetArgs,
+    deviceWalletPublicKey,
+    cloudWalletPublicKey,
+  } = useGlobalStore();
+  const { walletAddress, type } = walletSheetArgs ?? {};
+
+  const { walletInfo } = useWalletInfo({ type, walletAddress });
 
   const [offer, setOffer] = useState(false);
   const [edit, setEdit] = useState(false);
   const [add, setAdd] = useState(false);
 
+  const [filteredMembers, setFilteredMembers] = useState<TransactionSigner[]>(
+    []
+  );
+  const originalMembers = useMemo(() => {
+    return (
+      walletInfo?.members.map((x) => ({
+        key: x.pubkey,
+        type: getSignerTypeFromAddress(
+          {
+            pubkey: x.pubkey,
+            createKey: walletInfo.createKey,
+          },
+          deviceWalletPublicKey,
+          cloudWalletPublicKey
+        ),
+        state: SignerState.Unsigned,
+      })) || []
+    );
+  }, [walletInfo?.members, deviceWalletPublicKey, cloudWalletPublicKey]);
+
+  useEffect(() => {
+    setFilteredMembers(originalMembers);
+  }, [originalMembers]);
+
   if (offer) {
     return (
-      <>
-        <Header text={"Make an Offer"} reset={reset} />
-        <RenderOffer
-          walletAddress={walletAddress}
-          setOffer={setOffer}
-          setArgs={setArgs}
-          setPage={setPage}
-        />
-      </>
+      <ScreenWrapper text="Make an Offer" reset={() => setPage(Page.Main)}>
+        <YStack gap={"$4"}>
+          <RenderOffer setOffer={setOffer} />
+        </YStack>
+      </ScreenWrapper>
     );
   }
 
   if (add) {
     return (
-      <>
-        <Header text={"Add Member"} reset={reset} />
-        <RenderAddMembers
-          walletAddress={walletAddress}
-          filteredMembers={filteredMembers}
-          setFilteredMembers={setFilteredMembers}
-          setAdd={setAdd}
-        />
-      </>
+      <ScreenWrapper text="Add Member" reset={() => setPage(Page.Main)}>
+        <YStack gap={"$4"}>
+          <RenderAddMembers
+            filteredMembers={filteredMembers}
+            setFilteredMembers={setFilteredMembers}
+            setAdd={setAdd}
+          />
+        </YStack>
+      </ScreenWrapper>
     );
   }
 
   if (edit) {
     return (
-      <>
-        <Header text={"Edit Members"} reset={reset} />
-        <RenderEditMembers
-          filteredMembers={filteredMembers}
-          walletAddress={walletAddress}
-          setEdit={setEdit}
-          setArgs={setArgs}
-          setPage={setPage}
-          reset={reset}
-          setFilteredMembers={setFilteredMembers}
-          setAdd={setAdd}
-        />
-      </>
+      <ScreenWrapper text="Edit Members" reset={() => setPage(Page.Main)}>
+        <YStack gap={"$4"}>
+          <RenderEditMembers
+            originalMembers={originalMembers}
+            filteredMembers={filteredMembers}
+            setEdit={setEdit}
+            setFilteredMembers={setFilteredMembers}
+            setAdd={setAdd}
+          />
+        </YStack>
+      </ScreenWrapper>
     );
   }
 
   return (
-    <>
-      <Header text={"Wallet Details"} reset={reset} />
-      <RenderWalletInfo
-        type={WalletType.MULTIWALLET}
-        walletAddress={walletAddress}
-      />
-      <RenderMembers
-        setFilteredMembers={setFilteredMembers}
-        filteredMembers={filteredMembers}
-        walletAddress={walletAddress}
-        setEdit={setEdit}
-        setArgs={setArgs}
-        setPage={setPage}
-        setOffer={setOffer}
-        closeSheet={closeSheet}
-      />
-    </>
+    <ScreenWrapper text="Wallet Details" reset={() => setPage(Page.Main)}>
+      <YStack gap={"$4"}>
+        <RenderWalletInfo />
+        <RenderMembers
+          filteredMembers={filteredMembers}
+          setEdit={setEdit}
+          setOffer={setOffer}
+        />
+      </YStack>
+    </ScreenWrapper>
   );
 };
 
 const RenderOffer: FC<{
-  walletAddress: PublicKey;
   setOffer: React.Dispatch<React.SetStateAction<boolean>>;
-  setArgs: React.Dispatch<React.SetStateAction<TransactionArgs | null>>;
-  setPage: React.Dispatch<React.SetStateAction<Page>>;
-}> = ({ walletAddress, setOffer, setArgs, setPage }) => {
-  const initiateEscrowMutation = useInitiateEscrow({ walletAddress });
+}> = ({ setOffer }) => {
+  const {
+    walletSheetArgs,
+    setTransactionSheetArgs,
+    defaultWallet,
+    deviceWalletPublicKey,
+    cloudWalletPublicKey,
+    setWalletSheetArgs,
+    setPage,
+  } = useGlobalStore();
+  const { walletAddress, theme, type } = walletSheetArgs ?? {};
   const [amount, setAmount] = useState("");
   const reset = () => {
     setOffer(false);
     setAmount("");
   };
+  const [loading, setLoading] = useState(false);
+  const { connection } = useConnection();
+
+  const { walletInfo } = useWalletInfo({ type, walletAddress });
 
   const handleConfirm = useCallback(async () => {
-    const result = await initiateEscrowMutation.mutateAsync({
-      amount,
-    });
-    if (result) {
-      setArgs({
-        signers: result.signers,
-        ixs: [result.ix],
+    try {
+      if (
+        !walletInfo ||
+        !defaultWallet ||
+        !deviceWalletPublicKey ||
+        !cloudWalletPublicKey ||
+        !walletAddress
+      ) {
+        setWalletSheetArgs(null);
+        Alert.alert(
+          "Wallet not found.",
+          "You need to complete your wallet set up first."
+        );
+        router.replace("/(tabs)/profile");
+        return;
+      }
+      setLoading(true);
+      const newOwners = [
+        {
+          pubkey: walletAddress,
+          permissions: getPermissionsFromSignerType(SignerType.NFC),
+        },
+        {
+          pubkey: deviceWalletPublicKey,
+          permissions: getPermissionsFromSignerType(SignerType.DEVICE),
+        },
+        {
+          pubkey: cloudWalletPublicKey,
+          permissions: getPermissionsFromSignerType(SignerType.CLOUD),
+        },
+      ];
+      const proposer = {
+        key: defaultWallet,
+        state: SignerState.Unsigned,
+        type: getSignerTypeFromAddress(
+          { pubkey: defaultWallet },
+          deviceWalletPublicKey,
+          cloudWalletPublicKey
+        ),
+      };
+      const member = {
+        key: walletAddress,
+        state: SignerState.Unsigned,
+        type: SignerType.NFC,
+      };
+
+      const parsedAmount = Math.round(parseFloat(amount) * LAMPORTS_PER_SOL);
+      if (parsedAmount < 0.001 * LAMPORTS_PER_SOL) {
+        throw new Error("Amount needs to be greater than 0.001 SOL");
+      }
+      const proposerData = await connection.getAccountInfo(
+        new PublicKey(proposer.key)
+      );
+      if (
+        (proposerData?.lamports || 0) <
+        parsedAmount + 0.003 * LAMPORTS_PER_SOL
+      ) {
+        throw new Error(
+          `Insufficient SOL in ${proposer.type} Wallet to pay for fees.`
+        );
+      }
+      const identifier = getRandomU64();
+      const ix = await initiateEscrowAsNonOwner({
+        amount: parsedAmount,
+        identifier,
+        walletAddress: new PublicKey(walletAddress),
+        proposer: new PublicKey(proposer.key),
+        newOwners: newOwners.map((x) => ({
+          ...x,
+          pubkey: new PublicKey(x.pubkey),
+        })),
+        threshold: newOwners.length > 1 ? 2 : 1,
+        member: new PublicKey(member.key),
       });
-      setPage(Page.Confirmation);
+
+      setTransactionSheetArgs({
+        callback: (signature) => signature && setPage(Page.Main),
+        feePayer: proposer.key,
+        theme,
+        walletAddress,
+        signers: [member, proposer],
+        ixs: [ix],
+      });
+    } catch (error) {
+      logError(error);
+      Alert.alert(
+        "Unable to Send Offer",
+        error instanceof Error ? error.message : String(error)
+      );
+    } finally {
+      setLoading(false);
     }
-  }, [amount]);
+  }, [
+    theme,
+    connection,
+    amount,
+    walletInfo,
+    walletAddress,
+    defaultWallet,
+    deviceWalletPublicKey,
+    cloudWalletPublicKey,
+  ]);
   return (
     <>
       <XStack
-        alignItems="center"
+        items="center"
         borderWidth={1}
-        borderRadius={"$4"}
-        padding={"$2"}
-        borderColor={"$gray10"}
+        borderTopLeftRadius={"$4"}
+        borderTopRightRadius={"$4"}
+        borderBottomLeftRadius={"$4"}
+        borderBottomRightRadius={"$4"}
+        p={"$2"}
+        borderColor={"gray"}
       >
         <Input
           id={"amount"}
@@ -154,16 +272,17 @@ const RenderOffer: FC<{
           inputMode="decimal"
           value={amount}
           onChangeText={setAmount}
-          backgroundColor={"$colorTransparent"}
+          bg={"$colorTransparent"}
           borderWidth={"$0"}
           flex={1}
           placeholder={`Enter an amount (minimum 0.001 SOL)`}
         />
-        <Label htmlFor="amount" paddingHorizontal={"$2"}>
+        <Label htmlFor="amount" px={"$2"}>
           SOL
         </Label>
       </XStack>
-      <CustomButton onPress={handleConfirm} themeInverse>
+      <CustomButton onPress={handleConfirm}>
+        {loading && <Spinner />}
         <ButtonText>{`Submit ${amount} Sol Offer`}</ButtonText>
       </CustomButton>
       <CustomButton
@@ -178,35 +297,35 @@ const RenderOffer: FC<{
 };
 
 const RenderAddMembers: FC<{
-  walletAddress: PublicKey;
   filteredMembers: TransactionSigner[];
   setFilteredMembers: React.Dispatch<React.SetStateAction<TransactionSigner[]>>;
   setAdd: React.Dispatch<React.SetStateAction<boolean>>;
-}> = ({ walletAddress, filteredMembers, setFilteredMembers, setAdd }) => {
-  const { deviceWalletPublicKey, cloudWalletPublicKey } = useWallets();
-  const [value, setValue] = useState("");
+}> = ({ filteredMembers, setFilteredMembers, setAdd }) => {
+  const { walletSheetArgs, deviceWalletPublicKey, cloudWalletPublicKey } =
+    useGlobalStore();
+  const { walletAddress } = walletSheetArgs ?? {};
+  const [member, setMember] = useState("");
 
   const reset = () => {
     setAdd(false);
-    setValue("");
+    setMember("");
   };
 
   const addMember = (
-    key: PublicKey,
+    key: string,
     type: SignerType,
     state: SignerState = SignerState.Unsigned
   ) => {
     setFilteredMembers((prev) => [
-      ...prev.filter((x) => x.key.toString() !== key.toString()),
+      ...prev.filter((x) => x.key !== key),
       { key, type, state },
     ]);
     reset();
   };
 
-  const isMember = (key: PublicKey) =>
-    filteredMembers.some((x) => x.key.toString() === key.toString());
+  const isMember = (key: string) => filteredMembers.some((x) => x.key === key);
 
-  const renderListItem = (key: PublicKey, type: SignerType, title: string) => (
+  const renderListItem = (key: string, type: SignerType, title: string) => (
     <YGroup.Item>
       <CustomListItem
         onPress={() => addMember(key, type)}
@@ -222,6 +341,7 @@ const RenderAddMembers: FC<{
     if (
       cloudWalletPublicKey &&
       deviceWalletPublicKey &&
+      walletAddress &&
       (!isMember(deviceWalletPublicKey) ||
         !isMember(cloudWalletPublicKey) ||
         !isMember(walletAddress))
@@ -249,7 +369,7 @@ const RenderAddMembers: FC<{
                 cloudWalletPublicKey.toString()
               )}
           </YGroup>
-          <Heading size={"$1"} textAlign="center">
+          <Heading size={"$1"} text="center">
             Or
           </Heading>
         </>
@@ -260,8 +380,8 @@ const RenderAddMembers: FC<{
 
   const handleCustomAddressAdd = () => {
     try {
-      const newKey = new PublicKey(value);
-      addMember(newKey, SignerType.UNKNOWN);
+      new PublicKey(member);
+      addMember(member, SignerType.UNKNOWN);
     } catch {
       Alert.alert("Invalid Publickey");
     }
@@ -271,12 +391,12 @@ const RenderAddMembers: FC<{
     <>
       {renderRecommendedMembers()}
       <Input
-        size="$3"
-        value={value}
-        onChangeText={setValue}
+        size="$4"
+        value={member}
+        onChangeText={setMember}
         placeholder="Enter a custom wallet address"
       />
-      <CustomButton onPress={handleCustomAddressAdd} themeInverse>
+      <CustomButton onPress={handleCustomAddressAdd}>
         <ButtonText>{"Add Member"}</ButtonText>
       </CustomButton>
       <CustomButton onPress={reset}>
@@ -288,90 +408,34 @@ const RenderAddMembers: FC<{
 
 const RenderMembers: FC<{
   filteredMembers: TransactionSigner[];
-  setFilteredMembers: React.Dispatch<React.SetStateAction<TransactionSigner[]>>;
-  walletAddress: PublicKey;
   setOffer: React.Dispatch<React.SetStateAction<boolean>>;
   setEdit: React.Dispatch<React.SetStateAction<boolean>>;
-  setArgs: React.Dispatch<React.SetStateAction<TransactionArgs | null>>;
-  setPage: React.Dispatch<React.SetStateAction<Page>>;
-  closeSheet: () => void;
-}> = ({
-  filteredMembers,
-  setFilteredMembers,
-  walletAddress,
-  setOffer,
-  setEdit,
-  setArgs,
-  setPage,
-  closeSheet,
-}) => {
-  const { deviceWalletPublicKey, cloudWalletPublicKey } = useWallets();
-  const { data: walletInfo } = useGetWalletInfo({
-    address: getMultiSigFromAddress(walletAddress),
-  });
+}> = ({ filteredMembers, setOffer, setEdit }) => {
+  const { walletSheetArgs, deviceWalletPublicKey, cloudWalletPublicKey } =
+    useGlobalStore();
+  const { walletAddress, theme, type } = walletSheetArgs ?? {};
+
   const copyToClipboard = useCopyToClipboard();
 
   const {
+    walletInfo,
     noOwners,
     deviceWalletPublicKeyIsMember,
     cloudWalletPublicKeyIsMember,
-  } = useValidateWallet(walletAddress, WalletType.MULTIWALLET);
-
-  useEffect(() => {
-    const originalMembers =
-      walletInfo?.members.map((x) => ({
-        key: x.pubkey,
-        type: getSignerTypeFromAddress(
-          x,
-          deviceWalletPublicKey,
-          cloudWalletPublicKey
-        ),
-        state: SignerState.Unsigned,
-      })) || [];
-    setFilteredMembers(originalMembers);
-  }, [walletInfo?.members, deviceWalletPublicKey, cloudWalletPublicKey]);
+    handleTakeOverAsOwner,
+  } = useWallet({ theme, walletAddress, type });
 
   const handleConfirm = useCallback(async () => {
     if (deviceWalletPublicKeyIsMember || cloudWalletPublicKeyIsMember) {
       setEdit(true);
-      return;
-    }
-    if (!deviceWalletPublicKey || !cloudWalletPublicKey) {
-      closeSheet();
-      Alert.alert(
-        "Wallet not found.",
-        "You need to complete your wallet set up first."
-      );
-      router.replace("/(tabs)/profile");
-      return;
-    }
-    if (noOwners && walletInfo) {
-      setArgs({
-        changeConfig: {
-          newOwners: [
-            {
-              key: walletAddress,
-              type: SignerType.NFC,
-              state: SignerState.Unsigned,
-            },
-            {
-              key: deviceWalletPublicKey,
-              type: SignerType.DEVICE,
-              state: SignerState.Unsigned,
-            },
-            {
-              key: cloudWalletPublicKey,
-              type: SignerType.CLOUD,
-              state: SignerState.Unsigned,
-            },
-          ],
-        },
-        walletInfo,
-      });
-      setPage(Page.Confirmation);
-    } else {
+    } else if (
+      deviceWalletPublicKey &&
+      cloudWalletPublicKey &&
+      !(noOwners && walletInfo && walletAddress)
+    ) {
       setOffer(true);
-      return;
+    } else {
+      handleTakeOverAsOwner();
     }
   }, [
     walletAddress,
@@ -385,17 +449,17 @@ const RenderMembers: FC<{
 
   return (
     <>
-      <XStack justifyContent="space-between" alignItems="center" width={"99%"}>
+      <XStack justify="space-between" items="center" width={"99%"}>
         <Text>Members:</Text>
       </XStack>
-      <YGroup alignSelf="center" size="$5">
+      <YGroup self="center" size="$5">
         {filteredMembers.map((member, index) => {
           return (
-            <YGroup.Item key={member.key.toString()}>
+            <YGroup.Item key={member.key}>
               <CustomListItem
-                onPress={() => copyToClipboard(member.key.toString())}
+                onPress={() => copyToClipboard(member.key)}
                 bordered
-                title={member.key.toString()}
+                title={member.key}
                 subTitle={`Member ${index + 1} ${
                   member.type === SignerType.UNKNOWN ? "" : `(${member.type})`
                 }`}
@@ -406,12 +470,7 @@ const RenderMembers: FC<{
           );
         })}
       </YGroup>
-      <CustomButton
-        onPress={handleConfirm}
-        themeInverse={
-          !(deviceWalletPublicKeyIsMember || cloudWalletPublicKeyIsMember)
-        }
-      >
+      <CustomButton onPress={handleConfirm}>
         <ButtonText>
           {deviceWalletPublicKeyIsMember || cloudWalletPublicKeyIsMember
             ? "Edit Members"
@@ -430,57 +489,44 @@ const RenderMembers: FC<{
 };
 
 const RenderEditMembers: FC<{
+  originalMembers: TransactionSigner[];
   setFilteredMembers: React.Dispatch<React.SetStateAction<TransactionSigner[]>>;
   setAdd: React.Dispatch<React.SetStateAction<boolean>>;
   filteredMembers: TransactionSigner[];
-  walletAddress: PublicKey;
   setEdit: React.Dispatch<React.SetStateAction<boolean>>;
-  setArgs: React.Dispatch<React.SetStateAction<TransactionArgs | null>>;
-  setPage: React.Dispatch<React.SetStateAction<Page>>;
-  reset: () => void;
 }> = ({
   setAdd,
   filteredMembers,
-  walletAddress,
   setFilteredMembers,
   setEdit,
-  setArgs,
-  setPage,
-  reset,
+  originalMembers,
 }) => {
-  const { deviceWalletPublicKey, cloudWalletPublicKey } = useWallets();
-  const { data: walletInfo } = useGetWalletInfo({
-    address: getMultiSigFromAddress(walletAddress),
-  });
-  const originalMembers = useMemo(() => {
-    return (
-      walletInfo?.members.map((x) => ({
-        key: x.pubkey,
-        type: getSignerTypeFromAddress(
-          x,
-          deviceWalletPublicKey,
-          cloudWalletPublicKey
-        ),
-        state: SignerState.Unsigned,
-      })) || []
-    );
-  }, [walletInfo?.members, deviceWalletPublicKey, cloudWalletPublicKey]);
+  const { walletSheetArgs, setTransactionSheetArgs, setPage } =
+    useGlobalStore();
+  const { walletAddress, theme, type } = walletSheetArgs ?? {};
+
+  const { walletInfo } = useWalletInfo({ type, walletAddress });
+
   const handleConfirm = useCallback(async () => {
-    if (walletInfo) {
-      setArgs({
+    const feePayer = getSponsoredFeePayer();
+    if (walletInfo && walletAddress) {
+      setTransactionSheetArgs({
+        feePayer,
+        theme,
+        walletAddress,
         changeConfig: {
           newOwners: filteredMembers,
         },
         walletInfo,
+        callback: (signature) =>
+          signature ? setPage(Page.Main) : setPage(Page.Settings),
       });
-      reset();
-      setPage(Page.Confirmation);
     }
-  }, [walletInfo, filteredMembers, setPage, reset]);
+  }, [walletInfo, walletAddress, filteredMembers]);
 
   return (
     <>
-      <XStack justifyContent="space-between" alignItems="center" width={"99%"}>
+      <XStack justify="space-between" items="center" width={"99%"}>
         <Text>Members:</Text>
         <CustomButton onPress={() => setAdd(true)} bordered size={"$3"}>
           <ButtonIcon>
@@ -489,40 +535,32 @@ const RenderEditMembers: FC<{
           <ButtonText>Add Member</ButtonText>
         </CustomButton>
       </XStack>
-      <YGroup alignSelf="center" size="$5">
+      <YGroup self="center" size="$5">
         {filteredMembers.map((member, index) => {
           return (
-            <YGroup.Item key={member.key.toString()}>
+            <YGroup.Item key={member.key}>
               <CustomListItem
                 bordered
-                title={member.key.toString()}
+                title={member.key}
                 subTitle={`Member ${index + 1} (${member.type})`}
                 onPress={() =>
                   setFilteredMembers((prev) =>
-                    prev.filter(
-                      (x) => x.key.toString() !== member.key.toString()
-                    )
+                    prev.filter((x) => x.key !== member.key)
                   )
                 }
                 icon={<User size={"$1"} />}
-                iconAfter={<Trash2 color={"red"} size={"$1"} />}
+                iconAfter={<Trash2 size={"$1"} />}
               />
             </YGroup.Item>
           );
         })}
       </YGroup>
-      <CustomButton
-        onPress={() => {
-          handleConfirm();
-        }}
-        themeInverse
-      >
-        <ButtonText>{"Confirm"}</ButtonText>
+      <CustomButton onPress={handleConfirm}>
+        <ButtonText>{"Continue"}</ButtonText>
       </CustomButton>
       <CustomButton
         onPress={() => {
           setEdit(false);
-
           setFilteredMembers(originalMembers);
         }}
       >

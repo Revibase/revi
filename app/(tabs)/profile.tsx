@@ -1,5 +1,5 @@
-import { PublicKey } from "@solana/web3.js";
 import {
+  AlertCircle,
   Check,
   CheckCircle2,
   Cloud,
@@ -8,62 +8,56 @@ import {
   WalletCards,
 } from "@tamagui/lucide-icons";
 import { CustomButton } from "components/CustomButton";
+import { CustomCard } from "components/CustomCard";
 import { CustomListItem } from "components/CustomListItem";
-import { useWallets } from "components/hooks/useWallets";
+import { useInit } from "components/hooks";
+import { useAssetValidation } from "components/hooks/useAssetValidation";
+import { useGetMultiWallets } from "components/hooks/useGetMultiWallets";
 import { Google } from "components/icons/google";
-import { useGlobalVariables } from "components/providers/globalProvider";
 import { Header } from "components/wallet/header";
-import { WalletSheets } from "components/wallet/sheets";
 import { FC, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   ButtonIcon,
   ButtonText,
-  Card,
   Circle,
   Heading,
-  Image,
   ListItem,
   ScrollView,
   Spinner,
   Text,
   TextArea,
   ThemeName,
-  useTheme,
-  useWindowDimensions,
   XStack,
   YStack,
 } from "tamagui";
-import { PLACEHOLDER_IMAGE } from "utils/consts";
-import { WalletType } from "utils/enums/wallet";
-import { formatAmount, getTotalValueFromWallet } from "utils/helper";
-import { useGenerateWallet } from "utils/mutations/generateWallet";
-import { useGetAssetsByOwner } from "utils/queries/useGetAssetsByOwner";
-import { useGetMultisigByOwner } from "utils/queries/useGetMultisigByOwner";
-
+import {
+  formatAmount,
+  getTotalValueFromWallet,
+  PLACEHOLDER_IMAGE,
+  useGenerateWallet,
+  useGetAssetsByOwner,
+  useGlobalStore,
+  WalletType,
+} from "utils";
 export default function profile() {
   const {
     deviceWalletPublicKey,
     cloudWalletPublicKey,
-    deviceWalletIsLoading,
-    cloudWalletIsLoading,
-  } = useWallets();
-
+    isHydrated,
+    cloudStorage,
+  } = useGlobalStore();
   const { top } = useSafeAreaInsets();
+
   return (
-    <YStack
-      flex={1}
-      paddingTop={top}
-      paddingHorizontal={"$4"}
-      paddingBottom={"$4"}
-    >
-      {deviceWalletIsLoading || cloudWalletIsLoading ? (
-        <YStack flex={1} alignItems="center" justifyContent="center">
+    <YStack flex={1} pt={top} px={"$3"} pb={"$4"}>
+      {!isHydrated ? (
+        <YStack flex={1} items="center" justify="center">
           <Spinner />
           <Text>Loading...</Text>
         </YStack>
-      ) : !deviceWalletPublicKey || !cloudWalletPublicKey ? (
+      ) : !deviceWalletPublicKey || (cloudStorage && !cloudWalletPublicKey) ? (
         <Onboarding />
       ) : (
         <Profile />
@@ -73,132 +67,103 @@ export default function profile() {
 }
 
 const Profile: FC<{}> = () => {
-  const { data: multiWallets } = useGetMultisigByOwner({});
-
-  const [walletDetails, setWalletDetails] = useState<{
-    address: PublicKey | null | undefined;
-    mint: PublicKey | null;
-    type: WalletType;
-  }>({
-    address: null,
-    mint: null,
-    type: WalletType.MULTIWALLET,
-  });
-
-  const reset = () =>
-    setWalletDetails({
-      address: null,
-      mint: null,
-      type: WalletType.MULTIWALLET,
-    });
+  const { setWalletSheetArgs } = useGlobalStore();
+  const [parentWidth, setParentWidth] = useState(0);
+  const { hasAsset } = useAssetValidation();
+  const { multiWallets } = useGetMultiWallets();
 
   return (
     <ScrollView
-      contentContainerStyle={{ gap: 16, paddingTop: 16 }}
+      contentContainerStyle={{ gap: 16, pt: 16 }}
       flex={1}
       showsVerticalScrollIndicator={false}
     >
-      <Heading size={"$6"}>Your Wallets</Heading>
-      <WalletScrollView setWalletDetails={setWalletDetails} />
+      <Heading size={"$5"}>Your Wallets</Heading>
+      <WalletScrollView />
       <YStack width={"100%"} gap="$2">
-        <Heading size={"$6"}>Collectible Wallets</Heading>
-        <YStack width={"100%"} flexWrap="wrap" flexDirection="row" gap="$4">
-          {multiWallets?.map((x) => {
-            return (
-              <YStack
-                key={x.createKey.toString()}
-                width="33%"
-                gap={"$2"}
-                aspectRatio={1}
-                justifyContent="space-between"
-                alignItems="center"
-                backgroundColor={"$colorTransparent"}
-                hoverStyle={{ scale: 0.925 }}
-                pressStyle={{ scale: 0.875 }}
-                animation="bouncy"
-                onPress={() => {
-                  setWalletDetails({
-                    address: new PublicKey(x.createKey),
-                    type: WalletType.MULTIWALLET,
-                    mint: x.metadata ? new PublicKey(x.metadata) : null,
-                  });
-                }}
-              >
-                <XStack
-                  paddingHorizontal={"$2"}
-                  justifyContent="center"
-                  alignItems="baseline"
-                  gap={"$1"}
+        <Heading size={"$3"}>Collectible Wallets</Heading>
+        <YStack
+          width={"100%"}
+          onLayout={(event) => setParentWidth(event.nativeEvent.layout.width)}
+          flexWrap="wrap"
+          flexDirection="row"
+          gap="$4"
+        >
+          {parentWidth > 0 &&
+            multiWallets?.map((x) => {
+              return (
+                <YStack
+                  key={x.createKey.toString()}
+                  width={(parentWidth - 32) / 3}
+                  height={(parentWidth - 32) / 3}
+                  gap={"$2"}
+                  justify="space-between"
+                  items="center"
+                  bg={"$colorTransparent"}
+                  hoverStyle={{ scale: 0.925 }}
+                  pressStyle={{ scale: 0.875 }}
+                  animation="bouncy"
+                  onPress={() => {
+                    setWalletSheetArgs({
+                      walletAddress: x.createKey,
+                      type: WalletType.MULTIWALLET,
+                      mint: x.metadata || null,
+                      theme: "accent",
+                    });
+                  }}
                 >
-                  <Text theme={"alt1"} fontSize={"$1"}>
-                    USD
-                  </Text>
-                  <Text
-                    theme={"active"}
-                    numberOfLines={1}
-                    fontSize={"$5"}
-                    fontWeight={"800"}
+                  <XStack
+                    maxW={"80%"}
+                    px={"$2"}
+                    justify="center"
+                    items="baseline"
+                    gap={"$1"}
                   >
-                    {`${x.totalValue.toLocaleString("en-US", {
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 5,
-                    })}`}
-                  </Text>
-                </XStack>
-                <Card elevate height={"80%"} width={"56%"}>
-                  <Card.Background>
-                    <Image
-                      height={"100%"}
-                      width={"100%"}
-                      borderWidth={"$1"}
-                      borderRadius={"$2"}
-                      objectFit="cover"
-                      source={{
-                        uri:
-                          x?.data?.content?.links?.image || PLACEHOLDER_IMAGE,
-                      }}
-                      alt="image"
-                    />
-                  </Card.Background>
-                </Card>
-                <Text
-                  paddingHorizontal={"$3"}
-                  numberOfLines={1}
-                  fontSize={"$3"}
-                >
-                  {x.data?.content?.metadata.name || x.vaultAddress}
-                </Text>
-              </YStack>
-            );
-          })}
+                    <Text fontSize={"$1"}>USD</Text>
+                    <Text numberOfLines={1} fontSize={"$5"} fontWeight={"800"}>
+                      {`${formatAmount(x.totalValue)}`}
+                    </Text>
+                  </XStack>
+                  <CustomCard
+                    height={"$8"}
+                    url={x.data?.content?.links?.image || PLACEHOLDER_IMAGE}
+                  />
+                  <XStack
+                    maxW={"80%"}
+                    px={"$2"}
+                    justify={"center"}
+                    gap={"$2"}
+                    items={"center"}
+                  >
+                    {x.metadata &&
+                      !hasAsset(
+                        x.data,
+                        x.vaultAddress,
+                        true,
+                        true,
+                        WalletType.MULTIWALLET
+                      ) && <AlertCircle size={"$1"} color={"red"} />}
+                    <Text numberOfLines={1} fontSize={"$3"}>
+                      {x.data?.content?.metadata.name || x.vaultAddress}
+                    </Text>
+                  </XStack>
+                </YStack>
+              );
+            })}
         </YStack>
       </YStack>
-      <WalletSheets
-        type={walletDetails.type}
-        address={walletDetails.address}
-        reset={reset}
-        mint={walletDetails.mint}
-      />
     </ScrollView>
   );
 };
 
-const WalletScrollView: FC<{
-  setWalletDetails: (
-    value: React.SetStateAction<{
-      address: PublicKey | null | undefined;
-      mint: PublicKey | null;
-      type: WalletType;
-    }>
-  ) => void;
-}> = ({ setWalletDetails }) => {
+const WalletScrollView: FC = () => {
   const {
     deviceWalletPublicKey,
     cloudWalletPublicKey,
+    setWalletSheetArgs,
     defaultWallet,
     setDefaultWallet,
-  } = useWallets();
-
+  } = useGlobalStore();
   const { data: deviceWalletAssets } = useGetAssetsByOwner({
     address: deviceWalletPublicKey,
   });
@@ -209,7 +174,7 @@ const WalletScrollView: FC<{
   const wallets = useMemo(
     () => [
       {
-        subtitle: "Device Wallet",
+        subtitle: WalletType.DEVICE,
         publicKey: deviceWalletPublicKey,
         theme: "blue" as ThemeName,
         type: WalletType.DEVICE,
@@ -219,7 +184,7 @@ const WalletScrollView: FC<{
           : 0,
       },
       {
-        subtitle: "Cloud Wallet",
+        subtitle: WalletType.CLOUD,
         publicKey: cloudWalletPublicKey,
         theme: "green" as ThemeName,
         type: WalletType.CLOUD,
@@ -236,41 +201,45 @@ const WalletScrollView: FC<{
       cloudWalletPublicKey,
     ]
   );
+
   const [activePage, setActivePage] = useState(0);
-  const { width } = useWindowDimensions();
+  const [parentWidth, setParentWidth] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
   const handleScrollEnd = (event) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     // Determine the direction of swipe
-    const direction = offsetX - activePage * width > 0 ? 1 : -1;
+    const direction = offsetX - activePage * parentWidth > 0 ? 1 : -1;
 
     // Introduce a threshold for easier swiping
     const threshold = 15; // Adjust for sensitivity
 
     // Check if the swipe passes the threshold
-    const delta = offsetX - activePage * width;
+    const delta = offsetX - activePage * parentWidth;
 
     const snappedPage =
       Math.abs(delta) > threshold ? activePage + direction : activePage;
 
     // Prevent going out of bounds
-    const boundedSnappedPage = Math.max(0, snappedPage);
+    const boundedSnappedPage = Math.min(Math.max(0, snappedPage), 1);
 
     setActivePage(boundedSnappedPage);
 
     if (scrollViewRef.current) {
       scrollViewRef.current.scrollTo({
-        x: snappedPage * width,
+        x: snappedPage * parentWidth,
         animated: true,
       });
     }
   };
   return (
-    <YStack width={"100%"}>
+    <YStack
+      width={"100%"}
+      onLayout={(event) => setParentWidth(event.nativeEvent.layout.width)}
+    >
       <ScrollView
         ref={scrollViewRef}
         snapToAlignment="center"
-        contentContainerStyle={{ width: width * 2 - 36, gap: 36 }}
+        contentContainerStyle={{ width: parentWidth * 2 }}
         horizontal={true}
         onScrollEndDrag={handleScrollEnd}
         scrollEventThrottle={16}
@@ -281,17 +250,21 @@ const WalletScrollView: FC<{
           ({ amount, subtitle, publicKey, theme, type, icon }, index) => (
             <CustomListItem
               key={index}
-              borderRadius={"$4"}
               bordered
+              borderTopEndRadius={"$2"}
+              borderTopStartRadius={"$2"}
+              borderBottomEndRadius={"$2"}
+              borderBottomStartRadius={"$2"}
               padded
               theme={theme}
               title={`$${formatAmount(amount)}`}
               onPress={() => {
                 if (publicKey) {
-                  setWalletDetails({
-                    address: publicKey,
+                  setWalletSheetArgs({
+                    walletAddress: publicKey,
                     type,
                     mint: null,
+                    theme,
                   });
                 }
               }}
@@ -305,11 +278,11 @@ const WalletScrollView: FC<{
                   size={"$3"}
                 >
                   <ButtonText>
-                    {defaultWallet?.toString() === publicKey?.toString()
+                    {defaultWallet == publicKey
                       ? "Default Wallet"
                       : "Set as Default Wallet"}
                   </ButtonText>
-                  {defaultWallet?.toString() === publicKey?.toString() && (
+                  {defaultWallet == publicKey && (
                     <ButtonIcon>
                       <CheckCircle2 size={"$1"} />
                     </ButtonIcon>
@@ -321,13 +294,13 @@ const WalletScrollView: FC<{
           )
         )}
       </ScrollView>
-      <XStack justifyContent="center" alignItems="center" marginTop="$2">
+      <XStack justify="center" items="center" mt="$2">
         {wallets.map((_, index) => (
           <Circle
             key={index}
             size={8}
-            backgroundColor={activePage === index ? "$blue10" : "$gray5"}
-            marginHorizontal="$1"
+            bg={activePage === index ? "$accent1" : "gray"}
+            mx="$1"
           />
         ))}
       </XStack>
@@ -336,21 +309,31 @@ const WalletScrollView: FC<{
 };
 
 const Onboarding: FC = () => {
-  const { cloudStorage, handleSignInWithGoogle } = useGlobalVariables();
-  const { deviceWalletPublicKey, cloudWalletPublicKey } = useWallets();
-  const generateWalletMutation = useGenerateWallet();
+  const {
+    expoPushToken,
+    deviceWalletPublicKey,
+    cloudWalletPublicKey,
+    setCloudWalletPublicKey,
+    setDeviceWalletPublicKey,
+    cloudStorage,
+  } = useGlobalStore();
+  const generateWalletMutation = useGenerateWallet({
+    expoPushToken,
+    cloudStorage,
+    setCloudWalletPublicKey,
+    setDeviceWalletPublicKey,
+  });
   const [mnemonic, setMnemonic] = useState("");
   const [step, setStep] = useState(1);
   const [currentWalletType, setCurrentWalletType] = useState(WalletType.DEVICE);
   const [isCloudAvailable, setIsCloudAvailable] = useState(false);
-  const { color } = useTheme();
+  const { handleSignInWithGoogle } = useInit();
   useEffect(() => {
     if (cloudStorage) {
-      cloudStorage
-        .isCloudAvailable()
-        .then((result) => setIsCloudAvailable(result));
+      cloudStorage.isCloudAvailable().then(setIsCloudAvailable);
     }
   }, [cloudStorage]);
+
   useEffect(() => {
     if (step !== 1) return;
     if (deviceWalletPublicKey && !cloudWalletPublicKey) {
@@ -360,176 +343,176 @@ const Onboarding: FC = () => {
     }
   }, [deviceWalletPublicKey, cloudWalletPublicKey, step]);
 
-  const renderStep = useMemo(() => {
-    switch (step) {
-      case 1:
-        return (
-          <>
-            <Heading textAlign="center" padding="$4">
-              Welcome to Your Wallet Setup
-            </Heading>
-            <WalletCards size="$14" />
-            <Text textAlign="center" fontSize="$6">
-              {
-                "Let's set up your wallets.\nA device wallet for daily transactions and a cloud wallet for easy recovery."
-              }
-            </Text>
-            <YStack width={"80%"} gap={"$4"}>
-              <ListItem
-                theme={deviceWalletPublicKey ? "green" : "active"}
-                bordered={currentWalletType === WalletType.DEVICE ? 1 : 0}
-                borderColor={color.val}
-                onPress={() => setCurrentWalletType(WalletType.DEVICE)}
-                borderRadius={"$4"}
-                icon={<Smartphone size={"$1"} />}
-                title={"Device Wallet"}
-                subTitle={deviceWalletPublicKey?.toString()}
-                iconAfter={
-                  deviceWalletPublicKey ? <Check size={"$1"} /> : <></>
-                }
-              />
-              <ListItem
-                theme={cloudWalletPublicKey ? "green" : "active"}
-                bordered={currentWalletType === WalletType.CLOUD ? 1 : 0}
-                borderColor={color.val}
-                onPress={() => setCurrentWalletType(WalletType.CLOUD)}
-                borderRadius={"$4"}
-                icon={<Cloud size={"$1"} />}
-                title={"Cloud Wallet"}
-                subTitle={cloudWalletPublicKey?.toString()}
-                iconAfter={cloudWalletPublicKey ? <Check size={"$1"} /> : <></>}
-              />
-            </YStack>
-            <CustomButton theme="active" onPress={() => setStep(2)}>
-              <ButtonText width="80%" textAlign="center">
-                Continue
-              </ButtonText>
-            </CustomButton>
-          </>
-        );
-      case 2:
-        return (
-          <>
-            <Header
-              paddingVertical={"$4"}
-              text={
-                currentWalletType === WalletType.DEVICE
-                  ? "Set Up a Device Wallet"
-                  : "Set Up a Cloud Wallet"
-              }
-              reset={() => setStep(1)}
-            />
-
-            {currentWalletType === WalletType.DEVICE ? (
-              <Smartphone size={"$14"} />
-            ) : (
-              <Cloud size={"$14"} />
-            )}
-            <Text textAlign="center" fontSize={"$6"}>
-              {currentWalletType === WalletType.DEVICE
-                ? `The wallet's private key will be securely stored on your device and is protected by your biometrics.`
-                : !isCloudAvailable
-                ? "Sign in with your Google account to securely store your private keys in your Google Drive."
-                : "Your wallet's private key is securely stored in your personal iCloud or Google Drive and is accessible only with your biometrics."}
-            </Text>
-            {((currentWalletType === WalletType.CLOUD && isCloudAvailable) ||
-              currentWalletType === WalletType.DEVICE) && (
-              <Text textAlign="center" fontSize={"$6"}>
-                {`Create a new wallet or use an existing seed phrase to set up your wallet.`}
-              </Text>
-            )}
-            <YStack gap="$3" width="80%" alignItems="center">
-              {(currentWalletType === WalletType.CLOUD && isCloudAvailable) ||
-              currentWalletType === WalletType.DEVICE ? (
-                <>
-                  <CustomButton
-                    theme={"active"}
-                    width={"100%"}
-                    onPress={async () => {
-                      const result = await generateWalletMutation.mutateAsync({
-                        walletType: currentWalletType,
-                      });
-                      if (result) {
-                        setStep(1);
-                      }
-                    }}
-                  >
-                    {generateWalletMutation.isPending && <Spinner />}
-                    <ButtonText textAlign="center">Create Wallet</ButtonText>
-                  </CustomButton>
-                  <CustomButton
-                    onPress={() => setStep(3)}
-                    variant="outlined"
-                    borderWidth={"$0"}
-                  >
-                    <ButtonText>Use an Existing Seed Phrase</ButtonText>
-                  </CustomButton>
-                </>
-              ) : (
-                <CustomButton theme={"active"} onPress={handleSignInWithGoogle}>
-                  <ButtonIcon children={<Google />} />
-                  <ButtonText>Sign In With Google</ButtonText>
-                </CustomButton>
-              )}
-            </YStack>
-          </>
-        );
-      case 3:
-        return (
-          <>
-            <Header
-              paddingVertical={"$4"}
-              text={"Import an Existing Wallet"}
-              reset={() => setStep(2)}
-            />
-            <Import size={"$14"} />
-            <TextArea
-              minHeight={120}
-              autoCorrect={false}
-              inputMode="text"
-              width={"100%"}
-              value={mnemonic}
-              onChangeText={setMnemonic}
-              placeholder={`Enter the 24 word seed phrase to import your wallet`}
-            />
-            <YStack gap={"$2"} width={"80%"}>
-              <CustomButton
-                theme={"active"}
-                onPress={async () => {
-                  let normalizedMnemonic = mnemonic
-                    .split(" ")
-                    .filter((word) => word.trim() !== "")
-                    .join(" ");
-                  if (normalizedMnemonic.split(" ").length !== 24) {
-                    Alert.alert(
-                      "Invalid Seed Phrase",
-                      "Make sure your seed phrase contains exactly 24 words"
-                    );
-                    return;
-                  }
-                  await generateWalletMutation.mutateAsync({
-                    walletType: currentWalletType,
-                    mnemonic: normalizedMnemonic,
-                  });
-                  setMnemonic("");
-                  setStep(1);
-                }}
-              >
-                {generateWalletMutation.isPending && <Spinner />}
-                <ButtonText textAlign="center">Import Wallet</ButtonText>
-              </CustomButton>
-            </YStack>
-          </>
-        );
-      default:
-        return <></>;
-    }
-  }, [mnemonic, setMnemonic, step, setStep, generateWalletMutation]);
   return (
-    <ScrollView>
-      <YStack alignItems="center" flex={1} gap={"$6"}>
-        {renderStep}
-      </YStack>
+    <ScrollView showsVerticalScrollIndicator={false}>
+      {step === 1 && (
+        <YStack items="center" gap={"$6"}>
+          <Heading size={"$5"} text="center" p="$4">
+            Welcome to Your Wallet Setup
+          </Heading>
+          <WalletCards size="$14" />
+          <Text text="center" fontSize="$6">
+            {
+              "Let's set up your wallets.\nA device wallet for daily transactions and a cloud wallet for easy recovery."
+            }
+          </Text>
+          <YStack width={"80%"} gap={"$4"}>
+            <ListItem
+              borderTopLeftRadius={"$4"}
+              borderTopRightRadius={"$4"}
+              borderBottomLeftRadius={"$4"}
+              borderBottomRightRadius={"$4"}
+              theme={deviceWalletPublicKey ? "green" : null}
+              bordered={currentWalletType === WalletType.DEVICE ? 1 : 0}
+              onPress={() => setCurrentWalletType(WalletType.DEVICE)}
+              icon={<Smartphone size={"$1"} />}
+              title={"Device Wallet"}
+              subTitle={deviceWalletPublicKey?.toString()}
+              iconAfter={deviceWalletPublicKey ? <Check size={"$1"} /> : <></>}
+            />
+            <ListItem
+              borderTopLeftRadius={"$4"}
+              borderTopRightRadius={"$4"}
+              borderBottomLeftRadius={"$4"}
+              borderBottomRightRadius={"$4"}
+              theme={cloudWalletPublicKey ? "green" : null}
+              bordered={currentWalletType === WalletType.CLOUD ? 1 : 0}
+              onPress={() => setCurrentWalletType(WalletType.CLOUD)}
+              icon={<Cloud size={"$1"} />}
+              title={"Cloud Wallet"}
+              subTitle={cloudWalletPublicKey?.toString()}
+              iconAfter={cloudWalletPublicKey ? <Check size={"$1"} /> : <></>}
+            />
+          </YStack>
+          <CustomButton onPress={() => setStep(2)}>
+            <ButtonText width="80%" text="center">
+              Continue
+            </ButtonText>
+          </CustomButton>
+        </YStack>
+      )}
+      {step === 2 && (
+        <YStack
+          enterStyle={{ opacity: 0, x: -25 }}
+          animation={"quick"}
+          items="center"
+          gap={"$6"}
+        >
+          <Header
+            text={
+              currentWalletType === WalletType.DEVICE
+                ? "Set Up a Device Wallet"
+                : "Set Up a Cloud Wallet"
+            }
+            reset={() => setStep(1)}
+            props={{ py: "$4" }}
+          />
+
+          {currentWalletType === WalletType.DEVICE ? (
+            <Smartphone size={"$14"} />
+          ) : (
+            <Cloud size={"$14"} />
+          )}
+          <Text text="center" fontSize={"$6"}>
+            {currentWalletType === WalletType.DEVICE
+              ? `The wallet's private key will be securely stored on your device and is protected by your biometrics.`
+              : !isCloudAvailable
+              ? "Sign in with your Google account to securely store your private keys in your Google Drive."
+              : "Your wallet's private key is securely stored in your personal iCloud or Google Drive and is accessible only with your biometrics."}
+          </Text>
+          {((currentWalletType === WalletType.CLOUD && isCloudAvailable) ||
+            currentWalletType === WalletType.DEVICE) && (
+            <Text text="center" fontSize={"$6"}>
+              {`Create a new wallet or use an existing seed phrase to set up your wallet.`}
+            </Text>
+          )}
+          <YStack gap="$3" width="80%" items="center">
+            {(currentWalletType === WalletType.CLOUD && isCloudAvailable) ||
+            currentWalletType === WalletType.DEVICE ? (
+              <>
+                <CustomButton
+                  width={"100%"}
+                  onPress={() => {
+                    generateWalletMutation.mutateAsync({
+                      walletType: currentWalletType,
+                      callback: () => {
+                        setStep(1);
+                      },
+                    });
+                  }}
+                >
+                  {generateWalletMutation.isPending && <Spinner />}
+                  <ButtonText text="center">Create Wallet</ButtonText>
+                </CustomButton>
+                <CustomButton
+                  onPress={() => setStep(3)}
+                  variant="outlined"
+                  borderWidth={"$0"}
+                >
+                  <ButtonText>Use an Existing Seed Phrase</ButtonText>
+                </CustomButton>
+              </>
+            ) : (
+              <CustomButton onPress={handleSignInWithGoogle}>
+                <ButtonIcon children={<Google />} />
+                <ButtonText>Sign In With Google</ButtonText>
+              </CustomButton>
+            )}
+          </YStack>
+        </YStack>
+      )}
+      {step == 3 && (
+        <YStack
+          enterStyle={{ opacity: 0, x: -25 }}
+          animation={"quick"}
+          items="center"
+          gap={"$6"}
+        >
+          <Header
+            props={{ py: "$4" }}
+            text={"Import an Existing Wallet"}
+            reset={() => setStep(2)}
+          />
+          <Import size={"$14"} />
+          <TextArea
+            minH={120}
+            autoCorrect={false}
+            inputMode="text"
+            width={"100%"}
+            value={mnemonic}
+            onChangeText={setMnemonic}
+            placeholder={`Enter the 24 word seed phrase to import your wallet`}
+          />
+          <YStack gap={"$2"} width={"80%"}>
+            <CustomButton
+              onPress={() => {
+                let normalizedMnemonic = mnemonic
+                  .split(" ")
+                  .filter((word) => word.trim() !== "")
+                  .join(" ");
+                if (normalizedMnemonic.split(" ").length !== 24) {
+                  Alert.alert(
+                    "Invalid Seed Phrase",
+                    "Make sure your seed phrase contains exactly 24 words"
+                  );
+                  return;
+                }
+                generateWalletMutation.mutateAsync({
+                  walletType: currentWalletType,
+                  mnemonic: normalizedMnemonic,
+                  callback: () => {
+                    setMnemonic("");
+                    setStep(1);
+                  },
+                });
+              }}
+            >
+              {generateWalletMutation.isPending && <Spinner />}
+              <ButtonText text="center">Import Wallet</ButtonText>
+            </CustomButton>
+          </YStack>
+        </YStack>
+      )}
     </ScrollView>
   );
 };

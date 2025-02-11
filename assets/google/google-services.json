@@ -7,22 +7,30 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1018601631301:android:cb84c13b6483039ddafd2c",
+        "mobilesdk_app_id": "1:1018601631301:android:adef99615e2dfa17dafd2c",
         "android_client_info": {
-          "package_name": "com.jychab.revi"
+          "package_name": "com.jychab.revivault"
         }
       },
       "oauth_client": [
         {
-          "client_id": "1018601631301-d3qboc7m7nnqau8ne2jqdu7puf3m060j.apps.googleusercontent.com",
+          "client_id": "1018601631301-a7noeb6ha42s2redc63lfhk84t4u7dpf.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.jychab.revi",
-            "certificate_hash": "de7dd5b3e64be0c01a1fb874d33de69004163c5c"
+            "package_name": "com.jychab.revivault",
+            "certificate_hash": "99cc82fc57ff69e8fbcb01694d38684f6cdb8f15"
           }
         },
         {
-          "client_id": "1018601631301-rht4q83v6ocncrcgr35rbkse8m3isc96.apps.googleusercontent.com",
+          "client_id": "1018601631301-r3l3ah2djkfa0drsmtgktjvvnceroqej.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.jychab.revivault",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "1018601631301-89osm7fs8708uegkimf0lb7kbe40mfcl.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
@@ -35,14 +43,14 @@
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "1018601631301-rht4q83v6ocncrcgr35rbkse8m3isc96.apps.googleusercontent.com",
+              "client_id": "1018601631301-89osm7fs8708uegkimf0lb7kbe40mfcl.apps.googleusercontent.com",
               "client_type": 3
             },
             {
-              "client_id": "1018601631301-o0cc2cj6jk2e9e6rftk5se8geakjt1ed.apps.googleusercontent.com",
+              "client_id": "1018601631301-k5vrn7illnj6g31luclekmhpp139ujcd.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.jychab.revi"
+                "bundle_id": "com.jychab.revivault"
               }
             }
           ]

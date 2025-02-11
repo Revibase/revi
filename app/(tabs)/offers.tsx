@@ -1,114 +1,117 @@
-import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import {
+  collectionGroup,
+  or,
+  orderBy,
+  query,
+  where,
+} from "@react-native-firebase/firestore";
+import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { Check, X } from "@tamagui/lucide-icons";
 import { CustomButton } from "components/CustomButton";
+import { CustomCard } from "components/CustomCard";
 import { CustomListItem } from "components/CustomListItem";
-import { useWallets } from "components/hooks/useWallets";
-import { WalletSheets } from "components/wallet/sheets";
-import { router } from "expo-router";
-import { FC, memo, useCallback, useMemo, useState } from "react";
-import { Alert } from "react-native";
+import {
+  useGetMultiWallets,
+  useOfferConfirmation,
+  useWalletInfo,
+} from "components/hooks";
+import { FC, memo, useState } from "react";
+import { Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-  Button,
   ButtonText,
-  Card,
   Heading,
-  Image,
   ScrollView,
   Separator,
   SizableText,
   Tabs,
   Text,
   XStack,
+  YGroup,
   YStack,
 } from "tamagui";
-import { PLACEHOLDER_IMAGE } from "utils/consts";
-import { WalletType } from "utils/enums/wallet";
 import {
+  db,
+  EscrowActions,
   formatFirebaseTimestampToRelativeTime,
-  getEscrow,
-  getSignerTypeFromAddress,
-} from "utils/helper";
-import { useAcceptOrCancelEscrow } from "utils/mutations/acceptOrCancelEscrow";
-import { program } from "utils/program";
-import { useGetCurrentOffers } from "utils/queries/useGetCurrentOffers";
-import { useGetMultisigByOwner } from "utils/queries/useGetMultisigByOwner";
-import { useGetOffersHistory } from "utils/queries/useGetOffersHistory";
-import { useGetYourOffers } from "utils/queries/useGetYourOffers";
-import { Offer } from "utils/types/offer";
-import { SignerState, TransactionArgs } from "utils/types/transaction";
+  Offer,
+  Page,
+  PLACEHOLDER_IMAGE,
+  useGetAsset,
+  useGlobalStore,
+  WalletType,
+} from "utils";
+import { useFirestoreCollection } from "utils/queries/useFirestoreCollection";
 
 const offers: FC = () => {
-  const [transactionDetails, setTransactionDetails] = useState<{
-    address?: PublicKey;
-    mint?: PublicKey;
-    args?: TransactionArgs;
-  }>({});
-
-  const resetTransaction = () => setTransactionDetails({});
   const { top } = useSafeAreaInsets();
+  const [tab, setTab] = useState<string>("Current");
+
   return (
-    <YStack
-      paddingTop={top}
-      alignItems="center"
-      flex={1}
-      gap="$4"
-      paddingHorizontal="$4"
-      paddingBottom={"$4"}
-    >
-      <Heading padding={"$4"}>View Trade Offers</Heading>
+    <YStack pt={top} items="center" flex={1} gap="$4" px="$3" pb={"$4"}>
+      <Heading p={"$4"} size={"$5"}>
+        View Offers
+      </Heading>
       <Tabs
+        borderTopLeftRadius={"$4"}
+        borderTopRightRadius={"$4"}
+        borderBottomLeftRadius={"$4"}
+        borderBottomRightRadius={"$4"}
         width="100%"
         flex={1}
-        defaultValue="tab1"
+        value={tab}
+        onValueChange={setTab}
         orientation="horizontal"
         flexDirection="column"
-        borderRadius="$4"
         borderWidth="$0.25"
         overflow="hidden"
         borderColor="$borderColor"
       >
         <Tabs.List disablePassBorderRadius="bottom">
-          <Tabs.Tab flex={1} value="tab1">
+          <Tabs.Tab
+            flex={1}
+            value="Current"
+            backgroundColor={tab === "Current" ? "$background" : "transparent"}
+            borderBottomWidth={tab === "Current" ? "$0" : "$0.25"}
+            borderBottomColor={"$borderColor"}
+          >
             <SizableText fontFamily="$body">Current</SizableText>
           </Tabs.Tab>
-          <Tabs.Tab flex={1} value="tab2">
+          <Separator vertical />
+          <Tabs.Tab
+            flex={1}
+            value="Yours"
+            backgroundColor={tab === "Yours" ? "$background" : "transparent"}
+            borderBottomWidth={tab === "Yours" ? "$0" : "$0.25"}
+            borderBottomColor={"$borderColor"}
+          >
             <SizableText fontFamily="$body">Yours</SizableText>
           </Tabs.Tab>
-          <Tabs.Tab flex={1} value="tab3">
+          <Separator vertical />
+          <Tabs.Tab
+            flex={1}
+            value="History"
+            backgroundColor={tab === "History" ? "$background" : "transparent"}
+            borderBottomWidth={tab === "History" ? "$0" : "$0.25"}
+            borderBottomColor={"$borderColor"}
+          >
             <SizableText fontFamily="$body">History</SizableText>
           </Tabs.Tab>
         </Tabs.List>
-        <Separator />
-        <Tabs.Content value="tab1" flex={1}>
+
+        <Tabs.Content value="Current" flex={1}>
           <OffersList
             label="You don't have any existing offers."
             type="Current"
-            setTransactionDetails={setTransactionDetails}
           />
         </Tabs.Content>
-        <Tabs.Content value="tab2" flex={1}>
-          <OffersList
-            label="You haven't made any offers yet."
-            type="Yours"
-            setTransactionDetails={setTransactionDetails}
-          />
+        <Tabs.Content value="Yours" flex={1}>
+          <OffersList label="You haven't made any offers yet." type="Yours" />
         </Tabs.Content>
-        <Tabs.Content value="tab3" flex={1}>
-          <OffersList
-            label="No offers found."
-            type="History"
-            setTransactionDetails={setTransactionDetails}
-          />
+        <Tabs.Content value="History" flex={1}>
+          <OffersList label="No offers found." type="History" />
         </Tabs.Content>
       </Tabs>
-      <WalletSheets
-        type={WalletType.MULTIWALLET}
-        address={transactionDetails.address}
-        reset={resetTransaction}
-        mint={transactionDetails.mint}
-        onEntry={transactionDetails.args}
-      />
     </YStack>
   );
 };
@@ -118,41 +121,137 @@ export default offers;
 const OffersList: FC<{
   label: string;
   type: "Current" | "Yours" | "History";
-  setTransactionDetails: (details: {
-    address?: PublicKey;
-    mint?: PublicKey;
-    args?: TransactionArgs;
-  }) => void;
-}> = ({ label, type, setTransactionDetails }) => {
-  const { data: multiWallets } = useGetMultisigByOwner({
-    isEnabled: type === "Current",
+}> = ({ label, type }) => {
+  const { deviceWalletPublicKey, cloudWalletPublicKey } = useGlobalStore();
+  const { multiWallets } = useGetMultiWallets(false);
+  const keys = [deviceWalletPublicKey, cloudWalletPublicKey].filter((x) => !!x);
+  const proposerConstraint =
+    keys && keys.length > 0 ? [where("proposer", "in", keys)] : [];
+  const approverConstraint =
+    keys && keys.length > 0 ? [where("approver", "in", keys)] : [];
+  const createKeyConstraint =
+    multiWallets && multiWallets.length > 0
+      ? [
+          where(
+            "createKey",
+            "in",
+            multiWallets.map((x) => x.createKey)
+          ),
+        ]
+      : [];
+  const { data: pendingData } = useFirestoreCollection({
+    queryKey: [
+      "collectionGroup",
+      "Escrow",
+      {
+        isPending: true,
+        createKey: multiWallets?.map((x) => x.createKey),
+        updatedAt: "desc",
+      },
+    ],
+    query: query(
+      collectionGroup(db(), "Escrow"),
+      where("isPending", "==", true),
+      ...createKeyConstraint,
+      orderBy("updatedAt", "desc")
+    ),
+    useQueryOptions: {
+      queryKey: [
+        "collectionGroup",
+        "Escrow",
+        {
+          isPending: true,
+          createKey: multiWallets?.map((x) => x.createKey),
+          updatedAt: "desc",
+        },
+      ],
+      enabled: !!multiWallets && multiWallets.length > 0,
+    },
   });
-  const { data: currentOffers } = useGetCurrentOffers({
-    accounts: multiWallets?.map((x) => x.createKey),
+  const pendingOffers = pendingData?.docs.map((x) => x.data() as Offer);
+
+  const { data: yourData } = useFirestoreCollection({
+    queryKey: [
+      "collectionGroup",
+      "Escrow",
+      {
+        isPending: true,
+        isEscrowClose: false,
+        proposer: keys,
+        updatedAt: "desc",
+      },
+    ],
+    query: query(
+      collectionGroup(db(), "Escrow"),
+      or(where("isPending", "==", true), where("isEscrowClosed", "==", false)),
+      ...proposerConstraint,
+      orderBy("updatedAt", "desc")
+    ),
+    useQueryOptions: {
+      queryKey: [
+        "collectionGroup",
+        "Escrow",
+        {
+          isPending: true,
+          isEscrowClose: false,
+          proposer: keys,
+          updatedAt: "desc",
+        },
+      ],
+      enabled: !!keys && keys.length > 0,
+    },
   });
-  const { data: yourOffers } = useGetYourOffers({
-    isEnabled: type === "Yours",
+  const yourOffers = yourData?.docs.map((x) => x.data() as Offer);
+
+  const { data: historyData } = useFirestoreCollection({
+    queryKey: [
+      "collectionGroup",
+      "Escrow",
+      {
+        isPending: false,
+        approver: keys,
+        proposer: keys,
+        updatedAt: "desc",
+      },
+    ],
+    query: query(
+      collectionGroup(db(), "Escrow"),
+      where("isPending", "==", false),
+      or(...proposerConstraint, ...approverConstraint),
+      orderBy("updatedAt", "desc")
+    ),
+    useQueryOptions: {
+      queryKey: [
+        "collectionGroup",
+        "Escrow",
+        {
+          isPending: false,
+          approver: keys,
+          proposer: keys,
+          updatedAt: "desc",
+        },
+      ],
+      enabled: !!keys && keys.length > 0,
+    },
   });
-  const { data: offerHistory } = useGetOffersHistory({
-    isEnabled: type === "History",
-  });
+
+  const offerHistory = historyData?.docs.map((x) => x.data() as Offer);
 
   const offers =
     type === "Current"
-      ? currentOffers
+      ? pendingOffers
       : type === "Yours"
       ? yourOffers
       : offerHistory;
   return (offers?.length || 0) > 0 ? (
-    <ScrollView>
-      {offers?.map((offer) => (
-        <RowItem
-          key={offer.identifier}
-          offer={offer}
-          type={type}
-          setTransactionDetails={setTransactionDetails}
-        />
-      ))}
+    <ScrollView showsVerticalScrollIndicator={false}>
+      <YGroup>
+        {offers?.map((offer) => (
+          <YGroup.Item key={offer.identifier}>
+            <RowItem offer={offer} type={type} />
+          </YGroup.Item>
+        ))}
+      </YGroup>
     </ScrollView>
   ) : (
     <CenteredMessage>{label}</CenteredMessage>
@@ -162,103 +261,38 @@ const OffersList: FC<{
 const RowItem: FC<{
   offer: Offer;
   type: "Current" | "Yours" | "History";
-  setTransactionDetails: (details: {
-    address?: PublicKey;
-    mint?: PublicKey;
-    args?: TransactionArgs;
-  }) => void;
-}> = memo(({ offer, type, setTransactionDetails }) => {
-  const { deviceWalletPublicKey, cloudWalletPublicKey } = useWallets();
-  const { data: multiWallets } = useGetMultisigByOwner({});
-  const metadata = useMemo(
-    () => multiWallets?.find((wallet) => wallet.createKey === offer.createKey),
-    [multiWallets, offer.createKey]
-  );
-  const walletAddress = new PublicKey(offer.createKey);
-  const setEscrowMutation = useAcceptOrCancelEscrow({ walletAddress });
+}> = memo(({ offer, type }) => {
+  const { setWalletSheetArgs, deviceWalletPublicKey, cloudWalletPublicKey } =
+    useGlobalStore();
 
-  const handleTransaction = useCallback(
-    async (action: "CancelAsOwner" | "CancelAsProposer" | "AcceptAsOwner") => {
-      const escrowData = await program.account.escrow.fetch(
-        getEscrow(walletAddress, offer.identifier)
-      );
+  const { handleTransaction } = useOfferConfirmation();
 
-      if (!escrowData.proposer) {
-        Alert.alert("Error", "Unable to fetch escrow data.");
-        return;
-      }
-
-      let args: TransactionArgs | null = null;
-      if (action === "CancelAsProposer") {
-        const ixs = await setEscrowMutation.mutateAsync({
-          identifier: offer.identifier,
-          type: action,
-          proposer: escrowData.proposer,
-        });
-        if (ixs) {
-          args = {
-            signers: [
-              {
-                key: escrowData.proposer,
-                state: SignerState.Unsigned,
-                type: getSignerTypeFromAddress(
-                  { pubkey: escrowData.proposer },
-                  deviceWalletPublicKey,
-                  cloudWalletPublicKey
-                ),
-              },
-            ],
-            ixs,
-          };
-        }
-      } else if (metadata) {
-        args = {
-          walletInfo: {
-            threshold: metadata.threshold,
-            members: metadata.members.map((x) => ({
-              label: x.label !== null ? parseInt(x.label) : null,
-              pubkey: new PublicKey(x.pubkey),
-            })),
-          },
-          escrowConfig: {
-            identifier: offer.identifier,
-            type: action,
-            proposer: escrowData.proposer,
-          },
-        };
-      }
-      if (!args) {
-        Alert.alert("Error", "Unable to parse instruction data.");
-        return;
-      }
-
-      setTransactionDetails({
-        address: walletAddress,
-        mint: metadata?.metadata ? new PublicKey(metadata.metadata) : undefined,
-        args,
-      });
-    },
-    [
-      walletAddress,
-      deviceWalletPublicKey,
-      cloudWalletPublicKey,
-      offer,
-      metadata,
-      setEscrowMutation,
-    ]
-  );
+  const walletAddress = offer.createKey;
+  const { walletInfo } = useWalletInfo({
+    type: WalletType.MULTIWALLET,
+    walletAddress,
+  });
+  const { data: asset } = useGetAsset({ mint: walletInfo?.metadata });
 
   return (
     <CustomListItem
-      bordered
       gap={"$1"}
-      title={
-        <Heading size={"$6"}>{`${
-          offer.amount / LAMPORTS_PER_SOL
-        } SOL`}</Heading>
-      }
+      onPress={() => {
+        setWalletSheetArgs({
+          type: WalletType.MULTIWALLET,
+          walletAddress,
+          mint: walletInfo?.metadata || null,
+          theme: "accent",
+          offer,
+          page: Page.Offer,
+        });
+      }}
+      p={"$3"}
+      title={`${(offer?.amount || 0) / LAMPORTS_PER_SOL} SOL`}
       subTitle={
-        <XStack
+        <CustomButton
+          maxW={"$8"}
+          bordered
           theme={
             offer.approver
               ? "green"
@@ -266,67 +300,50 @@ const RowItem: FC<{
               ? "red"
               : offer.isPending
               ? "blue"
-              : "orange"
+              : "yellow"
           }
+          size={"$2"}
         >
-          <Button size={"$2"}>
-            <ButtonText>
-              {offer.approver
-                ? "Accepted"
-                : offer.isRejected
-                ? "Rejected"
-                : offer.isPending
-                ? "Pending"
-                : "Cancelled"}
-            </ButtonText>
-          </Button>
-        </XStack>
+          <ButtonText>
+            {offer.approver
+              ? "Accepted"
+              : offer.isRejected
+              ? "Rejected"
+              : offer.isPending
+              ? "Pending"
+              : "Cancelled"}
+          </ButtonText>
+        </CustomButton>
       }
       icon={
-        <Card
-          onPress={() => {
-            setTransactionDetails({
-              address: walletAddress,
-              mint: metadata?.metadata
-                ? new PublicKey(metadata.metadata)
-                : undefined,
-            });
-          }}
-          height={"$6"}
-          aspectRatio="0.71"
-        >
-          <Card.Background>
-            <Image
-              height="100%"
-              width="100%"
-              borderWidth="$1"
-              borderRadius="$2"
-              objectFit="cover"
-              source={{
-                uri: metadata?.data?.content?.links?.image || PLACEHOLDER_IMAGE,
-              }}
-              alt="image"
-            />
-          </Card.Background>
-        </Card>
+        <CustomCard
+          height={"$5"}
+          url={asset?.content?.links?.image || PLACEHOLDER_IMAGE}
+        />
       }
       iconAfter={
-        <YStack gap="$2" alignItems="center">
+        <YStack gap="$2" items="center">
           {type === "Current" && (
             <XStack gap="$3">
               <CustomButton
+                bordered
                 size="$3"
                 circular
                 theme="red"
-                onPress={() => handleTransaction("CancelAsOwner")}
+                onPress={() =>
+                  handleTransaction(offer, EscrowActions.CancelEscrowAsOwner)
+                }
               >
                 <X />
               </CustomButton>
               <CustomButton
+                bordered
                 size="$3"
                 circular
                 theme="green"
-                onPress={() => handleTransaction("AcceptAsOwner")}
+                onPress={() =>
+                  handleTransaction(offer, EscrowActions.AcceptEscrowAsOwner)
+                }
               >
                 <Check />
               </CustomButton>
@@ -334,27 +351,29 @@ const RowItem: FC<{
           )}
           {type === "Yours" && (
             <CustomButton
+              bordered
               size="$3"
               theme="red"
-              onPress={() => handleTransaction("CancelAsProposer")}
+              onPress={() =>
+                handleTransaction(offer, EscrowActions.CancelEscrowAsNonOwner)
+              }
             >
               <ButtonText>{"Cancel"}</ButtonText>
             </CustomButton>
           )}
           {type === "History" && (
             <CustomButton
-              size="$3"
+              bordered
+              size="$2"
               theme={"blue"}
               onPress={() =>
-                router.navigate(`https://solscan.io/tx/${offer.txSig}`, {
-                  relativeToDirectory: false,
-                })
+                Linking.openURL(`https://solscan.io/tx/${offer.txSig}`)
               }
             >
               {"View Transaction"}
             </CustomButton>
           )}
-          <Text textAlign="right" fontSize={type === "History" ? "$4" : "$2"}>
+          <Text text="right" fontSize={type === "History" ? "$4" : "$2"}>
             {formatFirebaseTimestampToRelativeTime(offer.updatedAt)}
           </Text>
         </YStack>
@@ -364,7 +383,7 @@ const RowItem: FC<{
 });
 
 const CenteredMessage: FC<{ children: string }> = ({ children }) => (
-  <YStack alignItems="center" justifyContent="center" flex={1}>
+  <YStack items="center" justify="center" flex={1}>
     <Text fontSize="$6" fontWeight={600}>
       {children}
     </Text>

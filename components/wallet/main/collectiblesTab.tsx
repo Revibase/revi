@@ -1,30 +1,22 @@
+import { getVaultFromAddress } from "@revibase/multi-wallet";
 import { PublicKey } from "@solana/web3.js";
 import { CustomButton } from "components/CustomButton";
+import { useWalletInfo } from "components/hooks";
+import { Image } from "expo-image";
 import { FC } from "react";
-import { Image, YStack } from "tamagui";
-import { Page } from "utils/enums/page";
-import { WalletType } from "utils/enums/wallet";
-import { getMultiSigFromAddress, getVaultFromAddress } from "utils/helper";
-import { useGetAssetsByOwner } from "utils/queries/useGetAssetsByOwner";
-import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
-import { DAS } from "utils/types/das";
+import { YStack } from "tamagui";
+import { Page, proxify, useGetAssetsByOwner, useGlobalStore } from "utils";
 
-export const CollectiblesTab: FC<{
-  type: WalletType;
-  walletAddress: PublicKey;
-  setViewAsset: React.Dispatch<
-    React.SetStateAction<DAS.GetAssetResponse | undefined>
-  >;
-  setPage: React.Dispatch<React.SetStateAction<Page>>;
-}> = ({ type, walletAddress, setViewAsset, setPage }) => {
-  const { data: walletInfo } = useGetWalletInfo({
-    address:
-      type === WalletType.MULTIWALLET
-        ? getMultiSigFromAddress(walletAddress)
-        : null,
-  });
+export const CollectiblesTab: FC = () => {
+  const { walletSheetArgs, setPage, setAsset } = useGlobalStore();
+  const { type, walletAddress } = walletSheetArgs ?? {};
+  const { walletInfo } = useWalletInfo({ walletAddress, type });
+
   const { data: allAssets } = useGetAssetsByOwner({
-    address: walletInfo ? getVaultFromAddress(walletAddress) : walletAddress,
+    address:
+      walletInfo && walletAddress
+        ? getVaultFromAddress(new PublicKey(walletAddress)).toString()
+        : walletAddress,
   });
   return (
     <YStack
@@ -37,7 +29,9 @@ export const CollectiblesTab: FC<{
       {allAssets?.items
         .filter(
           (x) =>
-            !(x.interface == "FungibleToken" || x.interface == "FungibleAsset")
+            !(
+              x.interface == "FungibleToken" || x.interface == "FungibleAsset"
+            ) && !!x?.content?.links?.image
         )
         .map((x) => {
           return (
@@ -46,22 +40,24 @@ export const CollectiblesTab: FC<{
               key={x.id}
               width="45%"
               aspectRatio={1}
-              justifyContent="center"
-              alignItems="center"
-              borderRadius="$4"
-              padding={0}
+              justify="center"
+              items="center"
+              borderTopLeftRadius={"$4"}
+              borderTopRightRadius={"$4"}
+              borderBottomLeftRadius={"$4"}
+              borderBottomRightRadius={"$4"}
+              p={0}
               onPress={() => {
-                setViewAsset(x);
+                setAsset(x);
                 setPage(Page.Asset);
               }}
             >
               <Image
-                borderRadius={"$4"}
-                height={"100%"}
-                width={"100%"}
-                objectFit="contain"
-                source={{ uri: x?.content?.links?.image }}
-                alt="image"
+                style={{ borderRadius: 16, height: "100%", width: "100%" }}
+                contentFit="cover"
+                source={{
+                  uri: proxify(x?.content?.links?.image!),
+                }}
               />
             </CustomButton>
           );

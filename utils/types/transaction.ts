@@ -1,34 +1,23 @@
 import {
   AddressLookupTableAccount,
-  PublicKey,
   TransactionInstruction,
+  VersionedTransaction,
 } from "@solana/web3.js";
-import { SignerType } from "utils/enums/transaction";
+import { ThemeName } from "tamagui";
+import { EscrowActions, SignerType } from "../enums";
+import { WalletInfo } from "./walletInfo";
 
-interface TransactionArgsBase {
-  ixs?: TransactionInstruction[];
-  changeConfig?: {
-    newOwners: TransactionSigner[];
-  };
-  signers?: TransactionSigner[];
-  walletInfo?: {
-    members: Member[];
-    threshold: number;
-  };
-  callback?: () => void;
+interface TransactionSheetArgsBase {
+  walletAddress: string;
+  feePayer: string;
+  theme?: ThemeName | null;
+  error?: string;
+  callback?: (signature?: string) => void;
   lookUpTables?: AddressLookupTableAccount[];
 }
 
-type Member = {
-  pubkey: PublicKey;
-  label: number | null;
-};
-
 type WithWalletInfo = {
-  walletInfo: {
-    members: Member[];
-    threshold: number;
-  };
+  walletInfo: WalletInfo;
   signers?: never;
 };
 
@@ -41,31 +30,42 @@ type WithIxs = {
   ixs: TransactionInstruction[];
   changeConfig?: never;
   escrowConfig?: never;
+  tx?: never;
+};
+
+type WithTx = {
+  tx: VersionedTransaction;
+  changeConfig?: never;
+  escrowConfig?: never;
+  ixs?: never;
 };
 
 type WithChangeConfig = {
   changeConfig: { newOwners: TransactionSigner[] };
   ixs?: never;
+  tx?: never;
   escrowConfig?: never;
 };
 
 type WithEscrowConfig = {
   escrowConfig: {
     identifier: number;
-    type: "CancelAsOwner" | "AcceptAsOwner";
-    proposer: PublicKey;
+    type: EscrowActions.AcceptEscrowAsOwner | EscrowActions.CancelEscrowAsOwner;
+    proposer: string;
   };
   ixs?: never;
+  tx?: never;
   changeConfig?: never;
 };
 type MembersOrSignersWithActions =
-  | (WithWalletInfo & (WithEscrowConfig | WithChangeConfig | WithIxs))
-  | (WithSigners & (WithChangeConfig | WithIxs | WithEscrowConfig));
+  | (WithWalletInfo & (WithEscrowConfig | WithChangeConfig | WithIxs | WithTx))
+  | (WithSigners & (WithChangeConfig | WithIxs | WithEscrowConfig | WithTx));
 
-export type TransactionArgs = TransactionArgsBase & MembersOrSignersWithActions;
+export type TransactionSheetArgs = TransactionSheetArgsBase &
+  MembersOrSignersWithActions;
 
 export interface TransactionSigner {
-  key: PublicKey;
+  key: string;
   type: SignerType;
   state: SignerState;
 }
@@ -73,4 +73,17 @@ export enum SignerState {
   Signed,
   Unsigned,
   Error,
+}
+
+export interface TransactionResult {
+  feePayer: string;
+  data: {
+    id: string;
+    signers: TransactionSigner[];
+    feePayer: string;
+    ixs?: TransactionInstruction[];
+    tx?: VersionedTransaction;
+    lookUpTables?: AddressLookupTableAccount[];
+  }[];
+  totalFees: number | null;
 }

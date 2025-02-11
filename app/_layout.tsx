@@ -3,7 +3,7 @@ import { useFonts } from "expo-font";
 import * as NavigationBar from "expo-navigation-bar";
 import { SplashScreen, Stack } from "expo-router";
 import { useEffect } from "react";
-import { Platform, useColorScheme } from "react-native";
+import { Platform } from "react-native";
 
 export const unstable_settings = {
   initialRouteName: "(tabs)",
@@ -17,10 +17,8 @@ export default function App() {
     Inter: require("@tamagui/font-inter/otf/Inter-Medium.otf"),
     InterBold: require("@tamagui/font-inter/otf/Inter-Bold.otf"),
   });
-
   useEffect(() => {
     if (interLoaded || interError) {
-      // Hide the splash screen after the fonts have loaded (or an error was returned) and the UI is ready.
       SplashScreen.hideAsync();
     }
   }, [interLoaded, interError]);
@@ -36,10 +34,8 @@ export default function App() {
 }
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
-
   return (
-    <Provider defaultTheme={colorScheme || "light"}>
+    <Provider defaultTheme={"light"}>
       <Stack>
         <Stack.Screen
           name="(tabs)"

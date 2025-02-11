@@ -1,3 +1,4 @@
+import { getVaultFromAddress } from "@revibase/multi-wallet";
 import {
   AddressLookupTableAccount,
   PublicKey,
@@ -6,129 +7,118 @@ import {
   VersionedTransaction,
 } from "@solana/web3.js";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useWallets } from "components/hooks/useWallets";
 import { useConnection } from "components/providers/connectionProvider";
-import { useGlobalVariables } from "components/providers/globalProvider";
 import { Platform } from "react-native";
 import { CloudStorage } from "react-native-cloud-storage";
-import { SignerType } from "utils/enums/transaction";
-import { signWithCloudKeypair } from "utils/queries/useGetCloudPublicKey";
-import { signWithDeviceKeypair } from "utils/queries/useGetDevicePublicKey";
-import { SignerState, TransactionSigner } from "utils/types/transaction";
-import NfcProxy from "../apdu/index";
+import { WalletType } from "utils/enums";
+import { SignerType } from "../enums/transaction";
+import { logError, signTransactionsWithPayer } from "../firebase";
+import { nfcCore } from "../nfcCore";
+import { signWithCloudKeypair, signWithDeviceKeypair } from "../secure";
 import {
-  getFeePayerFromSigners,
-  getMultiSigFromAddress,
-  getVaultFromAddress,
-} from "../helper";
-import { pollAndSendTransaction } from "../program/transactionBuilder";
+  pollAndSendJitoBundle,
+  pollAndSendTransaction,
+} from "../transactionBuilder";
+import { SignerState, TransactionSigner } from "../types";
 
 export function useBuildAndSendTransaction({
-  wallet,
+  walletAddress,
+  cloudStorage,
+  setIsNfcSheetVisible,
+  type = WalletType.MULTIWALLET,
 }: {
-  wallet: PublicKey | null | undefined;
+  walletAddress: string | null | undefined;
+  cloudStorage: CloudStorage | null;
+  setIsNfcSheetVisible: (value: boolean) => void;
+  type?: WalletType;
 }) {
   const { connection } = useConnection();
   const client = useQueryClient();
-  const { cloudStorage, setNfcSheetVisible } = useGlobalVariables();
-  const { deviceWalletPublicKey, cloudWalletPublicKey } = useWallets();
   return useMutation({
-    mutationKey: ["send-vault-transaction", { wallet }],
+    mutationKey: ["send-vault-transaction", { walletAddress }],
     mutationFn: async ({
-      signers,
-      ixs,
-      lookUpTables = [],
+      feePayer,
+      data,
       callback,
     }: {
-      signers: TransactionSigner[];
-      ixs: TransactionInstruction[];
-      lookUpTables?: AddressLookupTableAccount[];
-      callback: (signer: TransactionSigner) => void;
+      feePayer: string;
+      data: {
+        id: string;
+        signers: TransactionSigner[];
+        ixs?: TransactionInstruction[];
+        tx?: VersionedTransaction;
+        lookUpTables?: AddressLookupTableAccount[];
+      }[];
+      callback: (signer: TransactionSigner & { id: string }) => void;
     }) => {
       let signature = "";
       try {
-        const enumOrder = Object.values(SignerType);
-        const seenKeys = new Set();
-        const sortedSingers = signers
-          .filter((signer) => {
-            if (seenKeys.has(signer.key)) {
-              return false;
-            }
-            seenKeys.add(signer.key);
-            return true;
-          })
-          .sort((a, b) => {
-            const indexA = enumOrder.indexOf(a.type);
-            const indexB = enumOrder.indexOf(b.type);
-            return indexA - indexB;
-          });
-
-        const tx = new VersionedTransaction(
-          new TransactionMessage({
-            instructions: ixs,
-            recentBlockhash: (
-              await connection.getLatestBlockhash({ commitment: "confirmed" })
-            ).blockhash,
-            payerKey: getFeePayerFromSigners(signers),
-          }).compileToV0Message(lookUpTables)
-        );
-        for (const signer of sortedSingers) {
-          try {
-            await signTx(signer, tx, setNfcSheetVisible, cloudStorage);
-            callback({
-              key: signer.key,
-              type: signer.type,
-              state: SignerState.Signed,
-            });
-          } catch (error) {
-            callback({
-              key: signer.key,
-              type: signer.type,
-              state: SignerState.Error,
-            });
-            throw new Error(`${error.message}`);
+        let txs: {
+          transaction: VersionedTransaction;
+          id: string;
+          signers: TransactionSigner[];
+        }[] = [];
+        for (const payload of data) {
+          let transaction = payload.tx;
+          if (payload.ixs) {
+            transaction = new VersionedTransaction(
+              new TransactionMessage({
+                instructions: payload.ixs,
+                recentBlockhash: (
+                  await connection.getLatestBlockhash({
+                    commitment: "confirmed",
+                  })
+                ).blockhash,
+                payerKey: new PublicKey(feePayer),
+              }).compileToV0Message(payload.lookUpTables)
+            );
           }
+          if (!transaction) {
+            throw new Error("Transaction is undefined");
+          }
+          txs.push({ transaction, id: payload.id, signers: payload.signers });
         }
-        signature = await pollAndSendTransaction(connection, tx);
+
+        const signedTxs = await signTransactions(
+          feePayer,
+          txs,
+          setIsNfcSheetVisible,
+          cloudStorage,
+          callback
+        );
+
+        if (signedTxs.length === 1) {
+          signature = await pollAndSendTransaction(
+            connection,
+            signedTxs[0].transaction
+          );
+        } else {
+          signature = await pollAndSendJitoBundle(
+            signedTxs.map((x) =>
+              Buffer.from(x.transaction.serialize()).toString("base64")
+            )
+          );
+        }
         return signature;
-      } catch (error: any) {
-        throw new Error(`${error.message}`);
+      } catch (error) {
+        logError(error);
+        throw new Error(error instanceof Error ? error.message : String(error));
       }
     },
-    onSuccess: async (result) => {
-      if (result && wallet) {
+    onSuccess: async (signature) => {
+      if (signature && walletAddress) {
         await Promise.all([
           client.invalidateQueries({
             queryKey: [
               "get-assets-by-owner",
               {
-                address: getVaultFromAddress(wallet).toString(),
-              },
-            ],
-          }),
-          client.invalidateQueries({
-            queryKey: [
-              "get-wallet-info",
-              {
-                address: getMultiSigFromAddress(wallet).toString(),
-              },
-            ],
-          }),
-          client.invalidateQueries({
-            queryKey: [
-              "get-multisig-by-owner",
-              {
-                deviceWalletPublicKey,
-                cloudWalletPublicKey,
-              },
-            ],
-          }),
-          client.invalidateQueries({
-            queryKey: [
-              "get-your-offers",
-              {
-                deviceWalletPublicKey,
-                cloudWalletPublicKey,
+                connection: connection.rpcEndpoint,
+                address:
+                  type === WalletType.MULTIWALLET
+                    ? getVaultFromAddress(
+                        new PublicKey(walletAddress)
+                      ).toString()
+                    : walletAddress,
               },
             ],
           }),
@@ -138,41 +128,126 @@ export function useBuildAndSendTransaction({
   });
 }
 
-async function signTx(
-  signer: TransactionSigner,
-  tx: VersionedTransaction,
-  setNfcSheetVisible: React.Dispatch<React.SetStateAction<boolean>>,
-  cloudStorage: CloudStorage | null
+async function signTransactions(
+  feePayer: string,
+  txs: {
+    transaction: VersionedTransaction;
+    id: string;
+    signers: TransactionSigner[];
+  }[],
+  setNfcSheetVisible: (value: boolean) => void,
+  cloudStorage: CloudStorage | null,
+  callback: (signer: TransactionSigner & { id: string }) => void
 ) {
-  try {
-    switch (signer.type) {
-      case SignerType.NFC:
-        try {
-          if (Platform.OS === "android") {
-            setNfcSheetVisible(true);
-          }
-          const nfcSignature = await NfcProxy.signRawPayload(
-            tx.message.serialize()
-          );
-          tx.addSignature(signer.key, new Uint8Array(nfcSignature));
-        } catch (error) {
-          throw new Error(`${error.message}`);
-        } finally {
-          if (Platform.OS === "android") {
-            setNfcSheetVisible(false);
-          }
-        }
-        break;
-      case SignerType.DEVICE:
-        await signWithDeviceKeypair(tx);
-        break;
-      case SignerType.CLOUD:
-        await signWithCloudKeypair(tx, cloudStorage);
-        break;
-      default:
-        throw new Error("Signer type is unknown.");
-    }
-  } catch (error) {
-    throw new Error(`${error.message}`);
+  const transactionMap = new Map<string, VersionedTransaction>();
+  const transactionsToSign = txs.filter(
+    (tx) => !tx.signers.some((signer) => signer.key === feePayer)
+  );
+
+  if (transactionsToSign.length > 0) {
+    const serializedTransactions = transactionsToSign.map((tx) =>
+      Buffer.from(tx.transaction.serialize()).toString("base64")
+    );
+
+    const signedTxs = await signTransactionsWithPayer(
+      serializedTransactions,
+      feePayer
+    );
+
+    transactionsToSign.forEach((tx, index) => {
+      tx.transaction = VersionedTransaction.deserialize(
+        Buffer.from(signedTxs[index], "base64")
+      );
+    });
   }
+  txs.forEach((tx) => transactionMap.set(tx.id, tx.transaction));
+
+  const groupedTxs: Record<
+    SignerType,
+    {
+      transaction: VersionedTransaction;
+      id: string;
+      signer: TransactionSigner;
+    }[]
+  > = {
+    [SignerType.UNKNOWN]: [],
+    [SignerType.NFC]: [],
+    [SignerType.DEVICE]: [],
+    [SignerType.CLOUD]: [],
+  };
+
+  for (const tx of txs) {
+    for (const signer of tx.signers) {
+      if (signer.type === SignerType.UNKNOWN) {
+        throw new Error(`Unknown signer type: ${signer.key}`);
+      }
+      groupedTxs[signer.type].push({
+        signer,
+        transaction: tx.transaction,
+        id: tx.id,
+      });
+    }
+  }
+
+  // Sort to ensure SignerType.NFC is processed last
+  const sortedGroupedTxs = Object.entries(groupedTxs).sort(
+    ([typeA], [typeB]) => {
+      if (typeA === SignerType.NFC) return 1; // Move NFC to the end
+      if (typeB === SignerType.NFC) return -1;
+      return 0;
+    }
+  );
+
+  for (const [type, txGroup] of sortedGroupedTxs) {
+    if (txGroup.length > 0 && type !== SignerType.UNKNOWN) {
+      try {
+        if (type === SignerType.DEVICE) {
+          await signWithDeviceKeypair(txGroup.map((x) => x.transaction));
+        } else if (type === SignerType.CLOUD) {
+          await signWithCloudKeypair(
+            txGroup.map((x) => x.transaction),
+            cloudStorage
+          );
+        } else if (type === SignerType.NFC) {
+          if (Platform.OS === "android") setNfcSheetVisible(true);
+          const signatures = await nfcCore.signRawPayloads(
+            txGroup
+              .map((x) => x.transaction)
+              .map((transaction) => transaction.message.serialize())
+          );
+          txGroup.map((x, index) =>
+            x.transaction.addSignature(
+              new PublicKey(x.signer.key),
+              new Uint8Array(signatures[index])
+            )
+          );
+          if (Platform.OS === "android") setNfcSheetVisible(false);
+        }
+        txGroup.forEach(({ id, signer }) => {
+          callback({
+            id,
+            ...signer,
+            state: SignerState.Signed,
+          });
+        });
+      } catch (error) {
+        txGroup.forEach(({ id, signer }) => {
+          callback({
+            id,
+            ...signer,
+            state: SignerState.Error,
+          });
+        });
+        logError(error);
+        throw new Error(error.message);
+      }
+    }
+  }
+
+  return Array.from(transactionMap.entries()).map(([id, transaction]) => {
+    if (!transaction.signatures.length) {
+      throw new Error(`Transaction with id ${id} is not signed.`);
+    }
+    return { id, transaction };
+  });
 }

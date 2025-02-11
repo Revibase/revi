@@ -1,58 +1,76 @@
+import { getVaultFromAddress } from "@revibase/multi-wallet";
 import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { Copy, Wallet } from "@tamagui/lucide-icons";
+import { Copy, Handshake, Wallet } from "@tamagui/lucide-icons";
+import { CustomButton } from "components/CustomButton";
 import { CustomListItem } from "components/CustomListItem";
-import { useCopyToClipboard } from "components/hooks/useCopyToClipboard";
-import { FC } from "react";
-import { Text } from "tamagui";
-import { WalletType } from "utils/enums/wallet";
 import {
-  formatAmount,
-  getMultiSigFromAddress,
-  getVaultFromAddress,
-} from "utils/helper";
-import { useGetCurrentOffers } from "utils/queries/useGetCurrentOffers";
-import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
-
-export const RenderWalletInfo: FC<{
-  type: WalletType;
-  walletAddress: PublicKey;
-}> = ({ type, walletAddress }) => {
-  const { data: walletInfo } = useGetWalletInfo({
-    address:
-      type === WalletType.MULTIWALLET
-        ? getMultiSigFromAddress(walletAddress)
-        : null,
+  useCopyToClipboard,
+  usePendingOffers,
+  useWalletInfo,
+} from "components/hooks";
+import { FC } from "react";
+import { ButtonIcon, ButtonText, Text, XStack } from "tamagui";
+import { formatAmount, Page, useGlobalStore, WalletType } from "utils";
+export const RenderWalletInfo: FC = () => {
+  const { walletSheetArgs, setPage } = useGlobalStore();
+  const { type, walletAddress } = walletSheetArgs ?? {};
+  const { walletInfo } = useWalletInfo({
+    type,
+    walletAddress,
+  });
+  const { hasPendingOffers, pendingOffers } = usePendingOffers({
+    type,
+    walletAddress,
   });
   const copyToClipboard = useCopyToClipboard();
-  const { data: offers } = useGetCurrentOffers({
-    accounts: walletInfo ? [walletInfo?.createKey.toString()] : [],
-  });
+
   return (
     <>
-      {!!offers && offers.length > 0 && (
-        <Text>{`Highest Pending Offer: ${formatAmount(
-          offers?.sort((a, b) => b.amount - a.amount)[0].amount /
-            LAMPORTS_PER_SOL
-        )} SOL`}</Text>
+      {type === WalletType.MULTIWALLET && (
+        <XStack items={"center"} justify={"space-between"}>
+          <Text>{`Highest Pending Offer: ${
+            hasPendingOffers
+              ? formatAmount(
+                  pendingOffers!.sort((a, b) => b.amount - a.amount)[0].amount /
+                    LAMPORTS_PER_SOL
+                ) + "SOL"
+              : "None"
+          }`}</Text>
+
+          <CustomButton
+            bordered
+            size={"$3"}
+            onPress={() => setPage(Page.OffersPage)}
+          >
+            <ButtonIcon>
+              <Handshake size={"$1"} />
+            </ButtonIcon>
+            <ButtonText>View Offers</ButtonText>
+          </CustomButton>
+        </XStack>
       )}
+
       {walletInfo?.threshold && (
         <Text>{`Current Signature Threshold: ${walletInfo.threshold}`}</Text>
       )}
       {walletAddress && (
         <CustomListItem
           bordered
-          borderRadius="$4"
+          borderTopLeftRadius={"$4"}
+          borderTopRightRadius={"$4"}
+          borderBottomLeftRadius={"$4"}
+          borderBottomRightRadius={"$4"}
           onPress={() =>
             copyToClipboard(
               (type === WalletType.MULTIWALLET
-                ? getVaultFromAddress(walletAddress).toString()
+                ? getVaultFromAddress(new PublicKey(walletAddress)).toString()
                 : walletAddress.toString()
               ).toString()
             )
           }
           title={
             type === WalletType.MULTIWALLET
-              ? getVaultFromAddress(walletAddress).toString()
+              ? getVaultFromAddress(new PublicKey(walletAddress)).toString()
               : walletAddress.toString()
           }
           subTitle="Wallet Address"

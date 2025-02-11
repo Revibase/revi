@@ -1,13 +1,12 @@
 import { ToastProvider, ToastViewport } from "@tamagui/toast";
-
 import { CurrentToast } from "components/CurrentToast";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TamaguiProvider, type TamaguiProviderProps } from "tamagui";
-import { RPC_ENDPOINT } from "utils/consts";
+import { RPC_ENDPOINT } from "utils";
 import tamaguiConfig from "utils/tamagui/tamagui.config";
 import { ConnectionProvider } from "./connectionProvider";
-import { GlobalProvider } from "./globalProvider";
 import { ReactQueryProvider } from "./reactQuery";
+
 export function Provider({
   children,
   ...rest
@@ -16,18 +15,16 @@ export function Provider({
   return (
     <ReactQueryProvider>
       <ConnectionProvider
-        config={{ commitment: "processed" }}
+        config={{ commitment: "confirmed" }}
         endpoint={RPC_ENDPOINT}
       >
-        <GlobalProvider>
-          <TamaguiProvider config={tamaguiConfig} {...rest}>
-            <ToastProvider swipeDirection="horizontal" native={false}>
-              {children}
-              <CurrentToast />
-              <ToastViewport top={top} alignSelf="center" width="80%" />
-            </ToastProvider>
-          </TamaguiProvider>
-        </GlobalProvider>
+        <TamaguiProvider config={tamaguiConfig} {...rest}>
+          <ToastProvider swipeDirection="horizontal" native={false}>
+            {children}
+            <CurrentToast />
+            <ToastViewport top={top} alignSelf="center" width="80%" />
+          </ToastProvider>
+        </TamaguiProvider>
       </ConnectionProvider>
     </ReactQueryProvider>
   );

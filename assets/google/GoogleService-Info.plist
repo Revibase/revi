@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>1018601631301-o0cc2cj6jk2e9e6rftk5se8geakjt1ed.apps.googleusercontent.com</string>
+	<string>1018601631301-k5vrn7illnj6g31luclekmhpp139ujcd.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.1018601631301-o0cc2cj6jk2e9e6rftk5se8geakjt1ed</string>
+	<string>com.googleusercontent.apps.1018601631301-k5vrn7illnj6g31luclekmhpp139ujcd</string>
 	<key>ANDROID_CLIENT_ID</key>
-	<string>1018601631301-d3qboc7m7nnqau8ne2jqdu7puf3m060j.apps.googleusercontent.com</string>
+	<string>1018601631301-a7noeb6ha42s2redc63lfhk84t4u7dpf.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
 	<string>AIzaSyA36YUgsLBXFRSlYHnpw7vCguopMPT_4Zo</string>
 	<key>GCM_SENDER_ID</key>
@@ -15,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.jychab.revi</string>
+	<string>com.jychab.revivault</string>
 	<key>PROJECT_ID</key>
 	<string>revi-wallet-490e3</string>
 	<key>STORAGE_BUCKET</key>
@@ -31,6 +31,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:1018601631301:ios:1e4e9447e2864cb5dafd2c</string>
+	<string>1:1018601631301:ios:e7a12753ba5b4f9ddafd2c</string>
 </dict>
 </plist>

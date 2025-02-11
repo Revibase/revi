@@ -1,5 +1,5 @@
 export enum WalletType {
-  MULTIWALLET = "Multiwallet",
-  DEVICE = "Device",
-  CLOUD = "Cloud",
+  MULTIWALLET = "Multisig Wallet",
+  DEVICE = "Device Wallet",
+  CLOUD = "Cloud Wallet",
 }

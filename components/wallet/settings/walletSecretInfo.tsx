@@ -1,6 +1,6 @@
 import { Copy } from "@tamagui/lucide-icons";
 import { CustomButton } from "components/CustomButton";
-import { useCopyToClipboard } from "components/hooks/useCopyToClipboard";
+import { useCopyToClipboard } from "components/hooks";
 import { FC, useState } from "react";
 import { Alert } from "react-native";
 import {
@@ -12,19 +12,35 @@ import {
   YGroup,
   YStack,
 } from "tamagui";
-import { WalletType } from "utils/enums/wallet";
-import { useExportWallet } from "utils/mutations/exportWallet";
-import { useResetWallet } from "utils/mutations/resetWallet";
+import {
+  useExportWallet,
+  useGlobalStore,
+  useResetWallet,
+  WalletType,
+} from "utils";
 
 export const RenderSecretButtons: FC<{
   walletType: WalletType;
-  closeSheet: () => void;
-}> = ({ walletType, closeSheet }) => {
+}> = ({ walletType }) => {
+  const {
+    setWalletSheetArgs,
+    cloudStorage,
+    deviceWalletPublicKey,
+    cloudWalletPublicKey,
+    setCloudWalletPublicKey,
+    setDeviceWalletPublicKey,
+  } = useGlobalStore();
   const [secret, setSecret] = useState("");
   const copyToClipboard = useCopyToClipboard();
   const theme = useTheme();
-  const exportWallet = useExportWallet();
-  const resetWallet = useResetWallet();
+  const exportWallet = useExportWallet({ cloudStorage });
+  const resetWallet = useResetWallet({
+    cloudStorage,
+    deviceWalletPublicKey,
+    cloudWalletPublicKey,
+    setCloudWalletPublicKey,
+    setDeviceWalletPublicKey,
+  });
   const [selectedIndex, setSelectedIndex] = useState<number | undefined>();
   return (
     <>
@@ -33,7 +49,7 @@ export const RenderSecretButtons: FC<{
           (label, index) => (
             <YGroup.Item key={label}>
               <CustomButton
-                color={index === 2 ? theme.red10.val : theme.color.val}
+                color={index === 2 ? theme.red10 : theme.color}
                 onPress={async () => {
                   setSelectedIndex(index);
                   if (index === 2) {
@@ -47,7 +63,7 @@ export const RenderSecretButtons: FC<{
                           onPress: async () => {
                             await resetWallet.mutateAsync({ walletType });
                             setSelectedIndex(undefined);
-                            closeSheet();
+                            setWalletSheetArgs(null);
                           },
                         },
                       ]
@@ -74,11 +90,16 @@ export const RenderSecretButtons: FC<{
         <YStack
           gap={"$4"}
           borderWidth={"$1"}
-          padding={"$2"}
-          borderRadius={"$4"}
-          alignItems="center"
+          borderColor={"$borderColor"}
+          p={"$2"}
+          borderTopLeftRadius={"$4"}
+          borderTopRightRadius={"$4"}
+          borderBottomLeftRadius={"$4"}
+          borderBottomRightRadius={"$4"}
+          items="center"
+          bg={"$background"}
         >
-          <Text textAlign="center" padding={"$2"}>
+          <Text text="center" p={"$2"}>
             {secret}
           </Text>
           <CustomButton onPress={() => copyToClipboard(secret)}>

@@ -1,45 +1,43 @@
+import { getVaultFromAddress } from "@revibase/multi-wallet";
 import { PublicKey } from "@solana/web3.js";
 import { ArrowDown, ArrowUpRight } from "@tamagui/lucide-icons";
 import { CustomButton } from "components/CustomButton";
 import { CustomListItem } from "components/CustomListItem";
+import { useWalletInfo } from "components/hooks";
+import { Image } from "expo-image";
 import { FC } from "react";
-import { Avatar, AvatarImage, ButtonIcon, Text, XStack, YStack } from "tamagui";
-import { Page } from "utils/enums/page";
-import { WalletType } from "utils/enums/wallet";
+import { Avatar, ButtonIcon, Text, XStack, YStack } from "tamagui";
 import {
   formatAmount,
-  getMultiSigFromAddress,
-  getVaultFromAddress,
+  Page,
+  proxify,
   SOL_NATIVE_MINT,
-} from "utils/helper";
-import { useGetAssetsByOwner } from "utils/queries/useGetAssetsByOwner";
-import { useGetWalletInfo } from "utils/queries/useGetWalletInfo";
-import { DAS } from "utils/types/das";
+  useGetAssetsByOwner,
+  useGlobalStore,
+} from "utils";
 
-export const TokenTab: FC<{
-  type: WalletType;
-  walletAddress: PublicKey;
-  setPage: React.Dispatch<React.SetStateAction<Page>>;
-  setViewAsset: React.Dispatch<
-    React.SetStateAction<DAS.GetAssetResponse | undefined>
-  >;
-}> = ({ type, walletAddress, setPage, setViewAsset }) => {
-  const { data: walletInfo } = useGetWalletInfo({
-    address:
-      type === WalletType.MULTIWALLET
-        ? getMultiSigFromAddress(walletAddress)
-        : null,
+export const TokenTab: FC = () => {
+  const { walletSheetArgs, setPage, setAsset } = useGlobalStore();
+  const { type, walletAddress } = walletSheetArgs ?? {};
+  const { walletInfo } = useWalletInfo({
+    walletAddress,
+    type,
   });
+
   const { data: allAssets } = useGetAssetsByOwner({
-    address: walletInfo ? getVaultFromAddress(walletAddress) : walletAddress,
+    address:
+      walletInfo && walletAddress
+        ? getVaultFromAddress(new PublicKey(walletAddress)).toString()
+        : walletAddress,
   });
   const nativeAsset = SOL_NATIVE_MINT(allAssets?.nativeBalance);
 
   return (
-    <YStack alignItems="center" gap="$8" flex={1} width={"100%"}>
-      <XStack alignItems="center" gap="$6">
-        <YStack gap="$2" alignItems="center" justifyContent="center">
+    <YStack items="center" gap="$8" flex={1} width={"100%"}>
+      <XStack items="center" gap="$6">
+        <YStack gap="$2" items="center" justify="center">
           <CustomButton
+            bordered
             circular
             onPress={() => {
               setPage(Page.Deposit);
@@ -49,8 +47,9 @@ export const TokenTab: FC<{
           </CustomButton>
           <Text>Deposit</Text>
         </YStack>
-        <YStack gap="$2" alignItems="center" justifyContent="center">
+        <YStack gap="$2" items="center" justify="center">
           <CustomButton
+            bordered
             onPress={() => {
               setPage(Page.Search);
             }}
@@ -61,23 +60,28 @@ export const TokenTab: FC<{
           <Text>Withdraw</Text>
         </YStack>
       </XStack>
-      <YStack width={"100%"} gap="$2">
+      <YStack width={"100%"} gap="$1.5">
         <CustomListItem
-          padded
           bordered
           width={"100%"}
-          borderRadius={"$4"}
+          borderTopLeftRadius={"$4"}
+          borderTopRightRadius={"$4"}
+          borderBottomLeftRadius={"$4"}
+          borderBottomRightRadius={"$4"}
           onPress={() => {
-            setViewAsset(nativeAsset);
+            setAsset(nativeAsset);
             setPage(Page.Asset);
           }}
           icon={
             <Avatar size="$4" circular>
-              <AvatarImage
-                source={{
-                  uri: nativeAsset.content?.links?.image,
-                }}
-              />
+              {nativeAsset.content?.links?.image && (
+                <Image
+                  style={{ height: "100%", width: "100%" }}
+                  source={{
+                    uri: proxify(nativeAsset.content?.links?.image),
+                  }}
+                />
+              )}
             </Avatar>
           }
           title={nativeAsset.content?.metadata.name}
@@ -104,21 +108,26 @@ export const TokenTab: FC<{
             return (
               <CustomListItem
                 key={x.id}
-                padded
                 bordered
                 width={"100%"}
-                borderRadius={"$4"}
+                borderTopLeftRadius={"$4"}
+                borderTopRightRadius={"$4"}
+                borderBottomLeftRadius={"$4"}
+                borderBottomRightRadius={"$4"}
                 onPress={() => {
-                  setViewAsset(x);
+                  setAsset(x);
                   setPage(Page.Asset);
                 }}
                 icon={
                   <Avatar size="$4" circular>
-                    <AvatarImage
-                      source={{
-                        uri: x.content?.links?.image,
-                      }}
-                    />
+                    {x.content?.links?.image && (
+                      <Image
+                        style={{ height: "100%", width: "100%" }}
+                        source={{
+                          uri: proxify(x.content?.links?.image),
+                        }}
+                      />
+                    )}
                   </Avatar>
                 }
                 title={x.content?.metadata.name}

@@ -1,88 +1,13 @@
-import { Connection, PublicKey } from "@solana/web3.js";
-
-import { BN } from "@coral-xyz/anchor";
 import { Timestamp } from "@react-native-firebase/firestore";
-import Constants from "expo-constants";
-import * as IntentLauncher from "expo-intent-launcher";
-import { Linking, Platform } from "react-native";
-import { RPC_ENDPOINT } from "./consts";
-import { SignerType } from "./enums/transaction";
-import { program } from "./program";
-import { DAS } from "./types/das";
-import { TransactionSigner } from "./types/transaction";
+import { Permissions } from "@revibase/multi-wallet";
+import { DAS } from "@revibase/token-transfer";
+import { Connection, PublicKey } from "@solana/web3.js";
+import { FALLBACK_TOKEN_LIST, PAYER_ACCOUNTS } from "./consts";
+import { SignerType, WalletType } from "./enums";
+import { TransactionSigner } from "./types";
 
-export function getMultiSigFromAddress(address: PublicKey) {
-  const [multisigPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("multi_wallet"), new PublicKey(address).toBuffer()],
-    program.programId
-  );
-
-  return multisigPda;
-}
-
-export function getEscrow(walletAddress: PublicKey, identifier: number) {
-  const [escrow] = PublicKey.findProgramAddressSync(
-    [
-      Buffer.from("escrow"),
-      new PublicKey(walletAddress).toBuffer(),
-      new BN(identifier).toArrayLike(Buffer, "le", 8),
-    ],
-    program.programId
-  );
-  return escrow;
-}
-
-export function getEscrowNativeVault(
-  walletAddress: PublicKey,
-  identifier: number
-) {
-  const [escrow] = PublicKey.findProgramAddressSync(
-    [
-      Buffer.from("escrow"),
-      new PublicKey(walletAddress).toBuffer(),
-      new BN(identifier).toArrayLike(Buffer, "le", 8),
-      Buffer.from("vault"),
-    ],
-    program.programId
-  );
-  return escrow;
-}
-
-export function getVaultFromAddress(address: PublicKey, vault_index = 0) {
-  const multisigPda = getMultiSigFromAddress(address);
-  const [multisigVaultPda] = PublicKey.findProgramAddressSync(
-    [
-      Buffer.from("multi_wallet"),
-      multisigPda.toBuffer(),
-      Buffer.from("vault"),
-      new BN(vault_index).toArrayLike(Buffer, "le", 2),
-    ],
-    program.programId
-  );
-  return multisigVaultPda;
-}
-
-export async function getAssetProof(mint: PublicKey, connection?: Connection) {
-  const response = await fetch(connection?.rpcEndpoint || RPC_ENDPOINT, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: "text",
-      method: "getAssetProof",
-      params: {
-        id: mint.toString(),
-      },
-    }),
-  });
-  const data = (await response.json()).result as DAS.GetAssetProofResponse;
-  return data;
-}
-
-export async function getAsset(mint: PublicKey, connection?: Connection) {
-  const response = await fetch(connection?.rpcEndpoint || RPC_ENDPOINT, {
+export async function getAsset(mint: string, connection: Connection) {
+  const response = await fetch(connection.rpcEndpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -92,38 +17,36 @@ export async function getAsset(mint: PublicKey, connection?: Connection) {
       id: "",
       method: "getAsset",
       params: {
-        id: mint.toString(),
+        id: mint,
       },
     }),
   });
-  const data = (await response.json()).result as DAS.GetAssetResponse;
-  return data;
-}
+  const data = (await response.json()).result as
+    | DAS.GetAssetResponse
+    | undefined;
+  if (!data) return undefined;
 
-export async function getAssetBatch(mints: string[]) {
-  const response = await fetch(RPC_ENDPOINT, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
+  if (data.content?.metadata.name) return data;
+
+  const fallbackList = await fetchFallbackTokenList();
+  const fallbackMap = Object.fromEntries(
+    fallbackList.tokens.map((token) => [token.address, token])
+  );
+
+  const fallbackMetadata = fallbackMap[data.id] ?? {};
+  return {
+    ...data,
+    content: {
+      ...data.content,
+      metadata: {
+        ...fallbackMetadata,
+        description: "",
+      },
     },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: "",
-      method: "getAssetBatch",
-      params: {
-        ids: mints,
-        displayOptions: {
-          showCollectionMetadata: true,
-        },
-      } as DAS.GetAssetBatchRequest,
-    }),
-  });
-  const data = (await response.json()).result as DAS.GetAssetResponse[];
-  return data;
+  } as DAS.GetAssetResponse;
 }
-
-export async function getAssetByOwner(wallet: PublicKey) {
-  const response = await fetch(RPC_ENDPOINT, {
+export async function getAssetByOwner(wallet: string, connection: Connection) {
+  const response = await fetch(connection.rpcEndpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -133,7 +56,7 @@ export async function getAssetByOwner(wallet: PublicKey) {
       id: "my-id",
       method: "getAssetsByOwner",
       params: {
-        ownerAddress: wallet.toString(),
+        ownerAddress: wallet,
         displayOptions: {
           showFungible: true,
           showNativeBalance: true,
@@ -141,68 +64,116 @@ export async function getAssetByOwner(wallet: PublicKey) {
       },
     }),
   });
+
   const data = (await response.json()).result as
     | DAS.GetAssetResponseList
     | undefined;
+  if (!data) return undefined;
+
+  const itemsWithNoMetadata = data.items.filter(
+    (x) => !x.content?.metadata?.name
+  );
+  if (itemsWithNoMetadata.length === 0) return data;
+
+  const fallbackList = await fetchFallbackTokenList();
+  const fallbackMap = Object.fromEntries(
+    fallbackList.tokens.map((token) => [token.address, token])
+  );
+
+  data.items = data.items.map((x) => {
+    if (x.content?.metadata?.name) return x;
+
+    const fallbackMetadata = fallbackMap[x.id] ?? {};
+    return {
+      ...x,
+      content: {
+        ...x.content,
+        metadata: {
+          ...fallbackMetadata,
+          description: "",
+        },
+      },
+    } as DAS.GetAssetResponse;
+  });
+
   return data;
 }
 
-const pkg = Constants.expoConfig
-  ? Constants.expoConfig.android?.package
-  : "host.exp.exponent";
-export const openAppSettings = () => {
-  if (Platform.OS === "ios") {
-    Linking.openURL("app-settings:");
-  } else {
-    IntentLauncher.startActivityAsync(
-      IntentLauncher.ActivityAction.APPLICATION_DETAILS_SETTINGS,
-      { data: "package:" + pkg }
-    );
-  }
+export const fetchFallbackTokenList = async () => {
+  const result = (await (await fetch(FALLBACK_TOKEN_LIST)).json()) as {
+    tokens: {
+      chainId: number;
+      address: string;
+      symbol: string;
+      name: string;
+      decimals: number;
+      logoUri: string;
+    }[];
+  };
+  return result;
 };
 
-export const getFeePayerFromSigners = (signers: TransactionSigner[]) => {
-  const feePayer =
-    signers.find((x) => x.type === SignerType.NFC)?.key ||
-    signers.find((x) => x.type === SignerType.DEVICE)?.key ||
-    signers.find((x) => x.type === SignerType.CLOUD)?.key ||
+export const getSponsoredFeePayer = () => {
+  return PAYER_ACCOUNTS[Math.floor(Math.random() * PAYER_ACCOUNTS.length)];
+};
+
+export const getMainWalletFromSigners = (
+  signers: TransactionSigner[],
+  defaultWallet: string | undefined | null
+) => {
+  const signer =
+    signers.find((x) => x.key == defaultWallet) ||
+    signers.find((x) => x.type === SignerType.DEVICE) ||
+    signers.find((x) => x.type === SignerType.CLOUD) ||
+    signers.find((x) => x.type === SignerType.NFC) ||
     null;
-  if (!feePayer) {
-    throw new Error("Fee payer not found.");
+  if (!signer) {
+    throw new Error("Main Wallet not found.");
   }
-  return feePayer;
+  return signer;
 };
 
 export function getSignerTypeFromAddress(
-  x: { pubkey: PublicKey; label?: number | null },
-  deviceWalletPublicKey: PublicKey | null | undefined,
-  cloudWalletPublicKey: PublicKey | null | undefined
+  x: { pubkey: string; createKey?: string },
+  deviceWalletPublicKey: string | null | undefined,
+  cloudWalletPublicKey: string | null | undefined
 ): SignerType {
-  return deviceWalletPublicKey &&
-    x.pubkey.toString() === deviceWalletPublicKey.toString()
+  return deviceWalletPublicKey && x.pubkey === deviceWalletPublicKey
     ? SignerType.DEVICE
-    : cloudWalletPublicKey &&
-      x.pubkey.toString() === cloudWalletPublicKey.toString()
+    : cloudWalletPublicKey && x.pubkey === cloudWalletPublicKey
     ? SignerType.CLOUD
-    : x.label === 0
+    : x.pubkey === x.createKey
+    ? SignerType.NFC
+    : SignerType.UNKNOWN;
+}
+export function getSignerTypeFromWalletType(
+  type: WalletType | undefined
+): SignerType {
+  return type === WalletType.DEVICE
+    ? SignerType.DEVICE
+    : type === WalletType.CLOUD
+    ? SignerType.CLOUD
+    : type === WalletType.MULTIWALLET
     ? SignerType.NFC
     : SignerType.UNKNOWN;
 }
 
-export function getLabelFromSignerType(type: SignerType) {
+export function getPermissionsFromSignerType(type: SignerType) {
   switch (type) {
     case SignerType.NFC:
-      return 0;
-    case SignerType.DEVICE:
-      return 1;
+      return Permissions.all();
     case SignerType.CLOUD:
-      return 2;
+      return Permissions.all();
+    case SignerType.DEVICE:
+      return Permissions.all();
     default:
       return null;
   }
 }
 
-export function getTotalValueFromWallet(assets: DAS.GetAssetResponseList) {
+export function getTotalValueFromWallet(
+  assets: DAS.GetAssetResponseList | undefined | null
+) {
   return (
     (assets?.nativeBalance.total_price ?? 0) +
     (assets?.items.reduce(
@@ -217,9 +188,8 @@ export function getTotalValueFromWallet(assets: DAS.GetAssetResponseList) {
 }
 
 export function getRandomU64() {
-  // Generate a random number within the safe integer range
   const maxSafeInt = Number.MAX_SAFE_INTEGER;
-  return Math.floor(Math.random() * (maxSafeInt + 1)); // +1 to include the maximum value
+  return Math.floor(Math.random() * (maxSafeInt + 1));
 }
 
 export function formatFirebaseTimestampToRelativeTime(
@@ -230,7 +200,7 @@ export function formatFirebaseTimestampToRelativeTime(
   }
   const now = new Date().getTime() / 1000;
   const date = timestamp.seconds;
-  const diffInSeconds = Math.floor(now - date); // Difference in seconds
+  const diffInSeconds = Math.floor(now - date);
 
   if (diffInSeconds < 60) {
     return diffInSeconds === 1
@@ -279,6 +249,7 @@ export function formatAmount(amount: number, maxDecimals = 5) {
     maximumFractionDigits: maxDecimals,
   })}`;
 }
+
 export const SOL_NATIVE_MINT = (
   nativeBalance:
     | {
@@ -289,26 +260,10 @@ export const SOL_NATIVE_MINT = (
     | undefined
 ) => {
   return {
-    authorities: [
-      {
-        address: "AqH29mZfQFgRpfwaPoTMWSKJ5kqauoc1FwVBRksZyQrt",
-        scopes: [],
-      },
-    ],
-    burnt: false,
     compression: {
-      asset_hash: "",
       compressed: false,
-      creator_hash: "",
-      data_hash: "",
-      eligible: false,
-      leaf_id: 0,
-      seq: 0,
-      tree: "",
     },
     content: {
-      $schema: "https://schema.metaplex.com/nft1.0.json",
-      files: [[Object]],
       json_uri: "",
       links: {
         image:
@@ -316,24 +271,8 @@ export const SOL_NATIVE_MINT = (
       },
       metadata: { name: "Solana", symbol: "SOL", description: "" },
     },
-    creators: [],
-    grouping: [],
     id: PublicKey.default.toString(),
     interface: "Custom",
-    mutable: true,
-    ownership: {
-      delegated: false,
-      frozen: false,
-      owner: "",
-      ownership_model: "token",
-    },
-    royalty: {
-      basis_points: 0,
-      locked: false,
-      percent: 0,
-      primary_sale_happened: false,
-      royalty_model: "creators",
-    },
     token_info: {
       decimals: 9,
       price_info: {
@@ -342,7 +281,11 @@ export const SOL_NATIVE_MINT = (
       },
       balance: nativeBalance?.lamports,
       symbol: "SOL",
-      token_program: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      token_program: PublicKey.default.toString(),
     },
-  } as DAS.GetAssetResponse;
+  } as unknown as DAS.GetAssetResponse;
 };
+
+export function proxify(image: string) {
+  return `https://proxy.revibase.com/?image=${image}`;
+}

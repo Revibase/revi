@@ -1,39 +1,48 @@
-import { ArrowLeft } from "@tamagui/lucide-icons";
+import { ArrowLeft, Copy } from "@tamagui/lucide-icons";
 import { CustomButton } from "components/CustomButton";
 import { FC } from "react";
-import { Text, XStack, XStackProps } from "tamagui";
+import { Heading, XStack, XStackProps } from "tamagui";
 
-export const Header: FC<
-  {
-    text: string;
-    reset: () => void;
-  } & XStackProps
-> = ({ text, reset, ...props }) => {
+export const Header: FC<{
+  text: string;
+  reset?: () => void;
+  copy?: () => void;
+  props: XStackProps;
+}> = ({ text, reset, props, copy }) => {
   return (
     <XStack
-      padding="$2"
-      justifyContent="space-between"
-      alignItems="center"
+      p="$2"
+      justify="space-between"
+      items="center"
       width={"100%"}
       {...props}
     >
       <CustomButton
         size={"$3"}
-        backgroundColor={"$colorTransparent"}
+        opacity={reset ? 1 : 0}
+        bg={"$colorTransparent"}
         onPress={reset}
       >
         <ArrowLeft />
       </CustomButton>
-      <Text
+
+      <Heading
+        maxW={"80%"}
         numberOfLines={1}
-        textAlign="center"
-        fontSize={"$7"}
-        fontWeight={800}
+        text="center"
+        size={"$5"}
+        fontWeight={700}
       >
         {text}
-      </Text>
-      <CustomButton size={"$3"} opacity={0}>
-        <ArrowLeft />
+      </Heading>
+
+      <CustomButton
+        onPress={copy}
+        size={"$3"}
+        opacity={copy ? 1 : 0}
+        bg={"$colorTransparent"}
+      >
+        {copy ? <Copy /> : <ArrowLeft />}
       </CustomButton>
     </XStack>
   );

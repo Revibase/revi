@@ -1,7 +1,9 @@
+import { initMultiWalletProgram } from "@revibase/multi-wallet";
 import { Connection, ConnectionConfig } from "@solana/web3.js";
 import {
   createContext,
   useContext,
+  useEffect,
   useMemo,
   type FC,
   type ReactNode,
@@ -22,6 +24,10 @@ export const ConnectionProvider: FC<ConnectionProviderProps> = ({
     () => new Connection(endpoint, config),
     [endpoint, config]
   );
+
+  useEffect(() => {
+    initMultiWalletProgram(connection);
+  }, [connection]);
 
   return (
     <ConnectionContext.Provider value={{ connection }}>

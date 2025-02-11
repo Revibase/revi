@@ -5,14 +5,14 @@ export const CustomListItem: FC<ListItemProps> = ({ ...props }) => {
   return (
     <ListItem
       hoverStyle={{
-        backgroundColor: props.backgroundColor,
+        bg: props.bg,
         borderWidth: props.borderWidth || 0,
         borderColor: props.borderColor || "$colorTransparent",
         bordered: props.bordered || false,
         scale: 0.99,
       }}
       pressStyle={{
-        backgroundColor: props.backgroundColor,
+        bg: props.bg,
         borderWidth: props.borderWidth || 0,
         borderColor: props.borderColor || "$colorTransparent",
         bordered: props.bordered || false,

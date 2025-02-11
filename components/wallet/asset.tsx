@@ -1,15 +1,22 @@
+import { getVaultFromAddress } from "@revibase/multi-wallet";
+import { DAS } from "@revibase/token-transfer";
 import { PublicKey } from "@solana/web3.js";
-import { Send } from "@tamagui/lucide-icons";
+import { Send, Star } from "@tamagui/lucide-icons";
 import { CustomButton } from "components/CustomButton";
 import { CustomListItem } from "components/CustomListItem";
-import { useValidateWallet } from "components/hooks/useValidateWallet";
-import { FC, useMemo } from "react";
+import {
+  useCopyToClipboard,
+  usePendingOffers,
+  useWallet,
+  useWalletValidation,
+} from "components/hooks";
+import { useAssetValidation } from "components/hooks/useAssetValidation";
+import { Image } from "expo-image";
+import { FC, useMemo, useState } from "react";
 import { Alert } from "react-native";
 import {
   Avatar,
-  AvatarImage,
   ButtonIcon,
-  ButtonText,
   Card,
   Heading,
   Text,
@@ -17,87 +24,76 @@ import {
   XStack,
   YStack,
 } from "tamagui";
-import { Page } from "utils/enums/page";
-import { WalletType } from "utils/enums/wallet";
-import { formatAmount } from "utils/helper";
-import { useGetAsset } from "utils/queries/useGetAsset";
-import { DAS } from "utils/types/das";
-import { Header } from "./header";
+import {
+  formatAmount,
+  Page,
+  proxify,
+  useGetAsset,
+  useGlobalStore,
+} from "utils";
+import { ScreenWrapper } from "./screenWrapper";
 
-export const AssetPage: FC<{
-  type: WalletType;
-  walletAddress: PublicKey;
-  asset: DAS.GetAssetResponse;
-  setPage: React.Dispatch<React.SetStateAction<Page>>;
-  setWithdrawAsset: React.Dispatch<
-    React.SetStateAction<
-      | {
-          asset: DAS.GetAssetResponse;
-          callback?: () => void;
-        }
-      | undefined
-    >
-  >;
-}> = ({ type, walletAddress, asset, setPage, setWithdrawAsset }) => {
+export const AssetPage: FC = () => {
+  const { setPage, walletSheetArgs } = useGlobalStore();
+  const { asset } = walletSheetArgs ?? {};
+  const copyToClipBoard = useCopyToClipboard();
   return (
-    <YStack
-      enterStyle={{ opacity: 0, x: -25 }}
-      animation={"quick"}
-      gap="$6"
-      padding={"$4"}
+    <ScreenWrapper
+      text={asset?.content?.metadata.name || ""}
+      reset={() => setPage(Page.Main)}
+      copy={
+        asset?.id && asset.id !== PublicKey.default.toString()
+          ? () => copyToClipBoard(asset.id)
+          : undefined
+      }
     >
-      <Header
-        text={asset.content?.metadata.name || ""}
-        reset={() => setPage(Page.Main)}
-      />
-      <Asset
-        type={type}
-        walletAddress={walletAddress}
-        asset={asset}
-        setPage={setPage}
-        setWithdrawAsset={setWithdrawAsset}
-      />
-    </YStack>
+      <YStack items="center" gap="$4">
+        {asset?.content?.links?.image && (
+          <Avatar size={"$20"} borderRadius={"$4"}>
+            <Image
+              style={{ height: "100%", width: "100%" }}
+              source={{ uri: proxify(asset?.content?.links?.image) }}
+              alt="image"
+            />
+          </Avatar>
+        )}
+        <Asset asset={asset} />
+      </YStack>
+    </ScreenWrapper>
   );
 };
 export const Asset: FC<{
-  type: WalletType;
-  walletAddress: PublicKey;
-  asset: DAS.GetAssetResponse;
-  setPage: React.Dispatch<React.SetStateAction<Page>>;
-  setWithdrawAsset: React.Dispatch<
-    React.SetStateAction<
-      | {
-          asset: DAS.GetAssetResponse;
-          callback?: () => void;
-        }
-      | undefined
-    >
-  >;
+  asset: DAS.GetAssetResponse | undefined | null;
   callback?: () => void;
-}> = ({
-  type,
-  walletAddress,
-  asset,
-  setPage,
-  setWithdrawAsset,
-  callback = () => setPage(Page.Asset),
-}) => {
+}> = ({ asset, callback }) => {
+  const { setPage, setAsset, walletSheetArgs } = useGlobalStore();
+  const [parentWidth, setParentWidth] = useState(0);
+
   const { data: collection } = useGetAsset({
     mint: asset?.grouping?.find((x) => x.group_key == "collection")?.group_value
-      ? new PublicKey(
-          asset?.grouping?.find(
-            (x) => x.group_key == "collection"
-          )?.group_value!
-        )
+      ? asset?.grouping?.find((x) => x.group_key == "collection")?.group_value
       : undefined,
   });
+  const { theme, walletAddress, type } = walletSheetArgs ?? {};
   const {
     deviceWalletPublicKeyIsMember,
     cloudWalletPublicKeyIsMember,
-    validateAction,
-  } = useValidateWallet(walletAddress, type);
+    walletInfo,
+    noOwners,
+  } = useWallet({ theme, walletAddress, type });
 
+  const { hasPendingOffers } = usePendingOffers({ type, walletAddress });
+  const validateAction = useWalletValidation({
+    hasPendingOffers,
+    walletInfo,
+    noOwners,
+    deviceWalletPublicKeyIsMember,
+    cloudWalletPublicKeyIsMember,
+  });
+  const { hasAsset } = useAssetValidation();
+  const vaultAddress = walletAddress
+    ? getVaultFromAddress(new PublicKey(walletAddress)).toString()
+    : null;
   const assetBalance = useMemo(
     () =>
       (asset?.token_info?.balance || 0) /
@@ -116,66 +112,88 @@ export const Asset: FC<{
   );
 
   return (
-    <YStack width={"100%"} gap={"$6"} alignItems="center">
-      <Avatar size={"$20"} borderRadius={"$4"}>
-        <AvatarImage
-          source={{ uri: asset?.content?.links?.image }}
-          alt="image"
-        />
-      </Avatar>
-      <XStack
-        width={"100%"}
-        alignItems="center"
-        justifyContent="center"
-        gap="$4"
-      >
-        {assetBalance > 0 && (
-          <CustomButton
-            onPress={() => {
-              if (!validateAction()) return;
-              if (
-                !(
-                  asset.compression?.compressed &&
-                  (!deviceWalletPublicKeyIsMember ||
-                    !cloudWalletPublicKeyIsMember)
-                )
-              ) {
-                setWithdrawAsset({ asset, callback });
-                setPage(Page.Withdrawal);
-              } else {
-                Alert.alert(
-                  "Unauthorised action",
-                  "An owner needs to be set first."
-                );
-              }
-            }}
-          >
-            <ButtonText>Send</ButtonText>
-            <ButtonIcon children={<Send size={"$1"} />} />
-          </CustomButton>
-        )}
-      </XStack>
-      {(asset?.interface === "FungibleToken" ||
-        asset?.id === PublicKey.default.toString()) && (
-        <XGroup
-          width={"100%"}
-          alignItems="center"
-          justifyContent="center"
-          size={"$4"}
-          alignSelf="center"
+    <YStack width={"100%"} gap={"$6"} items="center">
+      <XStack width={"100%"} items="center" justify="center" gap="$4">
+        <CustomButton
+          bordered
+          onPress={() => {
+            if (!validateAction()) return;
+            if (
+              asset?.compression?.compressed &&
+              !deviceWalletPublicKeyIsMember &&
+              !cloudWalletPublicKeyIsMember
+            ) {
+              Alert.alert(
+                "Unauthorised action",
+                "An owner needs to be set first."
+              );
+            } else if (
+              !hasAsset(
+                asset,
+                vaultAddress,
+                deviceWalletPublicKeyIsMember,
+                cloudWalletPublicKeyIsMember,
+                type
+              )
+            ) {
+              Alert.alert(
+                `${asset?.content?.metadata.name} not found.`,
+                `Ensure you have ${asset?.content?.metadata.name} in your wallet.`
+              );
+            } else if (asset) {
+              setAsset(asset, callback || (() => setPage(Page.Main)));
+              setPage(Page.Withdrawal);
+            }
+          }}
         >
+          <Text fontSize={"$5"}>Send</Text>
+          <ButtonIcon children={<Send size={"$1"} />} />
+        </CustomButton>
+
+        <CustomButton
+          onPress={() => {
+            if (!validateAction()) return;
+            if (
+              !hasAsset(
+                asset,
+                vaultAddress,
+                deviceWalletPublicKeyIsMember,
+                cloudWalletPublicKeyIsMember,
+                type
+              )
+            ) {
+              Alert.alert(
+                `${asset?.content?.metadata.name} not found.`,
+                `Ensure you have ${asset?.content?.metadata.name} in your wallet.`
+              );
+            } else if (asset) {
+              setAsset(asset, callback || (() => setPage(Page.Main)));
+              setPage(Page.BlinksPage);
+            }
+          }}
+          bordered
+        >
+          <Text fontSize={"$5"}>Blinks</Text>
+          <ButtonIcon children={<Star size={"$1"} />} />
+        </CustomButton>
+      </XStack>
+      {!!assetBalance && (
+        <XGroup width={"100%"} items="center" justify="center" size={"$4"}>
           <XGroup.Item>
             <CustomListItem
+              bordered
               width={"33%"}
-              title={`${formatAmount(assetBalance)} ${
-                asset.content?.metadata.symbol
-              }`}
+              title={`${formatAmount(
+                assetBalance,
+                asset?.token_info?.decimals
+              )} ${asset?.content?.metadata.symbol}`}
               subTitle={"Amount"}
             />
           </XGroup.Item>
 
           <XGroup.Item>
             <CustomListItem
+              bordered
               width={"33%"}
               title={`$${formatAmount(assetPrice || 0)}`}
               subTitle={"Price"}
@@ -184,6 +202,7 @@ export const Asset: FC<{
 
           <XGroup.Item>
             <CustomListItem
+              bordered
               width={"33%"}
               title={`$${formatAmount(total)}`}
               subTitle={"Total"}
@@ -191,10 +210,10 @@ export const Asset: FC<{
           </XGroup.Item>
         </XGroup>
       )}
-      <YStack gap="$4">
+      <YStack gap="$4" width={"100%"}>
         {asset?.content?.metadata.description && (
           <>
-            <Heading>{"Description"}</Heading>
+            <Heading size={"$5"}>{"Description"}</Heading>
             <Text>{asset?.content?.metadata.description}</Text>
           </>
         )}
@@ -202,18 +221,27 @@ export const Asset: FC<{
         {asset?.content?.metadata.attributes &&
           asset.content.metadata.attributes.length > 0 && (
             <>
-              <Heading>{"Attributes"}</Heading>
-              <YStack gap="$2" flexDirection="row" flexWrap="wrap">
+              <Heading size={"$5"}>{"Attributes"}</Heading>
+              <YStack
+                width={"100%"}
+                gap="$2"
+                flexDirection="row"
+                flexWrap="wrap"
+                onLayout={(e) => setParentWidth(e.nativeEvent.layout.width)}
+              >
                 {asset?.content?.metadata.attributes?.map((x, index) => {
                   return (
                     <CustomListItem
                       key={index}
-                      width={"30%"}
+                      width={(parentWidth - 16) / 3}
                       title={x.value}
                       subTitle={x.trait_type}
                       bordered
-                      padding={"$2"}
-                      borderRadius={"$2"}
+                      p={"$2"}
+                      borderTopLeftRadius={"$4"}
+                      borderTopRightRadius={"$4"}
+                      borderBottomLeftRadius={"$4"}
+                      borderBottomRightRadius={"$4"}
                     />
                   );
                 })}
@@ -222,13 +250,18 @@ export const Asset: FC<{
           )}
         {collection && (
           <Card size="$4" bordered padded gap={"$3"}>
-            <XStack alignItems="center" gap={"$3"}>
-              <Avatar size={"$3"} circular>
-                <AvatarImage
-                  source={{ uri: collection.content?.links?.image }}
-                />
-              </Avatar>
-              <Heading size={"$3"}>{collection.content?.metadata.name}</Heading>
+            <XStack items="center" gap={"$3"}>
+              {collection.content?.links?.image && (
+                <Avatar size={"$3"} circular>
+                  <Image
+                    style={{ height: "100%", width: "100%" }}
+                    source={{
+                      uri: proxify(collection.content?.links?.image),
+                    }}
+                  />
+                </Avatar>
+              )}
+              <Heading size={"$2"}>{collection.content?.metadata.name}</Heading>
             </XStack>
             <Text>{collection.content?.metadata.description}</Text>
           </Card>
