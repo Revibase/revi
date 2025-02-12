@@ -89,7 +89,7 @@ export const SearchPage: FC = () => {
                 borderBottomLeftRadius={"$4"}
                 borderBottomRightRadius={"$4"}
                 onPress={() => {
-                  setAsset(x);
+                  setAsset(x, () => setPage(Page.Search));
                   setPage(Page.Asset);
                 }}
                 icon={

@@ -57,7 +57,7 @@ export default function profile() {
           <Spinner />
           <Text>Loading...</Text>
         </YStack>
-      ) : !deviceWalletPublicKey || (cloudStorage && !cloudWalletPublicKey) ? (
+      ) : !deviceWalletPublicKey || !cloudStorage || !cloudWalletPublicKey ? (
         <Onboarding />
       ) : (
         <Profile />
@@ -139,6 +139,7 @@ const Profile: FC<{}> = () => {
                       !hasAsset(
                         x.data,
                         x.vaultAddress,
+                        false,
                         true,
                         true,
                         WalletType.MULTIWALLET

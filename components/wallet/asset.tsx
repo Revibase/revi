@@ -35,12 +35,12 @@ import { ScreenWrapper } from "./screenWrapper";
 
 export const AssetPage: FC = () => {
   const { setPage, walletSheetArgs } = useGlobalStore();
-  const { asset } = walletSheetArgs ?? {};
+  const { asset, callback } = walletSheetArgs ?? {};
   const copyToClipBoard = useCopyToClipboard();
   return (
     <ScreenWrapper
       text={asset?.content?.metadata.name || ""}
-      reset={() => setPage(Page.Main)}
+      reset={() => callback?.() ?? setPage(Page.Main)}
       copy={
         asset?.id && asset.id !== PublicKey.default.toString()
           ? () => copyToClipBoard(asset.id)
@@ -131,6 +131,7 @@ export const Asset: FC<{
               !hasAsset(
                 asset,
                 vaultAddress,
+                noOwners,
                 deviceWalletPublicKeyIsMember,
                 cloudWalletPublicKeyIsMember,
                 type
@@ -141,7 +142,7 @@ export const Asset: FC<{
                 `Ensure you have ${asset?.content?.metadata.name} in your wallet.`
               );
             } else if (asset) {
-              setAsset(asset, callback || (() => setPage(Page.Main)));
+              setAsset(asset, callback || (() => setPage(Page.Asset)));
               setPage(Page.Withdrawal);
             }
           }}
@@ -157,6 +158,7 @@ export const Asset: FC<{
               !hasAsset(
                 asset,
                 vaultAddress,
+                noOwners,
                 deviceWalletPublicKeyIsMember,
                 cloudWalletPublicKeyIsMember,
                 type

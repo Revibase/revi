@@ -8,6 +8,7 @@ export const useAssetValidation = () => {
     (
       asset: DAS.GetAssetResponse | null | undefined,
       vaultAddress: string | null | undefined,
+      noOwners: boolean,
       deviceWalletPublicKeyIsMember: boolean,
       cloudWalletPublicKeyIsMember: boolean,
       type: WalletType | undefined
@@ -24,7 +25,9 @@ export const useAssetValidation = () => {
           case WalletType.MULTIWALLET:
             return (
               vaultAddress === asset.ownership.owner &&
-              (deviceWalletPublicKeyIsMember || cloudWalletPublicKeyIsMember)
+              (noOwners ||
+                deviceWalletPublicKeyIsMember ||
+                cloudWalletPublicKeyIsMember)
             );
         }
       }

@@ -63,6 +63,7 @@ export default {
           newArchEnabled: true,
         },
       ],
+      "@react-native-firebase/crashlytics",
       "@react-native-firebase/app-check",
       "react-native-cloud-storage",
       "@react-native-firebase/app",
