@@ -8,8 +8,8 @@ import { useFirestoreCollection } from "utils/queries/useFirestoreCollection";
 import { ScreenWrapper } from "../screenWrapper";
 
 export const BlinksPage: FC = () => {
-  const { setPage, walletSheetArgs } = useGlobalStore();
-  const { asset } = walletSheetArgs ?? {};
+  const { setPage, walletSheetArgs, setAsset } = useGlobalStore();
+  const { asset, callback } = walletSheetArgs ?? {};
   const { data, isLoading: assetLoading } = useGetAssetMetadata({
     url: asset?.content?.json_uri,
   });
@@ -42,13 +42,19 @@ export const BlinksPage: FC = () => {
   return (
     <ScreenWrapper
       text={`${asset?.content?.metadata.name}'s Blinks`}
-      reset={() => setPage(Page.Asset)}
+      reset={() => {
+        if (callback) {
+          callback();
+          setAsset(asset);
+        } else {
+          setPage(Page.Main);
+          setAsset(undefined);
+        }
+      }}
     >
       <YStack gap={"$4"} items="center" flex={1}>
         <Text
           fontSize={"$5"}
-          px={"$2"}
-          text="justify"
           opacity={listOfBlinks.length > 0 ? 1 : 0.5}
         >{`Blockchain links (aka Blinks) are powerful links that lets you interact with the blockchain instantly, delivering seamless on-chain experiences from anywhere.`}</Text>
         {(assetLoading || fallbackLoading) && (

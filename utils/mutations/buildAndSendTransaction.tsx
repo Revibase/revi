@@ -1,8 +1,6 @@
 import { getVaultFromAddress } from "@revibase/multi-wallet";
 import {
-  AddressLookupTableAccount,
   PublicKey,
-  TransactionInstruction,
   TransactionMessage,
   VersionedTransaction,
 } from "@solana/web3.js";
@@ -19,7 +17,7 @@ import {
   pollAndSendJitoBundle,
   pollAndSendTransaction,
 } from "../transactionBuilder";
-import { SignerState, TransactionSigner } from "../types";
+import { SignerState, TransactionResult, TransactionSigner } from "../types";
 
 export function useBuildAndSendTransaction({
   walletAddress,
@@ -37,73 +35,55 @@ export function useBuildAndSendTransaction({
   return useMutation({
     mutationKey: ["send-vault-transaction", { walletAddress }],
     mutationFn: async ({
-      feePayer,
       data,
       callback,
-    }: {
-      feePayer: string;
-      data: {
-        id: string;
-        signers: TransactionSigner[];
-        ixs?: TransactionInstruction[];
-        tx?: VersionedTransaction;
-        lookUpTables?: AddressLookupTableAccount[];
-      }[];
+    }: TransactionResult & {
       callback: (signer: TransactionSigner & { id: string }) => void;
     }) => {
+      const recentBlockhash = (
+        await connection.getLatestBlockhash({
+          commitment: "confirmed",
+        })
+      ).blockhash;
+      data.forEach((payload) => {
+        if (payload.ixs) {
+          payload.tx = new VersionedTransaction(
+            new TransactionMessage({
+              instructions: payload.ixs,
+              recentBlockhash,
+              payerKey: new PublicKey(payload.feePayer),
+            }).compileToV0Message(payload.lookUpTables)
+          );
+        }
+        if (!payload.tx) {
+          throw new Error("Transaction is undefined");
+        }
+      });
+
+      const signedTxs = await signTransactions(
+        data,
+        setIsNfcSheetVisible,
+        cloudStorage,
+        callback
+      );
       let signature = "";
-      try {
-        let txs: {
-          transaction: VersionedTransaction;
-          id: string;
-          signers: TransactionSigner[];
-        }[] = [];
-        for (const payload of data) {
-          let transaction = payload.tx;
-          if (payload.ixs) {
-            transaction = new VersionedTransaction(
-              new TransactionMessage({
-                instructions: payload.ixs,
-                recentBlockhash: (
-                  await connection.getLatestBlockhash({
-                    commitment: "confirmed",
-                  })
-                ).blockhash,
-                payerKey: new PublicKey(feePayer),
-              }).compileToV0Message(payload.lookUpTables)
-            );
-          }
-          if (!transaction) {
-            throw new Error("Transaction is undefined");
-          }
-          txs.push({ transaction, id: payload.id, signers: payload.signers });
-        }
-
-        const signedTxs = await signTransactions(
-          feePayer,
-          txs,
-          setIsNfcSheetVisible,
-          cloudStorage,
-          callback
+      if (signedTxs.length === 1) {
+        signature = await pollAndSendTransaction(
+          connection,
+          signedTxs[0].transaction
         );
-
-        if (signedTxs.length === 1) {
-          signature = await pollAndSendTransaction(
-            connection,
-            signedTxs[0].transaction
-          );
-        } else {
-          signature = await pollAndSendJitoBundle(
-            signedTxs.map((x) =>
-              Buffer.from(x.transaction.serialize()).toString("base64")
-            )
-          );
-        }
-        return signature;
-      } catch (error) {
-        logError(error);
-        throw new Error(error instanceof Error ? error.message : String(error));
+      } else {
+        signature = await pollAndSendJitoBundle(
+          signedTxs.map((x) =>
+            Buffer.from(x.transaction.serialize()).toString("base64")
+          )
+        );
       }
+      return signature;
+    },
+    onError: (error) => {
+      logError(error);
+      throw new Error(error instanceof Error ? error.message : String(error));
     },
     onSuccess: async (signature) => {
       if (signature && walletAddress) {
@@ -129,39 +109,18 @@ export function useBuildAndSendTransaction({
 }
 
 async function signTransactions(
-  feePayer: string,
-  txs: {
-    transaction: VersionedTransaction;
+  data: {
     id: string;
     signers: TransactionSigner[];
+    feePayer: string;
+    tx?: VersionedTransaction;
   }[],
   setNfcSheetVisible: (value: boolean) => void,
   cloudStorage: CloudStorage | null,
   callback: (signer: TransactionSigner & { id: string }) => void
 ) {
   const transactionMap = new Map<string, VersionedTransaction>();
-  const transactionsToSign = txs.filter(
-    (tx) => !tx.signers.some((signer) => signer.key === feePayer)
-  );
-
-  if (transactionsToSign.length > 0) {
-    const serializedTransactions = transactionsToSign.map((tx) =>
-      Buffer.from(tx.transaction.serialize()).toString("base64")
-    );
-
-    const signedTxs = await signTransactionsWithPayer(
-      serializedTransactions,
-      feePayer
-    );
-
-    transactionsToSign.forEach((tx, index) => {
-      tx.transaction = VersionedTransaction.deserialize(
-        Buffer.from(signedTxs[index], "base64")
-      );
-    });
-  }
-  txs.forEach((tx) => transactionMap.set(tx.id, tx.transaction));
-
+  data.forEach((x) => transactionMap.set(x.id, x.tx!));
   const groupedTxs: Record<
     SignerType,
     {
@@ -171,19 +130,20 @@ async function signTransactions(
     }[]
   > = {
     [SignerType.UNKNOWN]: [],
+    [SignerType.PAYMASTER]: [],
     [SignerType.NFC]: [],
     [SignerType.DEVICE]: [],
     [SignerType.CLOUD]: [],
   };
 
-  for (const tx of txs) {
+  for (const tx of data) {
     for (const signer of tx.signers) {
       if (signer.type === SignerType.UNKNOWN) {
         throw new Error(`Unknown signer type: ${signer.key}`);
       }
       groupedTxs[signer.type].push({
         signer,
-        transaction: tx.transaction,
+        transaction: tx.tx!,
         id: tx.id,
       });
     }
@@ -215,13 +175,28 @@ async function signTransactions(
               .map((x) => x.transaction)
               .map((transaction) => transaction.message.serialize())
           );
-          txGroup.map((x, index) =>
+          txGroup.forEach((x, index) =>
             x.transaction.addSignature(
               new PublicKey(x.signer.key),
               new Uint8Array(signatures[index])
             )
           );
           if (Platform.OS === "android") setNfcSheetVisible(false);
+        } else if (type === SignerType.PAYMASTER) {
+          const signatures = await signTransactionsWithPayer(
+            txGroup
+              .map((x) => x.transaction)
+              .map((transaction) =>
+                Buffer.from(transaction.message.serialize()).toString("base64")
+              ),
+            txGroup[0].signer.key
+          );
+          txGroup.forEach((x, index) =>
+            x.transaction.addSignature(
+              new PublicKey(x.signer.key),
+              new Uint8Array(Buffer.from(signatures[index], "base64"))
+            )
+          );
         }
         txGroup.forEach(({ id, signer }) => {
           callback({
@@ -238,7 +213,6 @@ async function signTransactions(
             state: SignerState.Error,
           });
         });
-        logError(error);
         throw new Error(error.message);
       }
     }

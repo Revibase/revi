@@ -20,7 +20,9 @@ export default {
       supportsTablet: true,
       bundleIdentifier: "com.jychab.revivault",
       newArchEnabled: true,
-      googleServicesFile: "./assets/google/GoogleService-Info.plist",
+      googleServicesFile:
+        process.env.GOOGLE_SERVICES_INFO_PLIST ||
+        "./assets/google/GoogleService-Info.plist",
     },
     android: {
       adaptiveIcon: {
@@ -30,7 +32,9 @@ export default {
       permissions: ["android.permission.NFC"],
       package: "com.jychab.revivault",
       newArchEnabled: true,
-      googleServicesFile: "./assets/google/google-services.json",
+      googleServicesFile:
+        process.env.GOOGLE_SERVICES_JSON ||
+        "./assets/google/google-services.json",
     },
     web: {
       bundler: "metro",

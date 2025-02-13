@@ -86,6 +86,17 @@ export const useGetBlinksAdapter = () => {
                   )
               );
               const feePayer = getSponsoredFeePayer();
+              ixs.forEach((x) => {
+                if (x.keys.some((x) => x.pubkey.toString() === feePayer)) {
+                  reject(
+                    new Error(
+                      "Fee payer should not be referenced inside the instruction."
+                    )
+                  );
+                  return;
+                }
+              });
+
               setTransactionSheetArgs({
                 feePayer,
                 theme,
@@ -134,7 +145,7 @@ export const useGetBlinksAdapter = () => {
       connect: async (_context) => {
         return type === WalletType.MULTIWALLET && walletAddress
           ? getVaultFromAddress(new PublicKey(walletAddress)).toString()
-          : walletAddress?.toString() || "";
+          : walletAddress || null;
       },
       signTransaction: async (tx: string, _context) => {
         const signature = await signBlinksTx(tx);

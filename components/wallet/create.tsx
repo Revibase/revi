@@ -1,12 +1,11 @@
-import { changeConfig, createWallet } from "@revibase/multi-wallet";
+import { createWallet } from "@revibase/multi-wallet";
 import { BLOCKCHAIN } from "@revibase/nfc-core/dist/utils/const";
-import { PublicKey, TransactionInstruction } from "@solana/web3.js";
+import { PublicKey } from "@solana/web3.js";
 import { Copy, RefreshCcw, Trash2 } from "@tamagui/lucide-icons";
 import { CustomButton } from "components/CustomButton";
 import { useCopyToClipboard, useWalletInfo } from "components/hooks";
 import { FC, useCallback, useEffect, useState } from "react";
 import { Alert, Platform } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   ButtonIcon,
   ButtonText,
@@ -16,6 +15,7 @@ import {
   Sheet,
   Text,
   ThemeName,
+  useWindowDimensions,
   XStack,
   YGroup,
   YStack,
@@ -25,8 +25,6 @@ import {
   logError,
   nfcCore,
   Page,
-  SignerState,
-  SignerType,
   useGlobalStore,
   WalletType,
 } from "utils";
@@ -54,7 +52,7 @@ export const CreateMultisigPage: FC = () => {
       type === WalletType.MULTIWALLET &&
       !isLoading &&
       !!walletInfo?.metadata &&
-      walletInfo.metadata.toString() !== mint
+      walletInfo.metadata !== mint
     ) {
       setStep(3);
     }
@@ -63,44 +61,36 @@ export const CreateMultisigPage: FC = () => {
   const handleCreateOrEdit = useCallback(async () => {
     try {
       if (!walletAddress) return;
-      const signers = [
-        {
-          key: walletAddress,
-          state: SignerState.Unsigned,
-          type: SignerType.NFC,
-        },
-      ];
-      let ixs: TransactionInstruction[] | null | undefined = [];
+
       const feePayer = getSponsoredFeePayer();
       if (walletInfo) {
-        ixs = [
-          await changeConfig({
-            signers: signers.map((x) => new PublicKey(x.key)),
-            walletAddress: new PublicKey(walletAddress),
-            feePayer: new PublicKey(feePayer),
-            configActions: [
-              {
-                type: "setMetadata",
-                metadata: metadata ? new PublicKey(metadata) : null,
-              },
-            ],
-          }),
-        ];
-      } else {
-        ixs = await createWallet({
-          feePayer: new PublicKey(feePayer),
-          walletAddress: new PublicKey(walletAddress),
-          metadata: metadata ? new PublicKey(metadata) : null,
-        });
-      }
-      if (ixs && ixs.length > 0) {
         setTransactionSheetArgs({
           feePayer,
           theme,
           walletAddress,
           callback: (signature) =>
-            signature && !metadata ? setPage(Page.Main) : setPage(Page.Create),
-          signers,
+            signature && !metadata ? setPage(Page.Main) : setStep(3),
+          walletInfo,
+          changeConfig: [
+            {
+              type: "setMetadata",
+              metadata: metadata ? new PublicKey(metadata) : null,
+            },
+          ],
+        });
+      } else {
+        let ixs = await createWallet({
+          feePayer: new PublicKey(feePayer),
+          walletAddress: new PublicKey(walletAddress),
+          metadata: metadata ? new PublicKey(metadata) : null,
+        });
+        setTransactionSheetArgs({
+          feePayer,
+          theme,
+          walletAddress,
+          callback: (signature) =>
+            signature && !metadata ? setPage(Page.Main) : setStep(3),
+          signers: [],
           ixs,
         });
       }
@@ -121,7 +111,7 @@ export const CreateMultisigPage: FC = () => {
 
       const data = await nfcCore.readSecureElement({
         blockchain: BLOCKCHAIN.SOLANA,
-        mint: walletInfo?.metadata?.toString(),
+        mint: walletInfo?.metadata || undefined,
       });
       if (data) {
         const parsedData = {
@@ -147,7 +137,7 @@ export const CreateMultisigPage: FC = () => {
       nfcCore.close();
     }
   }, [walletInfo]);
-  const { bottom } = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
   return (
     <YStack flex={1} items="center">
       <Header
@@ -168,8 +158,9 @@ export const CreateMultisigPage: FC = () => {
         height={"100%"}
         contentContainerStyle={{
           grow: 1,
-          p: 16,
-          pb: 16 + bottom,
+          pt: 16,
+          px: 16,
+          pb: Math.round(height * 0.15),
         }}
       >
         {step == 0 && (
@@ -242,9 +233,9 @@ export const CreateMultisigPage: FC = () => {
               <Heading size={"$1"}>NFC Hardware Wallet Address</Heading>
               <CustomButton
                 bordered
-                onPress={() => copyToClipboard(walletAddress?.toString() || "")}
+                onPress={() => copyToClipboard(walletAddress || "")}
               >
-                <ButtonText>{`${walletAddress?.toString()}`}</ButtonText>
+                <ButtonText>{`${walletAddress}`}</ButtonText>
                 <ButtonIcon children={<Copy />}></ButtonIcon>
               </CustomButton>
             </YStack>
@@ -275,7 +266,7 @@ export const CreateMultisigPage: FC = () => {
                 borderBottomLeftRadius={"$4"}
                 borderBottomRightRadius={"$4"}
                 onPress={() => setMetadata(null)}
-                title={metadata.toString()}
+                title={metadata}
                 subTitle={"Mint Address"}
                 iconAfter={<Trash2 size={"$1"} />}
               />
@@ -312,19 +303,19 @@ export const CreateMultisigPage: FC = () => {
               <YGroup.Item>
                 <ListItem
                   padded
-                  title={walletInfo?.createKey.toString()}
+                  title={walletInfo?.createKey}
                   subTitle={"Wallet Address"}
                 />
               </YGroup.Item>
               <YGroup.Item>
                 <ListItem
                   padded
-                  title={walletInfo?.metadata?.toString()}
+                  title={walletInfo?.metadata}
                   subTitle={"Mint Address"}
                   iconAfter={
                     <CustomButton
                       onPress={() => {
-                        setMetadata(walletInfo?.metadata?.toString());
+                        setMetadata(walletInfo?.metadata);
                         setStep(2);
                       }}
                       size={"$3"}

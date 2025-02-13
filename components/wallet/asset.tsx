@@ -24,23 +24,24 @@ import {
   XStack,
   YStack,
 } from "tamagui";
-import {
-  formatAmount,
-  Page,
-  proxify,
-  useGetAsset,
-  useGlobalStore,
-} from "utils";
+import { formatAmount, Page, proxify, useGlobalStore } from "utils";
 import { ScreenWrapper } from "./screenWrapper";
 
 export const AssetPage: FC = () => {
-  const { setPage, walletSheetArgs } = useGlobalStore();
+  const { setPage, walletSheetArgs, setAsset } = useGlobalStore();
   const { asset, callback } = walletSheetArgs ?? {};
   const copyToClipBoard = useCopyToClipboard();
   return (
     <ScreenWrapper
       text={asset?.content?.metadata.name || ""}
-      reset={() => callback?.() ?? setPage(Page.Main)}
+      reset={() => {
+        if (callback) {
+          callback();
+        } else {
+          setPage(Page.Main);
+          setAsset(undefined);
+        }
+      }}
       copy={
         asset?.id && asset.id !== PublicKey.default.toString()
           ? () => copyToClipBoard(asset.id)
@@ -69,11 +70,10 @@ export const Asset: FC<{
   const { setPage, setAsset, walletSheetArgs } = useGlobalStore();
   const [parentWidth, setParentWidth] = useState(0);
 
-  const { data: collection } = useGetAsset({
-    mint: asset?.grouping?.find((x) => x.group_key == "collection")?.group_value
-      ? asset?.grouping?.find((x) => x.group_key == "collection")?.group_value
-      : undefined,
-  });
+  const collection = asset?.grouping?.find(
+    (x) => x.group_key == "collection"
+  )?.collection_metadata;
+
   const { theme, walletAddress, type } = walletSheetArgs ?? {};
   const {
     deviceWalletPublicKeyIsMember,
@@ -169,7 +169,7 @@ export const Asset: FC<{
                 `Ensure you have ${asset?.content?.metadata.name} in your wallet.`
               );
             } else if (asset) {
-              setAsset(asset, callback || (() => setPage(Page.Main)));
+              setAsset(asset, callback || (() => setPage(Page.Asset)));
               setPage(Page.BlinksPage);
             }
           }}
@@ -253,19 +253,19 @@ export const Asset: FC<{
         {collection && (
           <Card size="$4" bordered padded gap={"$3"}>
             <XStack items="center" gap={"$3"}>
-              {collection.content?.links?.image && (
+              {collection.image && (
                 <Avatar size={"$3"} circular>
                   <Image
                     style={{ height: "100%", width: "100%" }}
                     source={{
-                      uri: proxify(collection.content?.links?.image),
+                      uri: proxify(collection.image),
                     }}
                   />
                 </Avatar>
               )}
-              <Heading size={"$2"}>{collection.content?.metadata.name}</Heading>
+              <Heading size={"$2"}>{collection.name}</Heading>
             </XStack>
-            <Text>{collection.content?.metadata.description}</Text>
+            <Text>{collection.description}</Text>
           </Card>
         )}
       </YStack>

@@ -1,9 +1,5 @@
-import {
-  cancelEscrowAsNonOwner,
-  fetchMultiWalletData,
-} from "@revibase/multi-wallet";
+import { cancelEscrowAsNonOwner } from "@revibase/multi-wallet";
 import { PublicKey } from "@solana/web3.js";
-import { useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { Alert } from "react-native";
 import {
@@ -12,22 +8,27 @@ import {
   Page,
   SignerState,
   TransactionSheetArgs,
+  WalletType,
   getSignerTypeFromAddress,
   getSponsoredFeePayer,
   logError,
   useGlobalStore,
 } from "utils";
+import { useWalletInfo } from "./useWalletInfo";
 
-export const useOfferConfirmation = () => {
+export const useOfferConfirmation = (offer: Offer | null | undefined) => {
   const {
     setTransactionSheetArgs,
     deviceWalletPublicKey,
     cloudWalletPublicKey,
     setPage,
   } = useGlobalStore();
-  const queryClient = useQueryClient();
+  const { walletInfo } = useWalletInfo({
+    walletAddress: offer?.createKey,
+    type: WalletType.MULTIWALLET,
+  });
   const handleTransaction = useCallback(
-    async (offer: Offer, action: EscrowActions) => {
+    async (action: EscrowActions) => {
       try {
         if (!offer?.proposer) {
           throw new Error("Unable to fetch escrow data.");
@@ -66,23 +67,12 @@ export const useOfferConfirmation = () => {
           action === EscrowActions.AcceptEscrowAsOwner ||
           action === EscrowActions.CancelEscrowAsOwner
         ) {
-          const walletInfo = await fetchMultiWalletData(
-            new PublicKey(walletAddress)
-          );
           if (!walletInfo) throw new Error("Unable to get wallet info.");
           args = {
             callback: (signature) => signature && setPage(Page.Main),
             feePayer,
             walletAddress,
-            walletInfo: {
-              ...walletInfo,
-              createKey: walletInfo.createKey.toString(),
-              members: walletInfo.members.map((x) => ({
-                ...x,
-                pubkey: x.pubkey.toString(),
-              })),
-              metadata: walletInfo.metadata?.toString() || null,
-            },
+            walletInfo,
             escrowConfig: {
               identifier: offer.identifier,
               type: action,
@@ -103,7 +93,7 @@ export const useOfferConfirmation = () => {
         );
       }
     },
-    [deviceWalletPublicKey, cloudWalletPublicKey]
+    [deviceWalletPublicKey, cloudWalletPublicKey, offer, walletInfo]
   );
   return { handleTransaction };
 };

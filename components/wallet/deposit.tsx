@@ -23,11 +23,9 @@ export const Deposit: FC = () => {
           Send assets to the wallet address below
         </Text>
         <Text fontSize={"$5"} text="center" width={"80%"}>
-          {address?.toString()}
+          {address}
         </Text>
-        <CustomButton
-          onPress={() => copyToClipboard(address?.toString() || "")}
-        >
+        <CustomButton onPress={() => copyToClipboard(address || "")}>
           <ButtonText>Copy</ButtonText>
           <ButtonIcon children={<Copy />}></ButtonIcon>
         </CustomButton>

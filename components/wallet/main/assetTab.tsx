@@ -1,4 +1,5 @@
 import { getVaultFromAddress } from "@revibase/multi-wallet";
+import { DAS } from "@revibase/token-transfer";
 import { PublicKey } from "@solana/web3.js";
 import { AlertTriangle } from "@tamagui/lucide-icons";
 import { CustomCard } from "components/CustomCard";
@@ -8,7 +9,6 @@ import { Text, XStack, YStack } from "tamagui";
 import {
   Page,
   PLACEHOLDER_IMAGE,
-  useGetAsset,
   useGetAssetsByOwner,
   useGlobalStore,
 } from "utils";
@@ -18,34 +18,39 @@ export const AssetTab: FC = () => {
   const { walletSheetArgs, setPage } = useGlobalStore();
   const { mint, type, walletAddress } = walletSheetArgs ?? {};
   const { walletInfo } = useWalletInfo({ walletAddress, type });
-  const { data: mintData } = useGetAsset({ mint });
+  const parsedMetadata = walletInfo?.fullMetadata
+    ? (JSON.parse(walletInfo.fullMetadata) as DAS.GetAssetResponse)
+    : undefined;
   const { data: allAssets } = useGetAssetsByOwner({
     address:
       walletInfo && walletAddress
         ? getVaultFromAddress(new PublicKey(walletAddress)).toString()
         : walletAddress,
   });
-  const asset = allAssets?.items.find((x) => x.id === mint?.toString());
+  const asset = allAssets?.items.find((x) => x.id === mint);
   return (
-    mintData && (
+    parsedMetadata && (
       <YStack width={"100%"} gap="$4" items="center">
         <YStack width={"80%"} items="center" gap="$1" justify="center">
           <Text numberOfLines={1} fontSize={"$7"} fontWeight={800}>
-            {mintData?.content?.metadata.name}
+            {parsedMetadata?.content?.metadata.name}
           </Text>
           {!asset && (
             <XStack gap="$2" items="center" justify="center">
               <AlertTriangle color="red" />
-              <Text color="red">{`${mintData.content?.metadata.name} not found.`}</Text>
+              <Text color="red">{`${parsedMetadata.content?.metadata.name} not found.`}</Text>
             </XStack>
           )}
         </YStack>
         <CustomCard
           height={"$20"}
           shadowColor={"white"}
-          url={mintData.content?.links?.image || PLACEHOLDER_IMAGE}
+          url={parsedMetadata.content?.links?.image || PLACEHOLDER_IMAGE}
         />
-        <Asset asset={asset ?? mintData} callback={() => setPage(Page.Main)} />
+        <Asset
+          asset={asset ?? parsedMetadata}
+          callback={() => setPage(Page.Main)}
+        />
       </YStack>
     )
   );

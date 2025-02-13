@@ -53,7 +53,7 @@ export const SearchPage: FC = () => {
   }, [allAssets, searchText]);
 
   return (
-    <ScreenWrapper text={"Tokens"} reset={() => setPage(Page.Main)}>
+    <ScreenWrapper text={"Select Token"} reset={() => setPage(Page.Main)}>
       <YStack items="center" gap={"$4"}>
         <XStack
           items="center"

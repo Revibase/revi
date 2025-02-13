@@ -1,4 +1,7 @@
-import { getVaultFromAddress } from "@revibase/multi-wallet";
+import {
+  ADDRESS_LOOK_UP_TABLE,
+  getVaultFromAddress,
+} from "@revibase/multi-wallet";
 import { transferAsset } from "@revibase/token-transfer";
 import { PublicKey } from "@solana/web3.js";
 import { AtSign } from "@tamagui/lucide-icons";
@@ -26,6 +29,7 @@ import {
   Page,
   proxify,
   SignerState,
+  useGetAddressLookUpTable,
   useGlobalStore,
   WalletType,
 } from "utils";
@@ -43,7 +47,9 @@ export const Withdrawal: FC = () => {
   const { type, walletAddress, asset, callback, theme } = walletSheetArgs ?? {};
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");
-
+  const { data: lookUpTable } = useGetAddressLookUpTable({
+    address: ADDRESS_LOOK_UP_TABLE,
+  });
   const { walletInfo } = useWalletInfo({
     walletAddress,
     type,
@@ -107,6 +113,7 @@ export const Withdrawal: FC = () => {
             },
           ],
           ixs: result,
+          lookUpTables: lookUpTable ? [lookUpTable] : [],
         });
       }
     } catch (error) {
@@ -138,6 +145,7 @@ export const Withdrawal: FC = () => {
       reset={() => {
         if (callback) {
           callback();
+          setAsset(asset);
         } else {
           setPage(Page.Main);
           setAsset(undefined);

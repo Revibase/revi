@@ -4,6 +4,7 @@ import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { CustomButton } from "components/CustomButton";
 import { CustomCard } from "components/CustomCard";
 import { CustomListItem } from "components/CustomListItem";
+import { useWalletInfo } from "components/hooks";
 import { FC, memo } from "react";
 import { ButtonText, Heading, Spinner, Text, YGroup, YStack } from "tamagui";
 import {
@@ -12,7 +13,6 @@ import {
   Offer,
   Page,
   PLACEHOLDER_IMAGE,
-  useGetAsset,
   useGlobalStore,
   WalletType,
 } from "utils";
@@ -21,9 +21,11 @@ import { ScreenWrapper } from "../screenWrapper";
 
 export const OffersPage: FC = () => {
   const { setPage, walletSheetArgs } = useGlobalStore();
-  const { walletAddress, mint, type } = walletSheetArgs ?? {};
-  const { data: asset } = useGetAsset({ mint });
-
+  const { walletAddress, type } = walletSheetArgs ?? {};
+  const { walletInfo } = useWalletInfo({ walletAddress, type });
+  const parsedMetadata = walletInfo?.fullMetadata
+    ? (JSON.parse(walletInfo.fullMetadata) as DAS.GetAssetResponse)
+    : undefined;
   const { data, isLoading } = useFirestoreCollection({
     queryKey: [
       "collection",
@@ -62,7 +64,7 @@ export const OffersPage: FC = () => {
                       .filter((x) => x.isPending)
                       .sort((a, b) => b.amount - a.amount)[0]
                   }
-                  asset={asset}
+                  asset={parsedMetadata}
                 />
               </>
             )}
@@ -77,7 +79,7 @@ export const OffersPage: FC = () => {
                         top={index === 0}
                         bottom={index === currentOffers.length - 1}
                         offer={offer}
-                        asset={asset}
+                        asset={parsedMetadata}
                       />
                     </YGroup.Item>
                   ))}
@@ -103,7 +105,7 @@ const RowItem: FC<{
   top?: boolean;
   bottom?: boolean;
   offer: Offer | undefined;
-  asset: DAS.GetAssetResponse | null | undefined;
+  asset: DAS.GetAssetResponse | undefined;
 }> = memo(({ offer, asset, top = false, bottom = false }) => {
   const { setPage, setOffer } = useGlobalStore();
   return (

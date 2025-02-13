@@ -1,8 +1,9 @@
+import { DAS } from "@revibase/token-transfer";
 import { useWalletInfo } from "components/hooks";
 import { Image } from "expo-image";
 import { FC, useEffect } from "react";
 import { Spinner, YStack } from "tamagui";
-import { Page, useGetAsset, useGlobalStore, WalletType } from "utils";
+import { Page, proxify, useGlobalStore, WalletType } from "utils";
 import { AssetPage } from "./asset";
 import { BlinksPage } from "./blinks";
 import { BlinksCard } from "./blinks/card";
@@ -13,6 +14,7 @@ import { OffersPage } from "./offers";
 import { OfferCard } from "./offers/card";
 import { SearchPage } from "./search";
 import { SettingsPage } from "./settings";
+import { SwapPage } from "./swap";
 import { Withdrawal } from "./withdrawal";
 
 export const Wallet: FC = () => {
@@ -25,12 +27,14 @@ export const Wallet: FC = () => {
   } = walletSheetArgs ?? {};
 
   const { walletInfo, isLoading } = useWalletInfo({ walletAddress, type });
-
+  const parsedMetadata = walletInfo?.fullMetadata
+    ? (JSON.parse(walletInfo.fullMetadata) as DAS.GetAssetResponse)
+    : undefined;
   useEffect(() => {
     if (page === Page.Loading && !isLoading) {
       if (
         (!walletInfo ||
-          (!!walletInfo.metadata && walletInfo.metadata.toString() !== mint)) &&
+          (!!walletInfo.metadata && walletInfo.metadata !== mint)) &&
         type === WalletType.MULTIWALLET
       ) {
         setPage(Page.Create);
@@ -40,12 +44,9 @@ export const Wallet: FC = () => {
     }
   }, [walletInfo, type, isLoading, mint, page]);
 
-  const { data: asset } = useGetAsset({
-    mint,
-  });
   return (
     <YStack minH={"100%"} position="relative">
-      {asset?.content?.links?.image && (
+      {parsedMetadata?.content?.links?.image && (
         <Image
           priority={"high"}
           style={{
@@ -55,7 +56,7 @@ export const Wallet: FC = () => {
             opacity: 0.1,
           }}
           source={{
-            uri: asset.content.links.image,
+            uri: proxify(parsedMetadata.content.links.image),
           }}
           contentFit="cover"
         />
@@ -71,6 +72,7 @@ export const Wallet: FC = () => {
       {page === Page.Blinks && <BlinksCard />}
       {page === Page.OffersPage && <OffersPage />}
       {page === Page.Offer && <OfferCard />}
+      {page === Page.Swap && <SwapPage />}
       {page == Page.Loading && (
         <YStack flex={1} bg={"transparent"} justify="center" items="center">
           <Spinner bg={"transparent"} size="large" />

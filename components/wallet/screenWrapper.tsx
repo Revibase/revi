@@ -31,7 +31,7 @@ export const ScreenWrapper: FC<{
           grow: 1,
           px: 16,
           pt: 16,
-          pb: Math.round(height * 0.1),
+          pb: Math.round(height * 0.15),
         }}
       >
         {children}

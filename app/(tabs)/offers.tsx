@@ -5,6 +5,7 @@ import {
   query,
   where,
 } from "@react-native-firebase/firestore";
+import { DAS } from "@revibase/token-transfer";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { Check, X } from "@tamagui/lucide-icons";
 import { CustomButton } from "components/CustomButton";
@@ -37,7 +38,6 @@ import {
   Offer,
   Page,
   PLACEHOLDER_IMAGE,
-  useGetAsset,
   useGlobalStore,
   WalletType,
 } from "utils";
@@ -129,6 +129,10 @@ const OffersList: FC<{
     keys && keys.length > 0 ? [where("proposer", "in", keys)] : [];
   const approverConstraint =
     keys && keys.length > 0 ? [where("approver", "in", keys)] : [];
+  const proposerOrApproverConstraint =
+    proposerConstraint.length > 0 && approverConstraint.length > 0
+      ? [or(...proposerConstraint, ...approverConstraint)]
+      : [];
   const createKeyConstraint =
     multiWallets && multiWallets.length > 0
       ? [
@@ -217,7 +221,7 @@ const OffersList: FC<{
     query: query(
       collectionGroup(db(), "Escrow"),
       where("isPending", "==", false),
-      or(...proposerConstraint, ...approverConstraint),
+      ...proposerOrApproverConstraint,
       orderBy("updatedAt", "desc")
     ),
     useQueryOptions: {
@@ -262,18 +266,18 @@ const RowItem: FC<{
   offer: Offer;
   type: "Current" | "Yours" | "History";
 }> = memo(({ offer, type }) => {
-  const { setWalletSheetArgs, deviceWalletPublicKey, cloudWalletPublicKey } =
-    useGlobalStore();
+  const { setWalletSheetArgs } = useGlobalStore();
 
-  const { handleTransaction } = useOfferConfirmation();
+  const { handleTransaction } = useOfferConfirmation(offer);
 
   const walletAddress = offer.createKey;
   const { walletInfo } = useWalletInfo({
     type: WalletType.MULTIWALLET,
     walletAddress,
   });
-  const { data: asset } = useGetAsset({ mint: walletInfo?.metadata });
-
+  const parsedMetadata = walletInfo?.fullMetadata
+    ? (JSON.parse(walletInfo.fullMetadata) as DAS.GetAssetResponse)
+    : undefined;
   return (
     <CustomListItem
       gap={"$1"}
@@ -318,7 +322,7 @@ const RowItem: FC<{
       icon={
         <CustomCard
           height={"$5"}
-          url={asset?.content?.links?.image || PLACEHOLDER_IMAGE}
+          url={parsedMetadata?.content?.links?.image || PLACEHOLDER_IMAGE}
         />
       }
       iconAfter={
@@ -331,7 +335,7 @@ const RowItem: FC<{
                 circular
                 theme="red"
                 onPress={() =>
-                  handleTransaction(offer, EscrowActions.CancelEscrowAsOwner)
+                  handleTransaction(EscrowActions.CancelEscrowAsOwner)
                 }
               >
                 <X />
@@ -342,7 +346,7 @@ const RowItem: FC<{
                 circular
                 theme="green"
                 onPress={() =>
-                  handleTransaction(offer, EscrowActions.AcceptEscrowAsOwner)
+                  handleTransaction(EscrowActions.AcceptEscrowAsOwner)
                 }
               >
                 <Check />
@@ -355,7 +359,7 @@ const RowItem: FC<{
               size="$3"
               theme="red"
               onPress={() =>
-                handleTransaction(offer, EscrowActions.CancelEscrowAsNonOwner)
+                handleTransaction(EscrowActions.CancelEscrowAsNonOwner)
               }
             >
               <ButtonText>{"Cancel"}</ButtonText>

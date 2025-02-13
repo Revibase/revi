@@ -1,10 +1,11 @@
+import { PublicKey } from "@solana/web3.js";
 import { router } from "expo-router";
 import { useCallback, useMemo } from "react";
 import { Alert } from "react-native";
 import { ThemeName } from "tamagui";
 import {
+  getPermissionsFromSignerType,
   getSponsoredFeePayer,
-  SignerState,
   SignerType,
   useGlobalStore,
   WalletType,
@@ -61,25 +62,29 @@ export const useWallet = ({
         feePayer,
         theme,
         walletAddress,
-        changeConfig: {
-          newOwners: [
-            {
-              key: walletAddress,
-              type: SignerType.NFC,
-              state: SignerState.Unsigned,
-            },
-            {
-              key: deviceWalletPublicKey,
-              type: SignerType.DEVICE,
-              state: SignerState.Unsigned,
-            },
-            {
-              key: cloudWalletPublicKey,
-              type: SignerType.CLOUD,
-              state: SignerState.Unsigned,
-            },
-          ],
-        },
+        changeConfig: [
+          {
+            type: "setMembers",
+            members: [
+              {
+                pubkey: new PublicKey(walletAddress),
+                permissions: getPermissionsFromSignerType(SignerType.NFC),
+              },
+              {
+                pubkey: new PublicKey(deviceWalletPublicKey),
+                permissions: getPermissionsFromSignerType(SignerType.DEVICE),
+              },
+              {
+                pubkey: new PublicKey(cloudWalletPublicKey),
+                permissions: getPermissionsFromSignerType(SignerType.CLOUD),
+              },
+            ],
+          },
+          {
+            type: "setThreshold",
+            threshold: 2,
+          },
+        ],
         walletInfo,
       });
     }

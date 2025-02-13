@@ -1,12 +1,34 @@
+import { Member } from "@revibase/multi-wallet";
 import {
   AddressLookupTableAccount,
+  PublicKey,
   TransactionInstruction,
   VersionedTransaction,
 } from "@solana/web3.js";
 import { ThemeName } from "tamagui";
 import { EscrowActions, SignerType } from "../enums";
 import { WalletInfo } from "./walletInfo";
-
+type ConfigAction =
+  | {
+      type: "addMembers";
+      members: Member[];
+    }
+  | {
+      type: "removeMembers";
+      members: PublicKey[];
+    }
+  | {
+      type: "setMembers";
+      members: Member[];
+    }
+  | {
+      type: "setThreshold";
+      threshold: number;
+    }
+  | {
+      type: "setMetadata";
+      metadata: PublicKey | null;
+    };
 interface TransactionSheetArgsBase {
   walletAddress: string;
   feePayer: string;
@@ -41,7 +63,7 @@ type WithTx = {
 };
 
 type WithChangeConfig = {
-  changeConfig: { newOwners: TransactionSigner[] };
+  changeConfig: ConfigAction[];
   ixs?: never;
   tx?: never;
   escrowConfig?: never;

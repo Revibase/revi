@@ -1,3 +1,4 @@
+import { DAS } from "@revibase/token-transfer";
 import {
   AlertCircle,
   Check,
@@ -29,6 +30,7 @@ import {
   Text,
   TextArea,
   ThemeName,
+  useWindowDimensions,
   XStack,
   YStack,
 } from "tamagui";
@@ -71,10 +73,10 @@ const Profile: FC<{}> = () => {
   const [parentWidth, setParentWidth] = useState(0);
   const { hasAsset } = useAssetValidation();
   const { multiWallets } = useGetMultiWallets();
-
+  const { height } = useWindowDimensions();
   return (
     <ScrollView
-      contentContainerStyle={{ gap: 16, pt: 16 }}
+      contentContainerStyle={{ gap: 16, pt: 16, pb: Math.round(height * 0.15) }}
       flex={1}
       showsVerticalScrollIndicator={false}
     >
@@ -87,13 +89,16 @@ const Profile: FC<{}> = () => {
           onLayout={(event) => setParentWidth(event.nativeEvent.layout.width)}
           flexWrap="wrap"
           flexDirection="row"
-          gap="$4"
+          gap={16}
         >
           {parentWidth > 0 &&
             multiWallets?.map((x) => {
+              const parsedMetadata = x.fullMetadata
+                ? (JSON.parse(x.fullMetadata) as DAS.GetAssetResponse)
+                : undefined;
               return (
                 <YStack
-                  key={x.createKey.toString()}
+                  key={x.createKey}
                   width={(parentWidth - 32) / 3}
                   height={(parentWidth - 32) / 3}
                   gap={"$2"}
@@ -126,7 +131,11 @@ const Profile: FC<{}> = () => {
                   </XStack>
                   <CustomCard
                     height={"$8"}
-                    url={x.data?.content?.links?.image || PLACEHOLDER_IMAGE}
+                    url={
+                      x.data?.content?.links?.image ||
+                      parsedMetadata?.content?.links?.image ||
+                      PLACEHOLDER_IMAGE
+                    }
                   />
                   <XStack
                     maxW={"80%"}
@@ -145,7 +154,9 @@ const Profile: FC<{}> = () => {
                         WalletType.MULTIWALLET
                       ) && <AlertCircle size={"$1"} color={"red"} />}
                     <Text numberOfLines={1} fontSize={"$3"}>
-                      {x.data?.content?.metadata.name || x.vaultAddress}
+                      {x.data?.content?.metadata.name ||
+                        parsedMetadata?.content?.metadata?.name ||
+                        x.vaultAddress}
                     </Text>
                   </XStack>
                 </YStack>
@@ -368,7 +379,7 @@ const Onboarding: FC = () => {
               onPress={() => setCurrentWalletType(WalletType.DEVICE)}
               icon={<Smartphone size={"$1"} />}
               title={"Device Wallet"}
-              subTitle={deviceWalletPublicKey?.toString()}
+              subTitle={deviceWalletPublicKey}
               iconAfter={deviceWalletPublicKey ? <Check size={"$1"} /> : <></>}
             />
             <ListItem
@@ -381,7 +392,7 @@ const Onboarding: FC = () => {
               onPress={() => setCurrentWalletType(WalletType.CLOUD)}
               icon={<Cloud size={"$1"} />}
               title={"Cloud Wallet"}
-              subTitle={cloudWalletPublicKey?.toString()}
+              subTitle={cloudWalletPublicKey}
               iconAfter={cloudWalletPublicKey ? <Check size={"$1"} /> : <></>}
             />
           </YStack>

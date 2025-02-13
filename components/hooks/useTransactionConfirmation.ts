@@ -4,7 +4,6 @@ import {
   changeConfig,
   createTransactionBundle,
   getVaultFromAddress,
-  Permissions,
 } from "@revibase/multi-wallet";
 import {
   ComputeBudgetProgram,
@@ -20,6 +19,8 @@ import {
   estimateJitoTips,
   getMainWalletFromSigners,
   logError,
+  SignerState,
+  SignerType,
   TransactionResult,
   TransactionSheetArgs,
   useGlobalStore,
@@ -86,7 +87,16 @@ export const useTransactionConfirmation = () => {
           {
             id: escrowConfig.type,
             feePayer,
-            signers,
+            signers: signers.some((x) => x.key === feePayer)
+              ? signers
+              : [
+                  ...signers,
+                  {
+                    key: feePayer,
+                    state: SignerState.Unsigned,
+                    type: SignerType.PAYMASTER,
+                  },
+                ],
             ixs,
           },
         ],
@@ -113,19 +123,7 @@ export const useTransactionConfirmation = () => {
           signers: signers.map((x) => new PublicKey(x.key)),
           walletAddress: new PublicKey(walletAddress),
           feePayer: new PublicKey(feePayer),
-          configActions: [
-            {
-              type: "setMembers",
-              members: changeConfigData.newOwners.map((x) => ({
-                pubkey: new PublicKey(x.key),
-                permissions: Permissions.all(),
-              })),
-            },
-            {
-              type: "setThreshold",
-              threshold: changeConfigData.newOwners.length > 1 ? 2 : 1,
-            },
-          ],
+          configActions: changeConfigData,
         })
       );
 
@@ -151,7 +149,16 @@ export const useTransactionConfirmation = () => {
           {
             id: "Change Config",
             feePayer,
-            signers,
+            signers: signers.some((x) => x.key === feePayer)
+              ? signers
+              : [
+                  ...signers,
+                  {
+                    key: feePayer,
+                    state: SignerState.Unsigned,
+                    type: SignerType.PAYMASTER,
+                  },
+                ],
             ixs,
           },
         ],
@@ -196,12 +203,24 @@ export const useTransactionConfirmation = () => {
 
         return {
           feePayer,
-          data: result.map((x) => ({
-            ...x,
-            feePayer,
-            lookUpTables: x.lookupTableAccounts,
-            signers: x.signers.length > 1 ? signers : [mainSigner],
-          })),
+          data: result.map((x) => {
+            const finalSigners = x.signers.length > 1 ? signers : [mainSigner];
+            return {
+              ...x,
+              feePayer,
+              lookUpTables: x.lookupTableAccounts,
+              signers: finalSigners.some((x) => x.key === feePayer)
+                ? finalSigners
+                : [
+                    ...signers,
+                    {
+                      key: feePayer,
+                      state: SignerState.Unsigned,
+                      type: SignerType.PAYMASTER,
+                    },
+                  ],
+            };
+          }),
           totalFees: tipAmount,
         } as TransactionResult;
       } catch (error) {
@@ -243,7 +262,17 @@ export const useTransactionConfirmation = () => {
           data: [
             {
               id: "Execute Transaction",
-              signers,
+              signers: signers.some((x) => x.key === feePayer)
+                ? signers
+                : [
+                    ...signers,
+                    {
+                      key: feePayer,
+                      state: SignerState.Unsigned,
+                      type: SignerType.PAYMASTER,
+                    },
+                  ],
+              feePayer,
               ixs,
               lookUpTables,
             },

@@ -2,6 +2,7 @@ export enum Page {
   Main,
   Deposit,
   Withdrawal,
+  Swap,
   Search,
   Asset,
   Create,

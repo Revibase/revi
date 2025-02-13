@@ -31,23 +31,33 @@ let firestore: FirebaseFirestoreTypes.Module | null = null;
 let functions: FirebaseFunctionsTypes.Module | null = null;
 
 const initialize = async (app: ReactNativeFirebase.FirebaseApp) => {
-  const provider = firebase
-    .appCheck(app)
-    .newReactNativeFirebaseAppCheckProvider();
-  provider.configure({
-    android: {
-      provider: "playIntegrity",
-    },
-    apple: {
-      provider: "appAttestWithDeviceCheckFallback",
-    },
-  });
-  await firebase.appCheck(app).initializeAppCheck({
-    isTokenAutoRefreshEnabled: true,
-    provider,
-  });
-  firestore = getFirestore(app);
-  functions = getFunctions(app);
+  try {
+    const provider = firebase
+      .appCheck(app)
+      .newReactNativeFirebaseAppCheckProvider();
+    provider.configure({
+      android: {
+        provider:
+          process.env.EAS_BUILD_PROFILE === "production"
+            ? "playIntegrity"
+            : "debug",
+        debugToken: process.env.EXPO_PUBLIC_DEBUG_TOKEN,
+      },
+      apple: {
+        provider: "appAttestWithDeviceCheckFallback",
+      },
+    });
+    await firebase.appCheck(app).initializeAppCheck({
+      isTokenAutoRefreshEnabled: true,
+      provider,
+    });
+  } catch (error) {
+    console.log(error);
+    logError(error);
+  } finally {
+    firestore = getFirestore(app);
+    functions = getFunctions(app);
+  }
 };
 initialize(getApp());
 

@@ -9,6 +9,7 @@ import {
 import {
   getCloudWalletPublicKey,
   getDeviceWalletPublicKey,
+  log,
   logError,
   useGlobalStore,
 } from "utils";
@@ -75,9 +76,9 @@ export const useInit = () => {
     let newDefaultWallet: string | null | undefined = null;
 
     if (defaultWallet) {
-      if (deviceWalletPublicKey?.toString() === defaultWallet) {
+      if (deviceWalletPublicKey === defaultWallet) {
         newDefaultWallet = deviceWalletPublicKey;
-      } else if (cloudWalletPublicKey?.toString() === defaultWallet) {
+      } else if (cloudWalletPublicKey === defaultWallet) {
         newDefaultWallet = cloudWalletPublicKey;
       }
     }
@@ -104,7 +105,14 @@ export const useInit = () => {
       const response = await GoogleSignin.signIn();
       if (response.type === "success") {
         const tokens = await GoogleSignin.getTokens();
-        addToken(tokens.accessToken);
+        const cloudStorage = addToken(tokens.accessToken);
+        try {
+          const result = await getCloudWalletPublicKey(cloudStorage);
+          setCloudWalletPublicKey(result);
+        } catch (error) {
+          log("New Sign In, no existing cloud publickey");
+          setCloudWalletPublicKey(null);
+        }
       }
     } catch (error) {
       logError(error);

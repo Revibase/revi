@@ -11,7 +11,6 @@ import { CustomListItem } from "components/CustomListItem";
 import { useTransactionConfirmation } from "components/hooks";
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Platform } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   ButtonText,
   Checkbox,
@@ -19,6 +18,7 @@ import {
   Sheet,
   Spinner,
   Text,
+  useWindowDimensions,
   XStack,
   YGroup,
   YStack,
@@ -60,7 +60,7 @@ export const TransactionConfirmationSheet: FC = () => {
     changeConfig,
   } = transactionSheetArgs ?? {};
 
-  const { bottom } = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
   const {
     handleMultiWalletGenericTransaction,
     handleMultiWalletChangeConfigTransaction,
@@ -238,14 +238,21 @@ export const TransactionConfirmationSheet: FC = () => {
       />
       <Sheet.Handle theme={theme || "accent"} />
       <Sheet.Frame theme={theme || "accent"}>
-        <Sheet.ScrollView showsVerticalScrollIndicator={false}>
+        <Sheet.ScrollView
+          showsVerticalScrollIndicator={false}
+          width={"100%"}
+          height={"100%"}
+          contentContainerStyle={{
+            grow: 1,
+            pt: 16,
+            px: 16,
+            pb: Math.round(height * 0.15),
+          }}
+        >
           <YStack
             enterStyle={{ opacity: 0, y: -25 }}
             animation={"quick"}
             gap={"$4"}
-            pt={"$4"}
-            px={"$4"}
-            pb={bottom + 16}
           >
             <Text
               numberOfLines={1}
@@ -325,7 +332,7 @@ const SelectSignersState: FC<{
           ) {
             return {
               state: SignerState.Unsigned,
-              key: x.pubkey.toString(),
+              key: x.pubkey,
               type,
             };
           } else {
@@ -429,13 +436,11 @@ const SelectSignersState: FC<{
                       if (e.valueOf()) {
                         setSelectedSigners((prev) =>
                           prev
-                            ? prev.findIndex(
-                                (y) => y.key.toString() === x.pubkey.toString()
-                              ) === -1
+                            ? prev.findIndex((y) => y.key === x.pubkey) === -1
                               ? [
                                   ...prev,
                                   {
-                                    key: x.pubkey.toString(),
+                                    key: x.pubkey,
                                     type: type,
                                     state: SignerState.Unsigned,
                                   },
@@ -445,9 +450,7 @@ const SelectSignersState: FC<{
                         );
                       } else {
                         setSelectedSigners((prev) =>
-                          prev?.filter(
-                            (y) => y.key.toString() !== x.pubkey.toString()
-                          )
+                          prev?.filter((y) => y.key !== x.pubkey)
                         );
                       }
                     }}
@@ -500,7 +503,6 @@ const ConfirmationState: FC<{
     type,
   });
   const toast = useToastController();
-
   const [confirmedSigners, setConfirmedSigners] = useState<
     { key: string; type: SignerType; state: SignerState; id: string }[]
   >(
@@ -511,15 +513,10 @@ const ConfirmationState: FC<{
   const sendTransaction = useCallback(async () => {
     buildAndSendTransactionMutation
       .mutateAsync({
-        feePayer: transactions.feePayer,
-        data: transactions.data,
+        ...transactions,
         callback: (data) => {
           setConfirmedSigners((prev) =>
-            prev.map((x) =>
-              x.id === data.id && x.key.toString() === data.key.toString()
-                ? data
-                : x
-            )
+            prev.map((x) => (x.id === data.id && x.key === data.key ? data : x))
           );
         },
       })
@@ -532,7 +529,6 @@ const ConfirmationState: FC<{
         }
       })
       .catch((error) => {
-        logError(error);
         setError(error instanceof Error ? error.message : String(error));
       });
   }, [transactions]);
@@ -541,11 +537,11 @@ const ConfirmationState: FC<{
       <Heading size="$2">Getting Required Signatures</Heading>
       <YGroup>
         {confirmedSigners?.map((x) => (
-          <YGroup.Item key={`${x.key.toString()}-${x.id}`}>
+          <YGroup.Item key={`${x.key}-${x.id}`}>
             <CustomListItem
               bordered
               padded
-              title={x.key.toString()}
+              title={x.key}
               subTitle={`${x.type} - ${x.id}`}
               icon={
                 <Text>

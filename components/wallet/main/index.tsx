@@ -15,8 +15,14 @@ import {
 } from "components/hooks";
 import { FC, useEffect, useMemo, useState } from "react";
 import { Alert } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Button, ButtonText, Sheet, XStack, YStack } from "tamagui";
+import {
+  Button,
+  ButtonText,
+  Sheet,
+  useWindowDimensions,
+  XStack,
+  YStack,
+} from "tamagui";
 import { Page, useGlobalStore, WalletType } from "utils";
 import { AssetTab } from "./assetTab";
 import { CollectiblesTab } from "./collectiblesTab";
@@ -129,10 +135,20 @@ export const Main: FC = () => {
         return null;
     }
   }, [tab]);
-  const { bottom } = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
   return (
-    <Sheet.ScrollView showsVerticalScrollIndicator={false}>
-      <YStack items="center" gap="$4" p={"$4"} pb={bottom + 16} flex={1}>
+    <Sheet.ScrollView
+      showsVerticalScrollIndicator={false}
+      width={"100%"}
+      height={"100%"}
+      contentContainerStyle={{
+        grow: 1,
+        pt: 16,
+        px: 16,
+        pb: Math.round(height * 0.15),
+      }}
+    >
+      <YStack items="center" gap="$4">
         <CustomListItem
           bordered
           py={"$2"}
@@ -147,19 +163,17 @@ export const Main: FC = () => {
           title={
             type === WalletType.MULTIWALLET && walletAddress
               ? getVaultFromAddress(new PublicKey(walletAddress)).toString()
-              : walletAddress?.toString()
+              : walletAddress
           }
           onPress={() =>
             copyToClipboard(
               type === WalletType.MULTIWALLET && walletAddress
                 ? getVaultFromAddress(new PublicKey(walletAddress)).toString()
-                : walletAddress?.toString() || ""
+                : walletAddress || ""
             )
           }
           subTitle={`${type}${
-            defaultWallet?.toString() === walletAddress?.toString()
-              ? " (Default)"
-              : ""
+            defaultWallet === walletAddress ? " (Default)" : ""
           }`}
           iconAfter={
             <CustomButton

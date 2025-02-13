@@ -286,7 +286,7 @@ export const estimateFees = async (
       .filter((x) => x.isSigner && PublicKey.isOnCurve(x.pubkey))
       .forEach((x) => numSigners.add(x.pubkey.toString()));
   });
-  signers.forEach((x) => numSigners.add(x.key.toString()));
+  signers.forEach((x) => numSigners.add(x.key));
   const totalFees = Math.ceil(
     LAMPORTS_PER_SOL * 0.000005 * numSigners.size -
       1 +

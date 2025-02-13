@@ -5,15 +5,14 @@ import { useConnection } from "components/providers/connectionProvider";
 export function useGetAddressLookUpTable({
   address,
 }: {
-  address: string | undefined | null;
+  address: PublicKey | undefined | null;
 }) {
   const { connection } = useConnection();
   return useQuery({
     queryKey: ["get-address-look-up-table", { address }],
     queryFn: async () => {
       if (!address) return null;
-      return (await connection.getAddressLookupTable(new PublicKey(address)))
-        .value;
+      return (await connection.getAddressLookupTable(address)).value;
     },
     enabled: !!address,
     staleTime: Infinity,

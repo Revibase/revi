@@ -1,6 +1,6 @@
 import { getVaultFromAddress } from "@revibase/multi-wallet";
 import { PublicKey } from "@solana/web3.js";
-import { ArrowDown, ArrowUpRight } from "@tamagui/lucide-icons";
+import { ArrowDown, ArrowUpDown, ArrowUpRight } from "@tamagui/lucide-icons";
 import { CustomButton } from "components/CustomButton";
 import { CustomListItem } from "components/CustomListItem";
 import { useWalletInfo } from "components/hooks";
@@ -35,6 +35,18 @@ export const TokenTab: FC = () => {
   return (
     <YStack items="center" gap="$8" flex={1} width={"100%"}>
       <XStack items="center" gap="$6">
+        <YStack gap="$2" items="center" justify="center">
+          <CustomButton
+            bordered
+            onPress={() => {
+              setPage(Page.Swap);
+            }}
+            circular
+          >
+            <ButtonIcon children={<ArrowUpDown size={"$2"} />} />
+          </CustomButton>
+          <Text>Swap</Text>
+        </YStack>
         <YStack gap="$2" items="center" justify="center">
           <CustomButton
             bordered
@@ -124,7 +136,7 @@ export const TokenTab: FC = () => {
                       <Image
                         style={{ height: "100%", width: "100%" }}
                         source={{
-                          uri: proxify(x.content?.links?.image),
+                          uri: proxify(x.content.links.image),
                         }}
                       />
                     )}

@@ -6,45 +6,6 @@ import { FALLBACK_TOKEN_LIST, PAYER_ACCOUNTS } from "./consts";
 import { SignerType, WalletType } from "./enums";
 import { TransactionSigner } from "./types";
 
-export async function getAsset(mint: string, connection: Connection) {
-  const response = await fetch(connection.rpcEndpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: "",
-      method: "getAsset",
-      params: {
-        id: mint,
-      },
-    }),
-  });
-  const data = (await response.json()).result as
-    | DAS.GetAssetResponse
-    | undefined;
-  if (!data) return undefined;
-
-  if (data.content?.metadata.name) return data;
-
-  const fallbackList = await fetchFallbackTokenList();
-  const fallbackMap = Object.fromEntries(
-    fallbackList.tokens.map((token) => [token.address, token])
-  );
-
-  const fallbackMetadata = fallbackMap[data.id] ?? {};
-  return {
-    ...data,
-    content: {
-      ...data.content,
-      metadata: {
-        ...fallbackMetadata,
-        description: "",
-      },
-    },
-  } as DAS.GetAssetResponse;
-}
 export async function getAssetByOwner(wallet: string, connection: Connection) {
   const response = await fetch(connection.rpcEndpoint, {
     method: "POST",
@@ -60,8 +21,9 @@ export async function getAssetByOwner(wallet: string, connection: Connection) {
         displayOptions: {
           showFungible: true,
           showNativeBalance: true,
+          showCollectionMetadata: true,
         },
-      },
+      } as DAS.AssetsByOwnerRequest,
     }),
   });
 
@@ -144,6 +106,8 @@ export function getSignerTypeFromAddress(
     ? SignerType.CLOUD
     : x.pubkey === x.createKey
     ? SignerType.NFC
+    : PAYER_ACCOUNTS.some((y) => y === x.pubkey)
+    ? SignerType.PAYMASTER
     : SignerType.UNKNOWN;
 }
 export function getSignerTypeFromWalletType(

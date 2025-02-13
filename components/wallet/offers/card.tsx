@@ -1,4 +1,5 @@
 import { getVaultFromAddress } from "@revibase/multi-wallet";
+import { DAS } from "@revibase/token-transfer";
 import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { Check, X } from "@tamagui/lucide-icons";
 import { CustomButton } from "components/CustomButton";
@@ -8,6 +9,7 @@ import {
   useOfferConfirmation,
   usePendingOffers,
   useWallet,
+  useWalletInfo,
 } from "components/hooks";
 import { FC, useMemo } from "react";
 import { Linking } from "react-native";
@@ -26,7 +28,6 @@ import {
   getTotalValueFromWallet,
   Page,
   PLACEHOLDER_IMAGE,
-  useGetAsset,
   useGetAssetsByOwner,
   useGlobalStore,
   WalletType,
@@ -42,8 +43,11 @@ export const OfferCard: FC = () => {
     deviceWalletPublicKey,
     cloudWalletPublicKey,
   } = useGlobalStore();
-  const { offer, mint } = walletSheetArgs ?? {};
-  const { data: asset } = useGetAsset({ mint });
+  const { offer, walletAddress, type } = walletSheetArgs ?? {};
+  const { walletInfo } = useWalletInfo({ walletAddress, type });
+  const parsedMetadata = walletInfo?.fullMetadata
+    ? (JSON.parse(walletInfo.fullMetadata) as DAS.GetAssetResponse)
+    : undefined;
   const { data: assets } = useGetAssetsByOwner({
     address: offer
       ? getVaultFromAddress(new PublicKey(offer.createKey)).toString()
@@ -60,7 +64,7 @@ export const OfferCard: FC = () => {
     type: WalletType.MULTIWALLET,
     walletAddress: offer?.createKey,
   });
-  const { handleTransaction } = useOfferConfirmation();
+  const { handleTransaction } = useOfferConfirmation(offer);
   const userIsOwner = useMemo(
     () => deviceWalletPublicKeyIsMember || cloudWalletPublicKeyIsMember,
     [deviceWalletPublicKeyIsMember, cloudWalletPublicKeyIsMember]
@@ -97,14 +101,14 @@ export const OfferCard: FC = () => {
           <CustomCard
             height={"$20"}
             shadowColor={"white"}
-            url={asset?.content?.links?.image || PLACEHOLDER_IMAGE}
+            url={parsedMetadata?.content?.links?.image || PLACEHOLDER_IMAGE}
           />
           <YGroup bordered>
-            {asset?.content?.metadata.name && (
+            {parsedMetadata?.content?.metadata.name && (
               <YGroup.Item>
                 <CustomListItem
                   bordered
-                  title={asset?.content?.metadata.name}
+                  title={parsedMetadata?.content?.metadata.name}
                   subTitle={"Main Asset"}
                 />
               </YGroup.Item>
@@ -244,7 +248,7 @@ export const OfferCard: FC = () => {
                 bordered
                 size="$5"
                 onPress={() =>
-                  handleTransaction(offer, EscrowActions.CancelEscrowAsOwner)
+                  handleTransaction(EscrowActions.CancelEscrowAsOwner)
                 }
               >
                 <ButtonText>{`Reject Offer`}</ButtonText>
@@ -256,7 +260,7 @@ export const OfferCard: FC = () => {
                 bordered
                 size="$5"
                 onPress={() =>
-                  handleTransaction(offer, EscrowActions.AcceptEscrowAsOwner)
+                  handleTransaction(EscrowActions.AcceptEscrowAsOwner)
                 }
               >
                 <ButtonText>{`Accept Offer`}</ButtonText>
@@ -273,7 +277,7 @@ export const OfferCard: FC = () => {
                 bordered
                 size="$5"
                 onPress={() =>
-                  handleTransaction(offer, EscrowActions.CancelEscrowAsNonOwner)
+                  handleTransaction(EscrowActions.CancelEscrowAsNonOwner)
                 }
               >
                 <ButtonText>

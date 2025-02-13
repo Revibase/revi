@@ -62,16 +62,15 @@ export const RenderWalletInfo: FC = () => {
           borderBottomRightRadius={"$4"}
           onPress={() =>
             copyToClipboard(
-              (type === WalletType.MULTIWALLET
+              type === WalletType.MULTIWALLET
                 ? getVaultFromAddress(new PublicKey(walletAddress)).toString()
-                : walletAddress.toString()
-              ).toString()
+                : walletAddress
             )
           }
           title={
             type === WalletType.MULTIWALLET
               ? getVaultFromAddress(new PublicKey(walletAddress)).toString()
-              : walletAddress.toString()
+              : walletAddress
           }
           subTitle="Wallet Address"
           icon={<Wallet size="$1" />}

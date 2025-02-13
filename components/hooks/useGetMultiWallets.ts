@@ -20,7 +20,6 @@ export const useGetMultiWallets = (withMetadata = true) => {
     keys && keys.length > 0
       ? [where("membersArray", "array-contains-any", keys)]
       : [];
-
   const { data } = useFirestoreCollection({
     queryKey: [`collection`, `MultiWallets`, { membersArray: keys }],
     query: query(collection(db(), `MultiWallets`), ...membersArrayConstraint),
@@ -41,6 +40,7 @@ export const useGetMultiWallets = (withMetadata = true) => {
   if (!withMetadata) {
     return { multiWallets: accounts };
   }
+
   const assets = useQueries({
     queries:
       accounts?.map((x) =>
@@ -54,12 +54,14 @@ export const useGetMultiWallets = (withMetadata = true) => {
     const vaultAddress = getVaultFromAddress(
       new PublicKey(x.createKey)
     ).toString();
+    const data = assets
+      .find((y) => y.data?.address === vaultAddress)
+      ?.data?.items.find((y) => y.id === x.metadata);
+
     return {
       ...x,
       vaultAddress,
-      data: assets
-        .find((y) => y.data?.address === vaultAddress)
-        ?.data?.items.find((y) => y.id === x.metadata),
+      data,
       totalValue: getTotalValueFromWallet(
         assets.find((y) => y.data?.address === vaultAddress)?.data
       ),

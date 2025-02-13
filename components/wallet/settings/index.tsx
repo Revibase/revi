@@ -18,7 +18,7 @@ export const SettingsPage: FC = () => {
     <>
       {type === WalletType.DEVICE &&
         walletAddress &&
-        deviceWalletPublicKey?.toString() === walletAddress.toString() && (
+        deviceWalletPublicKey === walletAddress && (
           <ScreenWrapper text="Wallet Details" reset={() => setPage(Page.Main)}>
             <YStack gap={"$4"}>
               <RenderWalletInfo />
@@ -29,7 +29,7 @@ export const SettingsPage: FC = () => {
 
       {type === WalletType.CLOUD &&
         walletAddress &&
-        cloudWalletPublicKey?.toString() === walletAddress.toString() && (
+        cloudWalletPublicKey === walletAddress && (
           <ScreenWrapper text="Wallet Details" reset={() => setPage(Page.Main)}>
             <YStack gap={"$4"}>
               <RenderWalletInfo />

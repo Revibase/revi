@@ -5,4 +5,5 @@ export interface WalletInfo {
   threshold: number;
   members: { permissions: Permissions | null; pubkey: string }[];
   metadata: string | null;
+  fullMetadata: string | undefined;
 }

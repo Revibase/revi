@@ -351,22 +351,18 @@ const RenderAddMembers: FC<{
           <Heading size={"$1"}>Use Recommended</Heading>
           <YGroup>
             {!isMember(walletAddress) &&
-              renderListItem(
-                walletAddress,
-                SignerType.NFC,
-                walletAddress.toString()
-              )}
+              renderListItem(walletAddress, SignerType.NFC, walletAddress)}
             {!isMember(deviceWalletPublicKey) &&
               renderListItem(
                 deviceWalletPublicKey,
                 SignerType.DEVICE,
-                deviceWalletPublicKey.toString()
+                deviceWalletPublicKey
               )}
             {!isMember(cloudWalletPublicKey) &&
               renderListItem(
                 cloudWalletPublicKey,
                 SignerType.CLOUD,
-                cloudWalletPublicKey.toString()
+                cloudWalletPublicKey
               )}
           </YGroup>
           <Heading size={"$1"} text="center">
@@ -514,9 +510,19 @@ const RenderEditMembers: FC<{
         feePayer,
         theme,
         walletAddress,
-        changeConfig: {
-          newOwners: filteredMembers,
-        },
+        changeConfig: [
+          {
+            type: "setMembers",
+            members: filteredMembers.map((x) => ({
+              pubkey: new PublicKey(x.key),
+              permissions: getPermissionsFromSignerType(x.type),
+            })),
+          },
+          {
+            type: "setThreshold",
+            threshold: filteredMembers.length > 1 ? 2 : 1,
+          },
+        ],
         walletInfo,
         callback: (signature) =>
           signature ? setPage(Page.Main) : setPage(Page.Settings),
