@@ -2,8 +2,9 @@ import { createWallet } from "@revibase/multi-wallet";
 import { BLOCKCHAIN } from "@revibase/nfc-core/dist/utils/const";
 import { PublicKey } from "@solana/web3.js";
 import { Copy, RefreshCcw, Trash2 } from "@tamagui/lucide-icons";
-import { CustomButton } from "components/CustomButton";
 import { useCopyToClipboard, useWalletInfo } from "components/hooks";
+import { CustomButton } from "components/ui/CustomButton";
+import { router } from "expo-router";
 import { FC, useCallback, useEffect, useState } from "react";
 import { Alert, Platform } from "react-native";
 import {
@@ -20,20 +21,14 @@ import {
   YGroup,
   YStack,
 } from "tamagui";
-import {
-  getSponsoredFeePayer,
-  logError,
-  nfcCore,
-  Page,
-  useGlobalStore,
-  WalletType,
-} from "utils";
+import { logError, nfcCore, Page, useGlobalStore, WalletType } from "utils";
 import { Header } from "./header";
 
 export const CreateMultisigPage: FC = () => {
   const {
     setTransactionSheetArgs,
     walletSheetArgs,
+    paymasterWalletPublicKey,
     setPage,
     setWalletSheetArgs,
     setPreviousData,
@@ -61,8 +56,13 @@ export const CreateMultisigPage: FC = () => {
   const handleCreateOrEdit = useCallback(async () => {
     try {
       if (!walletAddress) return;
+      if (!paymasterWalletPublicKey) {
+        setWalletSheetArgs(null);
+        router.replace("/(tabs)/profile");
+        throw new Error("You need to complete your wallet set up first.");
+      }
 
-      const feePayer = getSponsoredFeePayer();
+      const feePayer = paymasterWalletPublicKey;
       if (walletInfo) {
         setTransactionSheetArgs({
           feePayer,
@@ -101,7 +101,7 @@ export const CreateMultisigPage: FC = () => {
         error instanceof Error ? error.message : String(error)
       );
     }
-  }, [walletAddress, theme, metadata]);
+  }, [walletAddress, paymasterWalletPublicKey, theme, metadata]);
 
   const handleOnPress = useCallback(async () => {
     try {

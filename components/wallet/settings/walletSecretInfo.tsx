@@ -1,6 +1,6 @@
 import { Copy } from "@tamagui/lucide-icons";
-import { CustomButton } from "components/CustomButton";
 import { useCopyToClipboard } from "components/hooks";
+import { CustomButton } from "components/ui/CustomButton";
 import { FC, useState } from "react";
 import { Alert } from "react-native";
 import {
@@ -24,67 +24,85 @@ export const RenderSecretButtons: FC<{
 }> = ({ walletType }) => {
   const {
     setWalletSheetArgs,
-    cloudStorage,
     deviceWalletPublicKey,
-    cloudWalletPublicKey,
-    setCloudWalletPublicKey,
+    setPaymasterWalletPublicKey,
     setDeviceWalletPublicKey,
   } = useGlobalStore();
   const [secret, setSecret] = useState("");
   const copyToClipboard = useCopyToClipboard();
   const theme = useTheme();
-  const exportWallet = useExportWallet({ cloudStorage });
+  const exportWallet = useExportWallet();
   const resetWallet = useResetWallet({
-    cloudStorage,
     deviceWalletPublicKey,
-    cloudWalletPublicKey,
-    setCloudWalletPublicKey,
+    setPaymasterWalletPublicKey,
     setDeviceWalletPublicKey,
   });
   const [selectedIndex, setSelectedIndex] = useState<number | undefined>();
+
   return (
     <>
       <YGroup>
-        {["Show Private Key", "Reveal Seed Phrase", "Remove Wallet"].map(
-          (label, index) => (
-            <YGroup.Item key={label}>
-              <CustomButton
-                color={index === 2 ? theme.red10 : theme.color}
-                onPress={async () => {
-                  setSelectedIndex(index);
-                  if (index === 2) {
-                    Alert.alert(
-                      "Are you certain you want to delete the current wallet?",
-                      "Warning: This action cannot be undone. Ensure your seed phrase is securely saved before continuing.",
-                      [
-                        { text: "Cancel" },
-                        {
-                          text: "Ok",
-                          onPress: async () => {
-                            await resetWallet.mutateAsync({ walletType });
-                            setSelectedIndex(undefined);
-                            setWalletSheetArgs(null);
-                          },
-                        },
-                      ]
-                    );
-                  } else {
-                    const result = await exportWallet.mutateAsync({
-                      walletType: walletType,
-                      returnMnemonic: index === 1,
-                    });
-                    setSelectedIndex(undefined);
-                    if (result) setSecret(result);
-                  }
-                }}
-              >
-                {(exportWallet.isPending || resetWallet.isPending) &&
-                  index === selectedIndex && <Spinner />}
-                <ButtonText>{label}</ButtonText>
-              </CustomButton>
-            </YGroup.Item>
-          )
-        )}
+        <YGroup.Item>
+          <CustomButton
+            color={theme.color}
+            onPress={async () => {
+              setSelectedIndex(1);
+              const result = await exportWallet.mutateAsync({
+                walletType: walletType,
+                returnMnemonic: true,
+              });
+              setSelectedIndex(undefined);
+              if (result) setSecret(result);
+            }}
+          >
+            {exportWallet.isPending && 1 === selectedIndex && <Spinner />}
+            <ButtonText>{"Show Seed Phrase"}</ButtonText>
+          </CustomButton>
+        </YGroup.Item>
+        <YGroup.Item>
+          <CustomButton
+            color={theme.color}
+            onPress={async () => {
+              setSelectedIndex(2);
+              const result = await exportWallet.mutateAsync({
+                walletType: walletType,
+                returnMnemonic: false,
+              });
+              setSelectedIndex(undefined);
+              if (result) setSecret(result);
+            }}
+          >
+            {exportWallet.isPending && 2 === selectedIndex && <Spinner />}
+            <ButtonText>{"Show Private Key"}</ButtonText>
+          </CustomButton>
+        </YGroup.Item>
+        <YGroup.Item>
+          <CustomButton
+            color={theme.red10}
+            onPress={async () => {
+              Alert.alert(
+                "Are you certain you want to remove the current wallet?",
+                walletType === WalletType.DEVICE
+                  ? "Warning: This action cannot be undone. Ensure your seed phrase is securely saved before continuing."
+                  : "",
+                [
+                  { text: "Cancel" },
+                  {
+                    text: "Ok",
+                    onPress: async () => {
+                      await resetWallet.mutateAsync({ walletType });
+                      setSelectedIndex(undefined);
+                      setWalletSheetArgs(null);
+                    },
+                  },
+                ]
+              );
+            }}
+          >
+            {resetWallet.isPending && <Spinner />}
+            <ButtonText>{"Remove Wallet"}</ButtonText>
+          </CustomButton>
+        </YGroup.Item>
       </YGroup>
       {secret && (
         <YStack

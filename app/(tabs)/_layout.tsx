@@ -1,6 +1,7 @@
 import { Handshake, Home, ShieldCheck } from "@tamagui/lucide-icons";
 import { useInit, useNotifications } from "components/hooks";
 import { AndroidNfcSheet } from "components/sheets/AndroidNfcSheet";
+import { GenericSheet } from "components/sheets/GenericSheet";
 import { TransactionConfirmationSheet } from "components/sheets/TransactionConfirmationSheet";
 import { WalletSheet } from "components/sheets/WalletSheet";
 import * as Haptics from "expo-haptics";
@@ -31,32 +32,23 @@ const bottomTabs = [
 export default function TabLayout() {
   const { color, background, borderColor } = useTheme();
 
-  const {
-    initializeCloudWallet,
-    initializeDeviceWallet,
-    initializeDefaultWallet,
-  } = useInit();
+  const { initializeDeviceWallet } = useInit();
   const { initializeNotification } = useNotifications();
+
+  useEffect(() => {
+    initializeDeviceWallet();
+  }, [initializeDeviceWallet]);
 
   useEffect(() => {
     initializeNotification();
   }, []);
-
-  useEffect(() => {
-    initializeCloudWallet();
-    initializeDeviceWallet();
-  }, []);
-
-  useEffect(() => {
-    initializeDefaultWallet();
-  }, [initializeDefaultWallet]);
 
   return (
     <PortalProvider shouldAddRootHost>
       <Tabs
         screenOptions={{
           sceneStyle: {
-            backgroundColor: background.val,
+            backgroundColor: background?.val,
           },
           animation: "none",
           tabBarAllowFontScaling: true,
@@ -103,6 +95,7 @@ export default function TabLayout() {
       <WalletSheet />
       <TransactionConfirmationSheet />
       <AndroidNfcSheet />
+      <GenericSheet />
     </PortalProvider>
   );
 }

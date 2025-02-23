@@ -1,14 +1,14 @@
-import { ArrowLeft, Copy } from "@tamagui/lucide-icons";
-import { CustomButton } from "components/CustomButton";
-import { FC } from "react";
+import { ArrowLeft } from "@tamagui/lucide-icons";
+import { CustomButton } from "components/ui/CustomButton";
+import { FC, ReactNode } from "react";
 import { Heading, XStack, XStackProps } from "tamagui";
 
 export const Header: FC<{
   text: string;
   reset?: () => void;
-  copy?: () => void;
+  rightIcon?: ReactNode;
   props: XStackProps;
-}> = ({ text, reset, props, copy }) => {
+}> = ({ text, reset, props, rightIcon }) => {
   return (
     <XStack
       p="$2"
@@ -36,14 +36,13 @@ export const Header: FC<{
         {text}
       </Heading>
 
-      <CustomButton
-        onPress={copy}
-        size={"$3"}
-        opacity={copy ? 1 : 0}
-        bg={"$colorTransparent"}
-      >
-        {copy ? <Copy /> : <ArrowLeft />}
-      </CustomButton>
+      {rightIcon ? (
+        rightIcon
+      ) : (
+        <CustomButton size={"$3"} opacity={0} bg={"$colorTransparent"}>
+          <ArrowLeft />
+        </CustomButton>
+      )}
     </XStack>
   );
 };

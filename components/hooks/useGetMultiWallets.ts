@@ -13,9 +13,11 @@ import {
 } from "utils";
 
 export const useGetMultiWallets = (withMetadata = true) => {
-  const { deviceWalletPublicKey, cloudWalletPublicKey } = useGlobalStore();
+  const { deviceWalletPublicKey, paymasterWalletPublicKey } = useGlobalStore();
   const { connection } = useConnection();
-  const keys = [deviceWalletPublicKey, cloudWalletPublicKey].filter((x) => !!x);
+  const keys = [deviceWalletPublicKey, paymasterWalletPublicKey].filter(
+    (x) => !!x
+  );
   const membersArrayConstraint =
     keys && keys.length > 0
       ? [where("membersArray", "array-contains-any", keys)]

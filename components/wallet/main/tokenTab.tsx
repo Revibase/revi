@@ -1,9 +1,9 @@
 import { getVaultFromAddress } from "@revibase/multi-wallet";
 import { PublicKey } from "@solana/web3.js";
 import { ArrowDown, ArrowUpDown, ArrowUpRight } from "@tamagui/lucide-icons";
-import { CustomButton } from "components/CustomButton";
-import { CustomListItem } from "components/CustomListItem";
 import { useWalletInfo } from "components/hooks";
+import { CustomButton } from "components/ui/CustomButton";
+import { CustomListItem } from "components/ui/CustomListItem";
 import { Image } from "expo-image";
 import { FC } from "react";
 import { Avatar, ButtonIcon, Text, XStack, YStack } from "tamagui";

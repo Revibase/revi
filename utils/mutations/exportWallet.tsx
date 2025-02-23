@@ -1,23 +1,16 @@
 import { useMutation } from "@tanstack/react-query";
 import bs58 from "bs58";
 import { Alert } from "react-native";
-import { CloudStorage } from "react-native-cloud-storage";
+import { logError } from "utils/firebase";
 import { WalletType } from "../enums";
-import { logError } from "../firebase";
 import {
-  retrieveCloudWalletKeypair,
-  retrieveCloudWalletSeedPhrase,
   retrieveDeviceWalletKeypair,
   retrieveDeviceWalletSeedPhrase,
 } from "../secure";
 
-export function useExportWallet({
-  cloudStorage,
-}: {
-  cloudStorage: CloudStorage | null;
-}) {
+export function useExportWallet() {
   return useMutation({
-    mutationKey: ["export-wallet", cloudStorage],
+    mutationKey: ["export-wallet"],
     mutationFn: async ({
       walletType,
       returnMnemonic,
@@ -31,15 +24,6 @@ export function useExportWallet({
             return await retrieveDeviceWalletSeedPhrase();
           } else {
             const deviceKeypair = await retrieveDeviceWalletKeypair();
-            return bs58.encode(deviceKeypair.secretKey);
-          }
-        case WalletType.CLOUD:
-          if (returnMnemonic) {
-            return await retrieveCloudWalletSeedPhrase(cloudStorage);
-          } else {
-            const deviceKeypair = await retrieveCloudWalletKeypair(
-              cloudStorage
-            );
             return bs58.encode(deviceKeypair.secretKey);
           }
       }

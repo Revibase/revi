@@ -5,10 +5,11 @@ import {
 import { transferAsset } from "@revibase/token-transfer";
 import { PublicKey } from "@solana/web3.js";
 import { AtSign } from "@tamagui/lucide-icons";
-import { CustomButton } from "components/CustomButton";
 import { useWalletInfo } from "components/hooks";
 import { useConnection } from "components/providers/connectionProvider";
+import { CustomButton } from "components/ui/CustomButton";
 import { Image } from "expo-image";
+import { router } from "expo-router";
 import { FC, useCallback, useMemo, useState } from "react";
 import { Alert } from "react-native";
 import {
@@ -24,7 +25,6 @@ import {
 } from "tamagui";
 import {
   getSignerTypeFromWalletType,
-  getSponsoredFeePayer,
   logError,
   Page,
   proxify,
@@ -41,8 +41,9 @@ export const Withdrawal: FC = () => {
     setPage,
     setAsset,
     setTransactionSheetArgs,
+    setWalletSheetArgs,
     deviceWalletPublicKey,
-    cloudWalletPublicKey,
+    paymasterWalletPublicKey,
   } = useGlobalStore();
   const { type, walletAddress, asset, callback, theme } = walletSheetArgs ?? {};
   const [recipient, setRecipient] = useState("");
@@ -76,20 +77,24 @@ export const Withdrawal: FC = () => {
           ? getVaultFromAddress(new PublicKey(walletAddress)).toString()
           : walletAddress;
 
-      const result = await transferAsset(
-        connection,
-        new PublicKey(source),
-        new PublicKey(recipient),
-        hasOnlyOne ? 1 : parseFloat(amount),
-        withdrawalAsset?.id === PublicKey.default.toString(),
-        withdrawalAsset ?? undefined
-      );
-
       if (type === WalletType.MULTIWALLET) {
-        const feePayer = getSponsoredFeePayer();
+        if (!paymasterWalletPublicKey) {
+          setWalletSheetArgs(null);
+          router.replace("/(tabs)/profile");
+          throw new Error("You need to complete your wallet set up first.");
+        }
         if (walletInfo) {
+          const result = await transferAsset(
+            connection,
+            new PublicKey(source),
+            new PublicKey(recipient),
+            new PublicKey(paymasterWalletPublicKey),
+            hasOnlyOne ? 1 : parseFloat(amount),
+            withdrawalAsset?.id === PublicKey.default.toString(),
+            withdrawalAsset ?? undefined
+          );
           setTransactionSheetArgs({
-            feePayer,
+            feePayer: paymasterWalletPublicKey,
             theme,
             walletAddress,
             callback: (signature) =>
@@ -99,6 +104,15 @@ export const Withdrawal: FC = () => {
           });
         }
       } else {
+        const result = await transferAsset(
+          connection,
+          new PublicKey(source),
+          new PublicKey(recipient),
+          new PublicKey(walletAddress),
+          hasOnlyOne ? 1 : parseFloat(amount),
+          withdrawalAsset?.id === PublicKey.default.toString(),
+          withdrawalAsset ?? undefined
+        );
         setTransactionSheetArgs({
           feePayer: walletAddress,
           theme,
@@ -132,7 +146,7 @@ export const Withdrawal: FC = () => {
     asset,
     walletInfo,
     deviceWalletPublicKey,
-    cloudWalletPublicKey,
+    paymasterWalletPublicKey,
     recipient,
     hasOnlyOne,
     amount,

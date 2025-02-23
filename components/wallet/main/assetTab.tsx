@@ -2,8 +2,8 @@ import { getVaultFromAddress } from "@revibase/multi-wallet";
 import { DAS } from "@revibase/token-transfer";
 import { PublicKey } from "@solana/web3.js";
 import { AlertTriangle } from "@tamagui/lucide-icons";
-import { CustomCard } from "components/CustomCard";
 import { useWalletInfo } from "components/hooks";
+import { CustomCard } from "components/ui/CustomCard";
 import { FC } from "react";
 import { Text, XStack, YStack } from "tamagui";
 import {
@@ -44,7 +44,7 @@ export const AssetTab: FC = () => {
         </YStack>
         <CustomCard
           height={"$20"}
-          shadowColor={"white"}
+          shadowRadius={"$4"}
           url={parsedMetadata.content?.links?.image || PLACEHOLDER_IMAGE}
         />
         <Asset

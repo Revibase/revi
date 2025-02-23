@@ -1,4 +1,3 @@
-import { useQueryClient } from "@tanstack/react-query";
 import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
@@ -26,11 +25,10 @@ export const useNotifications = () => {
     setWalletSheetArgs,
     expoPushToken,
     deviceWalletPublicKey,
-    cloudWalletPublicKey,
+    paymasterWalletPublicKey,
   } = useGlobalStore();
 
   const responseListener = useRef<Notifications.EventSubscription>();
-  const queryClient = useQueryClient();
 
   const initializeNotification = () => {
     registerForPushNotificationsAsync()
@@ -39,8 +37,8 @@ export const useNotifications = () => {
           if (deviceWalletPublicKey) {
             saveExpoPushToken([deviceWalletPublicKey], token);
           }
-          if (cloudWalletPublicKey) {
-            saveExpoPushToken([cloudWalletPublicKey], token);
+          if (paymasterWalletPublicKey) {
+            saveExpoPushToken([paymasterWalletPublicKey], token);
           }
         }
         setExpoPushToken(token ?? null);

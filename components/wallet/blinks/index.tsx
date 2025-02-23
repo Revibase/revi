@@ -1,15 +1,14 @@
 import { useAction } from "@dialectlabs/blinks-react-native";
 import { collection, query } from "@react-native-firebase/firestore";
 import { Image } from "expo-image";
-import { FC, useState } from "react";
-import { Card, Heading, Spinner, Text, useTheme, YStack } from "tamagui";
+import { FC, useMemo, useState } from "react";
+import { Heading, Text, useTheme, YStack } from "tamagui";
 import { db, Page, proxify, useGetAssetMetadata, useGlobalStore } from "utils";
 import { useFirestoreCollection } from "utils/queries/useFirestoreCollection";
-import { ScreenWrapper } from "../screenWrapper";
 
 export const BlinksPage: FC = () => {
-  const { setPage, walletSheetArgs, setAsset } = useGlobalStore();
-  const { asset, callback } = walletSheetArgs ?? {};
+  const { walletSheetArgs } = useGlobalStore();
+  const { asset } = walletSheetArgs ?? {};
   const { data, isLoading: assetLoading } = useGetAssetMetadata({
     url: asset?.content?.json_uri,
   });
@@ -24,77 +23,38 @@ export const BlinksPage: FC = () => {
       },
     }
   );
-  const listOfBlinks = (
-    (data?.["blinks"] ||
-      fallback?.docs
-        .map((x) => x.data() as { link: string })
-        .map((x) => x.link) ||
-      []) as string[]
-  ).filter((x) => {
-    try {
-      new URL(x);
-      return true;
-    } catch (e) {
-      return false;
-    }
-  });
+  const listOfBlinks = useMemo(
+    () =>
+      (
+        (data?.["blinks"] ||
+          fallback?.docs
+            .map((x) => x.data() as { link: string })
+            .map((x) => x.link) ||
+          []) as string[]
+      ).filter((x) => {
+        try {
+          new URL(x);
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }),
+    [data, fallback]
+  );
+
+  if ((!assetLoading && !fallbackLoading) || listOfBlinks.length == 0) {
+    return null;
+  }
 
   return (
-    <ScreenWrapper
-      text={`${asset?.content?.metadata.name}'s Blinks`}
-      reset={() => {
-        if (callback) {
-          callback();
-          setAsset(asset);
-        } else {
-          setPage(Page.Main);
-          setAsset(undefined);
-        }
-      }}
-    >
-      <YStack gap={"$4"} items="center" flex={1}>
-        <Text
-          fontSize={"$5"}
-          opacity={listOfBlinks.length > 0 ? 1 : 0.5}
-        >{`Blockchain links (aka Blinks) are powerful links that lets you interact with the blockchain instantly, delivering seamless on-chain experiences from anywhere.`}</Text>
-        {(assetLoading || fallbackLoading) && (
-          <YStack items="center" justify="center" flex={1}>
-            <Spinner size="large" />
-          </YStack>
-        )}
-        {!assetLoading &&
-          !fallbackLoading &&
-          listOfBlinks.map((blink, index) => (
-            <BlinksListItem key={index} url={blink} />
-          ))}
-        {!assetLoading && !fallbackLoading && listOfBlinks.length == 0 && (
-          <YStack flex={1} items="center" py={"$12"}>
-            <Card
-              gap={"$4"}
-              width={"90%"}
-              items="center"
-              justify="center"
-              p={"$4"}
-              borderWidth={"$1"}
-              borderColor={"$borderColor"}
-              borderTopLeftRadius={"$4"}
-              borderTopRightRadius={"$4"}
-              borderBottomLeftRadius={"$4"}
-              borderBottomRightRadius={"$4"}
-              elevate
-            >
-              <Card.Header size={"$4"}>
-                <Heading size={"$4"}>No Blinks Found.</Heading>
-              </Card.Header>
-
-              <Text text="center">
-                {`Want to add blinks for your token? Click here to learn more.`}
-              </Text>
-            </Card>
-          </YStack>
-        )}
+    <>
+      <Heading size={"$5"}>{"Blinks"}</Heading>
+      <YStack width={"100%"} gap={"$4"} items="center">
+        {listOfBlinks.map((blink, index) => (
+          <BlinksListItem key={index} url={blink} />
+        ))}
       </YStack>
-    </ScreenWrapper>
+    </>
   );
 };
 
