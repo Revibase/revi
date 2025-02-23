@@ -3,61 +3,67 @@ import { useMutation } from "@tanstack/react-query";
 import * as bip39 from "bip39";
 import { derivePath } from "ed25519-hd-key";
 import { Alert } from "react-native";
-import { CloudStorage } from "react-native-cloud-storage";
 import * as Keychain from "react-native-keychain";
+import { Passkey } from "react-native-passkey";
 import {
-  CLOUD_PRIVATE_KEY,
-  CLOUD_PUBLIC_KEY,
-  CLOUD_SEED_PHRASE,
   DEVICE_PRIVATE_KEY,
   DEVICE_PUBLIC_KEY,
   DEVICE_SEED_PHRASE,
 } from "../consts";
 import { WalletType } from "../enums";
-import { logError, saveExpoPushToken } from "../firebase";
-import { getCloudWalletPublicKey, getDeviceWalletPublicKey } from "../secure";
+import {
+  authenticatePasskey,
+  generatePasskeyAuthentication,
+  registerPasskey,
+  saveExpoPushToken,
+  verifyPasskeyRegistration,
+} from "../firebase";
 
 export function useGenerateWallet({
   expoPushToken,
-  cloudStorage,
-  setCloudWalletPublicKey,
+  setPaymasterWalletPublicKey,
   setDeviceWalletPublicKey,
 }: {
   expoPushToken: string | null;
-  cloudStorage: CloudStorage | null;
   setDeviceWalletPublicKey: (
     deviceWalletPublicKey: string | null | undefined
   ) => void;
-  setCloudWalletPublicKey: (
-    cloudWalletPublicKey: string | null | undefined
+  setPaymasterWalletPublicKey: (
+    paymasterWalletPublicKey: string | null | undefined
   ) => void;
 }) {
   return useMutation({
     mutationKey: [
       "generate-wallet",
       expoPushToken,
-      cloudStorage,
       setDeviceWalletPublicKey,
-      setCloudWalletPublicKey,
+      setPaymasterWalletPublicKey,
     ],
     mutationFn: async ({
       walletType,
+      username,
+      register = true,
       mnemonic,
       callback,
     }: {
       walletType: WalletType;
+      register?: boolean;
+      username?: string;
       mnemonic?: string;
       callback: () => void;
     }) => {
-      if (!mnemonic) {
-        mnemonic = bip39.generateMnemonic(256);
-      }
-      const seed = await bip39.mnemonicToSeed(mnemonic);
-      const path = "m/44'/501'/0'/0'";
-      const derivedSeed = derivePath(path, seed.toString("hex")).key;
-      const keypair = Keypair.fromSeed(derivedSeed);
+      let publicKey = "";
       switch (walletType) {
         case WalletType.DEVICE:
+          if (!mnemonic) {
+            mnemonic = bip39.generateMnemonic(256);
+          }
+          const seed = await bip39.mnemonicToSeed(mnemonic);
+          const path = "m/44'/501'/0'/0'";
+          const derivedSeed = derivePath(path, seed.toString("hex")).key;
+          const keypair = Keypair.fromSeed(derivedSeed);
+          publicKey = keypair.publicKey.toString();
+
           await Promise.all([
             Keychain.setGenericPassword(
               "Public Key",
@@ -92,42 +98,55 @@ export function useGenerateWallet({
             }),
           ]);
           break;
-        case WalletType.CLOUD:
-          if (!cloudStorage || !(await cloudStorage.isCloudAvailable())) {
-            throw new Error("Cloudstorage is unavailable");
+        case WalletType.PAYMASTER:
+          const isSupported: boolean = Passkey.isSupported();
+          if (!isSupported) {
+            throw new Error("Passkey is not supported on this device.");
           }
-          await cloudStorage.writeFile(
-            CLOUD_PUBLIC_KEY,
-            keypair.publicKey.toString()
-          );
-          await cloudStorage.writeFile(
-            CLOUD_PRIVATE_KEY,
-            Buffer.from(keypair.secretKey).toString("hex")
-          );
-          await cloudStorage.writeFile(CLOUD_SEED_PHRASE, mnemonic);
+          if (register) {
+            if (!username) {
+              throw new Error("Username cannot be empty");
+            }
+            const request = await registerPasskey(username);
+            const response = await Passkey.create(request.options);
+            const verifyResult = await verifyPasskeyRegistration({
+              requestId: request.requestId,
+              response,
+            });
+            publicKey = verifyResult.publicKey;
+          } else {
+            const request = await generatePasskeyAuthentication({});
+            const response = await Passkey.get(request.options);
+            const verifyResult = await authenticatePasskey({
+              response,
+              userId: response.id,
+              requestId: request.requestId,
+            });
+            publicKey = verifyResult.publicKey;
+          }
+
           break;
       }
+
       if (expoPushToken) {
-        await saveExpoPushToken([keypair.publicKey.toString()], expoPushToken);
+        await saveExpoPushToken([publicKey], expoPushToken);
       }
-      return { walletType, callback };
+
+      return { walletType, callback, publicKey };
     },
     onError: (error) => {
-      logError(error);
       Alert.alert(
-        `Create Wallet failed!`,
-        error instanceof Error ? error.message : String(error)
+        `Error`,
+        error instanceof Error ? error.message : JSON.stringify(error)
       );
     },
     onSuccess: async (result) => {
       if (result) {
         if (result.walletType === WalletType.DEVICE) {
-          const response = await getDeviceWalletPublicKey();
-          setDeviceWalletPublicKey(response);
+          setDeviceWalletPublicKey(result.publicKey);
           result.callback();
         } else {
-          const response = await getCloudWalletPublicKey(cloudStorage);
-          setCloudWalletPublicKey(response);
+          setPaymasterWalletPublicKey(result.publicKey);
           result.callback();
         }
       }

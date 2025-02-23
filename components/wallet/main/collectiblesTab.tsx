@@ -1,7 +1,7 @@
 import { getVaultFromAddress } from "@revibase/multi-wallet";
 import { PublicKey } from "@solana/web3.js";
-import { CustomButton } from "components/CustomButton";
 import { useWalletInfo } from "components/hooks";
+import { CustomButton } from "components/ui/CustomButton";
 import { Image } from "expo-image";
 import { FC } from "react";
 import { YStack } from "tamagui";

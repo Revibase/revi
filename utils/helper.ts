@@ -1,8 +1,8 @@
 import { Timestamp } from "@react-native-firebase/firestore";
-import { Permissions } from "@revibase/multi-wallet";
+import { Permission, Permissions } from "@revibase/multi-wallet";
 import { DAS } from "@revibase/token-transfer";
 import { Connection, PublicKey } from "@solana/web3.js";
-import { FALLBACK_TOKEN_LIST, PAYER_ACCOUNTS } from "./consts";
+import { FALLBACK_TOKEN_LIST } from "./consts";
 import { SignerType, WalletType } from "./enums";
 import { TransactionSigner } from "./types";
 
@@ -61,6 +61,46 @@ export async function getAssetByOwner(wallet: string, connection: Connection) {
   return data;
 }
 
+export async function getAsset(mint: string, connection: Connection) {
+  const response = await fetch(connection.rpcEndpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: "",
+      method: "getAsset",
+      params: {
+        id: mint,
+      },
+    }),
+  });
+  const data = (await response.json()).result as
+    | DAS.GetAssetResponse
+    | undefined;
+  if (!data) return undefined;
+
+  if (data.content?.metadata.name) return data;
+
+  const fallbackList = await fetchFallbackTokenList();
+  const fallbackMap = Object.fromEntries(
+    fallbackList.tokens.map((token) => [token.address, token])
+  );
+
+  const fallbackMetadata = fallbackMap[data.id] ?? {};
+  return {
+    ...data,
+    content: {
+      ...data.content,
+      metadata: {
+        ...fallbackMetadata,
+        description: "",
+      },
+    },
+  } as DAS.GetAssetResponse;
+}
+
 export const fetchFallbackTokenList = async () => {
   const result = (await (await fetch(FALLBACK_TOKEN_LIST)).json()) as {
     tokens: {
@@ -75,22 +115,15 @@ export const fetchFallbackTokenList = async () => {
   return result;
 };
 
-export const getSponsoredFeePayer = () => {
-  return PAYER_ACCOUNTS[Math.floor(Math.random() * PAYER_ACCOUNTS.length)];
-};
-
-export const getMainWalletFromSigners = (
-  signers: TransactionSigner[],
-  defaultWallet: string | undefined | null
+export const getTransactionCreatorFromSigners = (
+  signers: TransactionSigner[]
 ) => {
   const signer =
-    signers.find((x) => x.key == defaultWallet) ||
     signers.find((x) => x.type === SignerType.DEVICE) ||
-    signers.find((x) => x.type === SignerType.CLOUD) ||
     signers.find((x) => x.type === SignerType.NFC) ||
     null;
   if (!signer) {
-    throw new Error("Main Wallet not found.");
+    throw new Error("No Elligible Signer not found.");
   }
   return signer;
 };
@@ -98,25 +131,24 @@ export const getMainWalletFromSigners = (
 export function getSignerTypeFromAddress(
   x: { pubkey: string; createKey?: string },
   deviceWalletPublicKey: string | null | undefined,
-  cloudWalletPublicKey: string | null | undefined
+  paymasterWalletPublicKey: string | null | undefined
 ): SignerType {
   return deviceWalletPublicKey && x.pubkey === deviceWalletPublicKey
     ? SignerType.DEVICE
-    : cloudWalletPublicKey && x.pubkey === cloudWalletPublicKey
-    ? SignerType.CLOUD
+    : paymasterWalletPublicKey && x.pubkey === paymasterWalletPublicKey
+    ? SignerType.PAYMASTER
     : x.pubkey === x.createKey
     ? SignerType.NFC
-    : PAYER_ACCOUNTS.some((y) => y === x.pubkey)
-    ? SignerType.PAYMASTER
     : SignerType.UNKNOWN;
 }
+
 export function getSignerTypeFromWalletType(
   type: WalletType | undefined
 ): SignerType {
   return type === WalletType.DEVICE
     ? SignerType.DEVICE
-    : type === WalletType.CLOUD
-    ? SignerType.CLOUD
+    : type === WalletType.PAYMASTER
+    ? SignerType.PAYMASTER
     : type === WalletType.MULTIWALLET
     ? SignerType.NFC
     : SignerType.UNKNOWN;
@@ -126,13 +158,28 @@ export function getPermissionsFromSignerType(type: SignerType) {
   switch (type) {
     case SignerType.NFC:
       return Permissions.all();
-    case SignerType.CLOUD:
-      return Permissions.all();
+    case SignerType.PAYMASTER:
+      return Permissions.fromPermissions([
+        Permission.VoteEscrow,
+        Permission.VoteTransaction,
+      ]);
     case SignerType.DEVICE:
       return Permissions.all();
     default:
       return null;
   }
+}
+
+export function parsePermissions(permissions: Permissions | null) {
+  if (!permissions) return "No Actions Allowed";
+  if (permissions.mask == 63) return "All Actions";
+  const result: string[] = [];
+  Object.entries(Permission).forEach((value) => {
+    if (Permissions.has(permissions, value[1])) {
+      result.push(value[0]);
+    }
+  });
+  return result.join(", ");
 }
 
 export function getTotalValueFromWallet(
@@ -214,6 +261,81 @@ export function formatAmount(amount: number, maxDecimals = 5) {
   })}`;
 }
 
+export const USDC_MINT = () => {
+  return {
+    interface: "FungibleToken",
+    id: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    content: {
+      $schema: "https://schema.metaplex.com/nft1.0.json",
+      json_uri: "",
+      files: [
+        {
+          uri: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png",
+          cdn_uri:
+            "https://cdn.helius-rpc.com/cdn-cgi/image//https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png",
+          mime: "image/png",
+        },
+      ],
+      metadata: {
+        name: "USD Coin",
+        symbol: "USDC",
+      },
+      links: {
+        image:
+          "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png",
+      },
+    },
+    authorities: [
+      {
+        address: "2wmVCSfPxGPjrnMMn7rchp4uaeoTqN39mXFC2zhPdri9",
+        scopes: ["full"],
+      },
+    ],
+    compression: {
+      eligible: false,
+      compressed: false,
+      data_hash: "",
+      creator_hash: "",
+      asset_hash: "",
+      tree: "",
+      seq: 0,
+      leaf_id: 0,
+    },
+    grouping: [],
+    royalty: {
+      royalty_model: "creators",
+      target: null,
+      percent: 0,
+      basis_points: 0,
+      primary_sale_happened: false,
+      locked: false,
+    },
+    creators: [],
+    ownership: {
+      frozen: false,
+      delegated: false,
+      delegate: null,
+      ownership_model: "token",
+      owner: "",
+    },
+    supply: null,
+    mutable: true,
+    burnt: false,
+    token_info: {
+      symbol: "USDC",
+      supply: 10000,
+      decimals: 6,
+      token_program: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      price_info: {
+        price_per_token: 0.999994,
+        currency: "USDC",
+      },
+      mint_authority: "BJE5MMbqXjVwjAF7oxwPYXnTXDyspzZyt4vwenNw5ruG",
+      freeze_authority: "7dGbd2QZcCKcTndnHcTL8q7SMVXAkp688NTQYwrRCrar",
+    },
+  } as unknown as DAS.GetAssetResponse;
+};
+
 export const SOL_NATIVE_MINT = (
   nativeBalance:
     | {
@@ -238,6 +360,7 @@ export const SOL_NATIVE_MINT = (
     id: PublicKey.default.toString(),
     interface: "Custom",
     token_info: {
+      supply: 500_000_000, // any number than is more than 1 will do to show that it is fungible
       decimals: 9,
       price_info: {
         currency: "USDC",
@@ -253,3 +376,23 @@ export const SOL_NATIVE_MINT = (
 export function proxify(image: string) {
   return `https://proxy.revibase.com/?image=${image}`;
 }
+
+export const debounce = (func: (...args: any[]) => void, delay: number) => {
+  let timer: NodeJS.Timeout | null = null;
+
+  const debouncedFn = (...args: any[]) => {
+    if (timer) {
+      clearTimeout(timer);
+    }
+    timer = setTimeout(() => func(...args), delay);
+  };
+
+  debouncedFn.cancel = () => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  };
+
+  return debouncedFn;
+};

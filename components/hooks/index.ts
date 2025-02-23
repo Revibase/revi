@@ -6,6 +6,7 @@ export * from "./useInit";
 export * from "./useNotifications";
 export * from "./useOfferConfirmation";
 export * from "./usePendingOffers";
+export * from "./useSwap";
 export * from "./useTransactionConfirmation";
 export * from "./useWallet";
 export * from "./useWalletInfo";

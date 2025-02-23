@@ -11,12 +11,12 @@ import {
   VersionedTransaction,
 } from "@solana/web3.js";
 import { useConnection } from "components/providers/connectionProvider";
+import { router } from "expo-router";
 import { useCallback, useMemo } from "react";
 import {
   SignerState,
   WalletType,
   getSignerTypeFromWalletType,
-  getSponsoredFeePayer,
   useGlobalStore,
 } from "utils";
 import { useWalletInfo } from "./useWalletInfo";
@@ -25,8 +25,8 @@ export const useGetBlinksAdapter = () => {
   const {
     walletSheetArgs,
     setTransactionSheetArgs,
-    deviceWalletPublicKey,
-    cloudWalletPublicKey,
+    paymasterWalletPublicKey,
+    setWalletSheetArgs,
   } = useGlobalStore();
   const { walletAddress, type, theme } = walletSheetArgs ?? {};
   const { walletInfo } = useWalletInfo({ walletAddress, type });
@@ -34,6 +34,11 @@ export const useGetBlinksAdapter = () => {
   const { connection } = useConnection();
   const signBlinksTx = useCallback(
     async (tx: string): Promise<string> => {
+      if (!paymasterWalletPublicKey) {
+        setWalletSheetArgs(null);
+        router.replace("/(tabs)/profile");
+        throw new Error("You need to complete your wallet set up first.");
+      }
       const parsedTx = VersionedTransaction.deserialize(
         Buffer.from(tx, "base64")
       );
@@ -85,7 +90,8 @@ export const useGetBlinksAdapter = () => {
                       ComputeBudgetProgram.programId.toString() && index < 2
                   )
               );
-              const feePayer = getSponsoredFeePayer();
+              const feePayer = paymasterWalletPublicKey;
+
               ixs.forEach((x) => {
                 if (x.keys.some((x) => x.pubkey.toString() === feePayer)) {
                   reject(
@@ -135,8 +141,7 @@ export const useGetBlinksAdapter = () => {
       connection,
       walletAddress,
       walletInfo,
-      deviceWalletPublicKey,
-      cloudWalletPublicKey,
+      paymasterWalletPublicKey,
     ]
   );
 

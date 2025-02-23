@@ -7,12 +7,16 @@ import {
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useConnection } from "components/providers/connectionProvider";
 import { Platform } from "react-native";
-import { CloudStorage } from "react-native-cloud-storage";
+import { Passkey } from "react-native-passkey";
 import { WalletType } from "utils/enums";
 import { SignerType } from "../enums/transaction";
-import { logError, signTransactionsWithPayer } from "../firebase";
+import {
+  authenticatePasskey,
+  generatePasskeyAuthentication,
+  logError,
+} from "../firebase";
 import { nfcCore } from "../nfcCore";
-import { signWithCloudKeypair, signWithDeviceKeypair } from "../secure";
+import { signWithDeviceKeypair } from "../secure";
 import {
   pollAndSendJitoBundle,
   pollAndSendTransaction,
@@ -21,19 +25,22 @@ import { SignerState, TransactionResult, TransactionSigner } from "../types";
 
 export function useBuildAndSendTransaction({
   walletAddress,
-  cloudStorage,
   setIsNfcSheetVisible,
   type = WalletType.MULTIWALLET,
+  paymasterWalletPublicKey,
 }: {
   walletAddress: string | null | undefined;
-  cloudStorage: CloudStorage | null;
+  paymasterWalletPublicKey: string | null | undefined;
   setIsNfcSheetVisible: (value: boolean) => void;
   type?: WalletType;
 }) {
   const { connection } = useConnection();
   const client = useQueryClient();
   return useMutation({
-    mutationKey: ["send-vault-transaction", { walletAddress }],
+    mutationKey: [
+      "send-vault-transaction",
+      { walletAddress, paymasterWalletPublicKey },
+    ],
     mutationFn: async ({
       data,
       callback,
@@ -63,7 +70,6 @@ export function useBuildAndSendTransaction({
       const signedTxs = await signTransactions(
         data,
         setIsNfcSheetVisible,
-        cloudStorage,
         callback
       );
       let signature = "";
@@ -86,8 +92,14 @@ export function useBuildAndSendTransaction({
       throw new Error(error instanceof Error ? error.message : String(error));
     },
     onSuccess: async (signature) => {
-      if (signature && walletAddress) {
+      if (signature && walletAddress && paymasterWalletPublicKey) {
         await Promise.all([
+          client.invalidateQueries({
+            queryKey: [
+              "get-account-info",
+              { address: paymasterWalletPublicKey },
+            ],
+          }),
           client.invalidateQueries({
             queryKey: [
               "get-assets-by-owner",
@@ -116,7 +128,6 @@ async function signTransactions(
     tx?: VersionedTransaction;
   }[],
   setNfcSheetVisible: (value: boolean) => void,
-  cloudStorage: CloudStorage | null,
   callback: (signer: TransactionSigner & { id: string }) => void
 ) {
   const transactionMap = new Map<string, VersionedTransaction>();
@@ -133,7 +144,6 @@ async function signTransactions(
     [SignerType.PAYMASTER]: [],
     [SignerType.NFC]: [],
     [SignerType.DEVICE]: [],
-    [SignerType.CLOUD]: [],
   };
 
   for (const tx of data) {
@@ -163,11 +173,6 @@ async function signTransactions(
       try {
         if (type === SignerType.DEVICE) {
           await signWithDeviceKeypair(txGroup.map((x) => x.transaction));
-        } else if (type === SignerType.CLOUD) {
-          await signWithCloudKeypair(
-            txGroup.map((x) => x.transaction),
-            cloudStorage
-          );
         } else if (type === SignerType.NFC) {
           if (Platform.OS === "android") setNfcSheetVisible(true);
           const signatures = await nfcCore.signRawPayloads(
@@ -183,14 +188,24 @@ async function signTransactions(
           );
           if (Platform.OS === "android") setNfcSheetVisible(false);
         } else if (type === SignerType.PAYMASTER) {
-          const signatures = await signTransactionsWithPayer(
-            txGroup
-              .map((x) => x.transaction)
-              .map((transaction) =>
-                Buffer.from(transaction.message.serialize()).toString("base64")
-              ),
-            txGroup[0].signer.key
-          );
+          const request = await generatePasskeyAuthentication({
+            publicKey: txGroup[0].signer.key,
+          });
+          const response = await Passkey.get(request.options);
+          const signatures = (
+            await authenticatePasskey({
+              requestId: request.requestId,
+              response,
+              publicKey: txGroup[0].signer.key,
+              payload: txGroup
+                .map((x) => x.transaction)
+                .map((transaction) =>
+                  Buffer.from(transaction.message.serialize()).toString(
+                    "base64"
+                  )
+                ),
+            })
+          ).signatures;
           txGroup.forEach((x, index) =>
             x.transaction.addSignature(
               new PublicKey(x.signer.key),

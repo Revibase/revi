@@ -1,6 +1,6 @@
 import { Blink } from "@dialectlabs/blinks-react-native";
-import { CustomListItem } from "components/CustomListItem";
 import { useGetBlinksAdapter } from "components/hooks";
+import { CustomListItem } from "components/ui/CustomListItem";
 import { FC, useMemo } from "react";
 import Markdown from "react-native-markdown-display";
 import { Text, useTheme, YGroup, YStack } from "tamagui";
@@ -49,7 +49,7 @@ export const BlinksCard: FC = () => {
       text={actionUrl.hostname}
       reset={() => {
         setBlink(undefined);
-        setPage(Page.BlinksPage);
+        setPage(Page.Asset);
       }}
     >
       <YStack gap={"$4"}>

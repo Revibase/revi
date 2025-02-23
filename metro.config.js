@@ -5,7 +5,6 @@
 const { getDefaultConfig } = require("expo/metro-config");
 
 const config = getDefaultConfig(__dirname, {
-  // [Web-only]: Enables CSS support in Metro.
   isCSSEnabled: true,
 });
 
@@ -17,7 +16,7 @@ config.resolver.extraNodeModules = {
 
 config.resolver = {
   ...config.resolver,
-  sourceExts: [...config.resolver.sourceExts, "mjs", "cjs"], // Add modern extensions
+  sourceExts: [...config.resolver.sourceExts, "mjs", "cjs"],
 };
 
 // Enable Tamagui and add nice web support with optimizing compiler + CSS extraction

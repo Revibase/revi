@@ -1,5 +1,5 @@
 import { ToastProvider, ToastViewport } from "@tamagui/toast";
-import { CurrentToast } from "components/CurrentToast";
+import { CurrentToast } from "components/ui/CurrentToast";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TamaguiProvider, type TamaguiProviderProps } from "tamagui";
 import { RPC_ENDPOINT } from "utils";
