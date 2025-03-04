@@ -6,9 +6,9 @@ export const ScreenWrapper: FC<{
   text: string;
   animation?: any;
   reset?: () => void;
-  rightIcon?: ReactNode;
+  copy?: () => void;
   children: ReactNode;
-}> = ({ reset, text, children, rightIcon, animation }) => {
+}> = ({ reset, text, children, copy, animation }) => {
   const { height } = useWindowDimensions();
   return (
     <YStack
@@ -21,7 +21,7 @@ export const ScreenWrapper: FC<{
         props={{ px: "$2", pt: "$4" }}
         text={text}
         reset={reset}
-        rightIcon={rightIcon}
+        copy={copy}
       />
       <Sheet.ScrollView
         showsVerticalScrollIndicator={false}

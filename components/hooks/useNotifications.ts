@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
@@ -25,20 +26,26 @@ export const useNotifications = () => {
     setWalletSheetArgs,
     expoPushToken,
     deviceWalletPublicKey,
-    paymasterWalletPublicKey,
+    cloudWalletPublicKey,
   } = useGlobalStore();
 
   const responseListener = useRef<Notifications.EventSubscription>();
+  const queryClient = useQueryClient();
 
   const initializeNotification = () => {
     registerForPushNotificationsAsync()
       .then((token) => {
         if (!!token && token !== expoPushToken) {
           if (deviceWalletPublicKey) {
-            saveExpoPushToken([deviceWalletPublicKey], token);
+            saveExpoPushToken(deviceWalletPublicKey, token, false);
           }
+<<<<<<< Updated upstream
+          if (cloudWalletPublicKey) {
+            saveExpoPushToken([cloudWalletPublicKey], token);
+=======
           if (paymasterWalletPublicKey) {
-            saveExpoPushToken([paymasterWalletPublicKey], token);
+            saveExpoPushToken(paymasterWalletPublicKey, token, true);
+>>>>>>> Stashed changes
           }
         }
         setExpoPushToken(token ?? null);

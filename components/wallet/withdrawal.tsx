@@ -5,11 +5,10 @@ import {
 import { transferAsset } from "@revibase/token-transfer";
 import { PublicKey } from "@solana/web3.js";
 import { AtSign } from "@tamagui/lucide-icons";
+import { CustomButton } from "components/CustomButton";
 import { useWalletInfo } from "components/hooks";
 import { useConnection } from "components/providers/connectionProvider";
-import { CustomButton } from "components/ui/CustomButton";
 import { Image } from "expo-image";
-import { router } from "expo-router";
 import { FC, useCallback, useMemo, useState } from "react";
 import { Alert } from "react-native";
 import {
@@ -25,6 +24,7 @@ import {
 } from "tamagui";
 import {
   getSignerTypeFromWalletType,
+  getSponsoredFeePayer,
   logError,
   Page,
   proxify,
@@ -41,9 +41,8 @@ export const Withdrawal: FC = () => {
     setPage,
     setAsset,
     setTransactionSheetArgs,
-    setWalletSheetArgs,
     deviceWalletPublicKey,
-    paymasterWalletPublicKey,
+    cloudWalletPublicKey,
   } = useGlobalStore();
   const { type, walletAddress, asset, callback, theme } = walletSheetArgs ?? {};
   const [recipient, setRecipient] = useState("");
@@ -76,25 +75,38 @@ export const Withdrawal: FC = () => {
         type === WalletType.MULTIWALLET
           ? getVaultFromAddress(new PublicKey(walletAddress)).toString()
           : walletAddress;
+<<<<<<< Updated upstream
 
+=======
+>>>>>>> Stashed changes
+      const result = await transferAsset(
+        connection,
+        new PublicKey(source),
+        new PublicKey(recipient),
+<<<<<<< Updated upstream
+=======
+        new PublicKey(source),
+>>>>>>> Stashed changes
+        hasOnlyOne ? 1 : parseFloat(amount),
+        withdrawalAsset?.id === PublicKey.default.toString(),
+        withdrawalAsset ?? undefined
+      );
+<<<<<<< Updated upstream
+
+      if (type === WalletType.MULTIWALLET) {
+        const feePayer = getSponsoredFeePayer();
+=======
       if (type === WalletType.MULTIWALLET) {
         if (!paymasterWalletPublicKey) {
           setWalletSheetArgs(null);
           router.replace("/(tabs)/profile");
           throw new Error("You need to complete your wallet set up first.");
         }
+
+>>>>>>> Stashed changes
         if (walletInfo) {
-          const result = await transferAsset(
-            connection,
-            new PublicKey(source),
-            new PublicKey(recipient),
-            new PublicKey(paymasterWalletPublicKey),
-            hasOnlyOne ? 1 : parseFloat(amount),
-            withdrawalAsset?.id === PublicKey.default.toString(),
-            withdrawalAsset ?? undefined
-          );
           setTransactionSheetArgs({
-            feePayer: paymasterWalletPublicKey,
+            feePayer,
             theme,
             walletAddress,
             callback: (signature) =>
@@ -104,15 +116,6 @@ export const Withdrawal: FC = () => {
           });
         }
       } else {
-        const result = await transferAsset(
-          connection,
-          new PublicKey(source),
-          new PublicKey(recipient),
-          new PublicKey(walletAddress),
-          hasOnlyOne ? 1 : parseFloat(amount),
-          withdrawalAsset?.id === PublicKey.default.toString(),
-          withdrawalAsset ?? undefined
-        );
         setTransactionSheetArgs({
           feePayer: walletAddress,
           theme,
@@ -146,7 +149,7 @@ export const Withdrawal: FC = () => {
     asset,
     walletInfo,
     deviceWalletPublicKey,
-    paymasterWalletPublicKey,
+    cloudWalletPublicKey,
     recipient,
     hasOnlyOne,
     amount,
@@ -247,7 +250,7 @@ export const Withdrawal: FC = () => {
                 </XStack>
                 <XStack justify="flex-end">
                   <Text fontSize={"$1"} className="w-full text-right">
-                    {`Available: ${
+                    {`Balance: ${
                       (withdrawalAsset?.token_info?.balance || 0) /
                       10 ** (withdrawalAsset?.token_info?.decimals || 0)
                     } ${withdrawalAsset?.content?.metadata?.symbol}`}

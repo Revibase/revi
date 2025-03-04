@@ -5,6 +5,7 @@ import { Alert } from "react-native";
 import { ThemeName } from "tamagui";
 import {
   getPermissionsFromSignerType,
+  getSponsoredFeePayer,
   SignerType,
   useGlobalStore,
   WalletType,
@@ -25,7 +26,7 @@ export const useWallet = ({
     setWalletSheetArgs,
     setTransactionSheetArgs,
     deviceWalletPublicKey,
-    paymasterWalletPublicKey,
+    cloudWalletPublicKey,
   } = useGlobalStore();
 
   const { walletInfo, isLoading } = useWalletInfo({ type, walletAddress });
@@ -40,13 +41,13 @@ export const useWallet = ({
     [isMember, deviceWalletPublicKey]
   );
 
-  const paymasterWalletPublicKeyIsMember = useMemo(
-    () => isMember(paymasterWalletPublicKey),
-    [isMember, paymasterWalletPublicKey]
+  const cloudWalletPublicKeyIsMember = useMemo(
+    () => isMember(cloudWalletPublicKey),
+    [isMember, cloudWalletPublicKey]
   );
 
   const handleTakeOverAsOwner = useCallback(() => {
-    if (!deviceWalletPublicKey || !paymasterWalletPublicKey) {
+    if (!deviceWalletPublicKey || !cloudWalletPublicKey) {
       setWalletSheetArgs(null);
       Alert.alert(
         "Wallet not found.",
@@ -56,7 +57,7 @@ export const useWallet = ({
       return;
     }
     if (noOwners && walletInfo && walletAddress) {
-      const feePayer = paymasterWalletPublicKey;
+      const feePayer = getSponsoredFeePayer();
       setTransactionSheetArgs({
         feePayer,
         theme,
@@ -74,8 +75,8 @@ export const useWallet = ({
                 permissions: getPermissionsFromSignerType(SignerType.DEVICE),
               },
               {
-                pubkey: new PublicKey(paymasterWalletPublicKey),
-                permissions: getPermissionsFromSignerType(SignerType.PAYMASTER),
+                pubkey: new PublicKey(cloudWalletPublicKey),
+                permissions: getPermissionsFromSignerType(SignerType.CLOUD),
               },
             ],
           },
@@ -93,7 +94,7 @@ export const useWallet = ({
     noOwners,
     walletInfo,
     deviceWalletPublicKey,
-    paymasterWalletPublicKey,
+    cloudWalletPublicKey,
   ]);
 
   return {
@@ -101,7 +102,7 @@ export const useWallet = ({
     walletInfo,
     noOwners,
     deviceWalletPublicKeyIsMember,
-    paymasterWalletPublicKeyIsMember,
+    cloudWalletPublicKeyIsMember,
     handleTakeOverAsOwner,
   };
 };

@@ -1,14 +1,15 @@
 import { getVaultFromAddress } from "@revibase/multi-wallet";
 import { PublicKey } from "@solana/web3.js";
 import { ArrowDown, ArrowUpDown, ArrowUpRight } from "@tamagui/lucide-icons";
+import { CustomButton } from "components/CustomButton";
+import { CustomListItem } from "components/CustomListItem";
 import { useWalletInfo } from "components/hooks";
-import { CustomButton } from "components/ui/CustomButton";
-import { CustomListItem } from "components/ui/CustomListItem";
 import { Image } from "expo-image";
 import { FC } from "react";
 import { Avatar, ButtonIcon, Text, XStack, YStack } from "tamagui";
 import {
   formatAmount,
+  getTotalValueFromWallet,
   Page,
   proxify,
   SOL_NATIVE_MINT,
@@ -33,7 +34,10 @@ export const TokenTab: FC = () => {
   const nativeAsset = SOL_NATIVE_MINT(allAssets?.nativeBalance);
 
   return (
-    <YStack items="center" gap="$8" flex={1} width={"100%"}>
+    <YStack items="center" gap="$6" pt={"$2"} flex={1} width={"100%"}>
+      <Text fontSize={"$10"} fontWeight={600}>{`$${formatAmount(
+        getTotalValueFromWallet(allAssets)
+      )}`}</Text>
       <XStack items="center" gap="$6">
         <YStack gap="$2" items="center" justify="center">
           <CustomButton

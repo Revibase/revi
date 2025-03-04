@@ -8,14 +8,14 @@ import {
 import { DAS } from "@revibase/token-transfer";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { Check, X } from "@tamagui/lucide-icons";
+import { CustomButton } from "components/CustomButton";
+import { CustomCard } from "components/CustomCard";
+import { CustomListItem } from "components/CustomListItem";
 import {
   useGetMultiWallets,
   useOfferConfirmation,
   useWalletInfo,
 } from "components/hooks";
-import { CustomButton } from "components/ui/CustomButton";
-import { CustomCard } from "components/ui/CustomCard";
-import { CustomListItem } from "components/ui/CustomListItem";
 import { FC, memo, useState } from "react";
 import { Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -122,11 +122,9 @@ const OffersList: FC<{
   label: string;
   type: "Current" | "Yours" | "History";
 }> = ({ label, type }) => {
-  const { deviceWalletPublicKey, paymasterWalletPublicKey } = useGlobalStore();
+  const { deviceWalletPublicKey, cloudWalletPublicKey } = useGlobalStore();
   const { multiWallets } = useGetMultiWallets(false);
-  const keys = [deviceWalletPublicKey, paymasterWalletPublicKey].filter(
-    (x) => !!x
-  );
+  const keys = [deviceWalletPublicKey, cloudWalletPublicKey].filter((x) => !!x);
   const proposerConstraint =
     keys && keys.length > 0 ? [where("proposer", "in", keys)] : [];
   const approverConstraint =

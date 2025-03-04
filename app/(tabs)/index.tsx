@@ -1,6 +1,6 @@
 import { BLOCKCHAIN } from "@revibase/nfc-core/dist/utils/const";
 import { History } from "@tamagui/lucide-icons";
-import { CustomButton } from "components/ui/CustomButton";
+import { CustomButton } from "components/CustomButton";
 import { useCallback } from "react";
 import { Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";

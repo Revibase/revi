@@ -1,12 +1,10 @@
 import { FC } from "react";
-import { ButtonText, Heading, Sheet, useWindowDimensions } from "tamagui";
+import { Heading, Sheet, useWindowDimensions } from "tamagui";
 import { useGlobalStore } from "utils";
-import { CustomButton } from "../ui/CustomButton";
 
 export const GenericSheet: FC = () => {
   const { genericSheetArgs, setGenericSheetArgs } = useGlobalStore();
-  const { title, body, actionText, onPress, theme, snapPoints } =
-    genericSheetArgs ?? {};
+  const { title, body, theme, snapPoints } = genericSheetArgs ?? {};
 
   const { height } = useWindowDimensions();
   return (
@@ -47,11 +45,6 @@ export const GenericSheet: FC = () => {
             </Heading>
           )}
           {body}
-          {onPress && actionText && (
-            <CustomButton bordered onPress={onPress}>
-              <ButtonText>{actionText}</ButtonText>
-            </CustomButton>
-          )}
         </Sheet.ScrollView>
       </Sheet.Frame>
     </Sheet>

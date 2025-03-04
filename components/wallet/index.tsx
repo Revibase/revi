@@ -5,6 +5,7 @@ import { FC, useEffect } from "react";
 import { Spinner, YStack } from "tamagui";
 import { Page, proxify, useGlobalStore, WalletType } from "utils";
 import { AssetPage } from "./asset";
+import { BlinksPage } from "./blinks";
 import { BlinksCard } from "./blinks/card";
 import { CreateMultisigPage } from "./create";
 import { Deposit } from "./deposit";
@@ -67,6 +68,7 @@ export const Wallet: FC = () => {
       {page == Page.Create && <CreateMultisigPage />}
       {page == Page.Search && <SearchPage />}
       {page === Page.Settings && <SettingsPage />}
+      {page === Page.BlinksPage && <BlinksPage />}
       {page === Page.Blinks && <BlinksCard />}
       {page === Page.OffersPage && <OffersPage />}
       {page === Page.Offer && <OfferCard />}

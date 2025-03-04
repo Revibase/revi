@@ -123,19 +123,10 @@ export const useSwap = () => {
         type === WalletType.MULTIWALLET
           ? getVaultFromAddress(new PublicKey(walletAddress))
           : new PublicKey(walletAddress);
-
       const mint = new PublicKey(swapAsset.id);
       const tokenProgram = swapAsset.token_info?.token_program
         ? new PublicKey(swapAsset.token_info?.token_program)
         : TOKEN_PROGRAM_ID;
-
-      const destinationTokenAccount = getAssociatedTokenAddressSync(
-        mint,
-        userPublicKey,
-        true,
-        tokenProgram
-      );
-
       const feeAccount = new PublicKey(FEE_ACCOUNT);
       const feeTokenAccount = getAssociatedTokenAddressSync(
         mint,
@@ -144,14 +135,12 @@ export const useSwap = () => {
         tokenProgram
       );
 
-      // Fetch swap instructions
       const response = await fetch(
         "https://api.jup.ag/swap/v1/swap-instructions",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            destinationTokenAccount: destinationTokenAccount.toString(),
             quoteResponse: quote,
             userPublicKey: userPublicKey.toString(),
             feeAccount: feeTokenAccount.toString(),
@@ -230,27 +219,6 @@ export const useSwap = () => {
         addressLookupTableAddresses
       );
 
-      const prepareAccountInstructions = async (payer: string) => {
-        return [
-          ...(await checkIfTokenAccountExist(
-            connection,
-            new PublicKey(payer),
-            feeTokenAccount,
-            feeAccount,
-            mint,
-            tokenProgram
-          )),
-          ...(await checkIfTokenAccountExist(
-            connection,
-            new PublicKey(payer),
-            destinationTokenAccount,
-            userPublicKey,
-            mint,
-            tokenProgram
-          )),
-        ];
-      };
-
       if (type === WalletType.MULTIWALLET) {
         if (!paymasterWalletPublicKey) {
           setWalletSheetArgs(null);
@@ -262,7 +230,14 @@ export const useSwap = () => {
           setTransactionSheetArgs({
             callback: (signature) => signature && setPage(Page.Main),
             ixs: [
-              ...(await prepareAccountInstructions(paymasterWalletPublicKey)),
+              ...(await checkIfTokenAccountExist(
+                connection,
+                userPublicKey,
+                feeTokenAccount,
+                feeAccount,
+                mint,
+                tokenProgram
+              )),
               ...setupInstructions.map(deserializeInstruction),
               deserializeInstruction(swapInstruction),
               deserializeInstruction(cleanupInstruction),
@@ -278,7 +253,14 @@ export const useSwap = () => {
         setTransactionSheetArgs({
           callback: (signature) => signature && setPage(Page.Main),
           ixs: [
-            ...(await prepareAccountInstructions(walletAddress)),
+            ...(await checkIfTokenAccountExist(
+              connection,
+              userPublicKey,
+              feeTokenAccount,
+              feeAccount,
+              mint,
+              tokenProgram
+            )),
             ...setupInstructions.map(deserializeInstruction),
             deserializeInstruction(swapInstruction),
             deserializeInstruction(cleanupInstruction),

@@ -6,13 +6,13 @@ import {
   UserRoundX,
   UsersRound,
 } from "@tamagui/lucide-icons";
+import { CustomButton } from "components/CustomButton";
+import { CustomListItem } from "components/CustomListItem";
 import {
   useCopyToClipboard,
   usePendingOffers,
   useWallet,
 } from "components/hooks";
-import { CustomButton } from "components/ui/CustomButton";
-import { CustomListItem } from "components/ui/CustomListItem";
 import { FC, useEffect, useMemo, useState } from "react";
 import { Alert } from "react-native";
 import {
@@ -34,8 +34,13 @@ enum Tab {
   Collectibles = "Collectibles",
 }
 export const Main: FC = () => {
-  const { walletSheetArgs, setPage, setPendingOffersCheck, setNoOwnersCheck } =
-    useGlobalStore();
+  const {
+    walletSheetArgs,
+    defaultWallet,
+    setPage,
+    setPendingOffersCheck,
+    setNoOwnersCheck,
+  } = useGlobalStore();
   const {
     mint,
     type,
@@ -51,7 +56,7 @@ export const Main: FC = () => {
     walletInfo,
     handleTakeOverAsOwner,
     deviceWalletPublicKeyIsMember,
-    paymasterWalletPublicKeyIsMember,
+    cloudWalletPublicKeyIsMember,
     noOwners,
   } = useWallet({ theme, walletAddress, type });
 
@@ -80,7 +85,7 @@ export const Main: FC = () => {
     if (
       !pendingOffersCheck &&
       walletInfo &&
-      (deviceWalletPublicKeyIsMember || paymasterWalletPublicKeyIsMember) &&
+      (deviceWalletPublicKeyIsMember || cloudWalletPublicKeyIsMember) &&
       hasPendingOffers
     ) {
       Alert.alert(
@@ -103,7 +108,7 @@ export const Main: FC = () => {
   }, [
     pendingOffersCheck,
     deviceWalletPublicKeyIsMember,
-    paymasterWalletPublicKeyIsMember,
+    cloudWalletPublicKeyIsMember,
     walletInfo,
     hasPendingOffers,
   ]);
@@ -112,15 +117,11 @@ export const Main: FC = () => {
     if (noOwners) {
       return <UserRoundX size={"$1.5"} color={"orange"} />;
     }
-    if (paymasterWalletPublicKeyIsMember || deviceWalletPublicKeyIsMember) {
+    if (cloudWalletPublicKeyIsMember || deviceWalletPublicKeyIsMember) {
       return <UserRoundCheck size={"$1.5"} color={"green"} />;
     }
     return <UsersRound size={"$1.5"} color={"blue"} />;
-  }, [
-    noOwners,
-    paymasterWalletPublicKeyIsMember,
-    deviceWalletPublicKeyIsMember,
-  ]);
+  }, [noOwners, cloudWalletPublicKeyIsMember, deviceWalletPublicKeyIsMember]);
 
   const renderTabContent = useMemo(() => {
     switch (tab) {
@@ -171,7 +172,9 @@ export const Main: FC = () => {
                 : walletAddress || ""
             )
           }
-          subTitle={`${type}`}
+          subTitle={`${type}${
+            defaultWallet === walletAddress ? " (Default)" : ""
+          }`}
           iconAfter={
             <CustomButton
               size={"$3"}

@@ -7,7 +7,12 @@ import { RenderWalletMembers } from "./walletMembers";
 import { RenderSecretButtons } from "./walletSecretInfo";
 
 export const SettingsPage: FC = () => {
-  const { walletSheetArgs, setPage, deviceWalletPublicKey } = useGlobalStore();
+  const {
+    walletSheetArgs,
+    setPage,
+    deviceWalletPublicKey,
+    cloudWalletPublicKey,
+  } = useGlobalStore();
   const { walletAddress, type } = walletSheetArgs ?? {};
   return (
     <>
@@ -21,6 +26,18 @@ export const SettingsPage: FC = () => {
             </YStack>
           </ScreenWrapper>
         )}
+
+      {type === WalletType.CLOUD &&
+        walletAddress &&
+        cloudWalletPublicKey === walletAddress && (
+          <ScreenWrapper text="Wallet Details" reset={() => setPage(Page.Main)}>
+            <YStack gap={"$4"}>
+              <RenderWalletInfo />
+              <RenderSecretButtons walletType={WalletType.CLOUD} />
+            </YStack>
+          </ScreenWrapper>
+        )}
+
       {type === WalletType.MULTIWALLET && walletAddress && (
         <RenderWalletMembers />
       )}

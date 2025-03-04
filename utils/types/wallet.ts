@@ -13,7 +13,6 @@ export interface WalletSheetArgs {
   page?: Page;
   offer?: Offer | null;
   asset?: DAS.GetAssetResponse | null;
-  swapAsset?: DAS.GetAssetResponse | null;
   blink?: Action | null;
   blockchain?: Chain | null;
   theme?: ThemeName | null;

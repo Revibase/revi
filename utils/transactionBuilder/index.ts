@@ -278,7 +278,7 @@ export const estimateFees = async (
   ]);
 
   microLamports = Math.ceil(microLamports);
-  units = units ? Math.max(Math.ceil(units) * 1.1, 5000) : undefined;
+  units = units ? Math.max(Math.ceil(units) * 1.1, 10000) : undefined;
 
   const numSigners = new Set();
   ixs.forEach((ix) => {

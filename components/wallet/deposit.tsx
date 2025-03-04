@@ -1,8 +1,8 @@
 import { getVaultFromAddress } from "@revibase/multi-wallet";
 import { PublicKey } from "@solana/web3.js";
 import { Copy } from "@tamagui/lucide-icons";
+import { CustomButton } from "components/CustomButton";
 import { useCopyToClipboard } from "components/hooks";
-import { CustomButton } from "components/ui/CustomButton";
 import { FC } from "react";
 import { ButtonIcon, ButtonText, Text, YStack } from "tamagui";
 import { Page, useGlobalStore, WalletType } from "utils";

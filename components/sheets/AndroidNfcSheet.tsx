@@ -3,7 +3,7 @@ import { FC, useCallback, useState } from "react";
 import { Platform } from "react-native";
 import { ButtonText, Card, Heading, Sheet, Spinner } from "tamagui";
 import { nfcCore, useGlobalStore } from "utils";
-import { CustomButton } from "../ui/CustomButton";
+import { CustomButton } from "../CustomButton";
 
 export const AndroidNfcSheet: FC = () => {
   const { isNfcSheetVisible, setIsNfcSheetVisible } = useGlobalStore();

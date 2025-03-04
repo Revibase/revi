@@ -6,9 +6,9 @@ import {
   TriangleAlert,
 } from "@tamagui/lucide-icons";
 import { useToastController } from "@tamagui/toast";
+import { CustomButton } from "components/CustomButton";
+import { CustomListItem } from "components/CustomListItem";
 import { useTransactionConfirmation } from "components/hooks";
-import { CustomButton } from "components/ui/CustomButton";
-import { CustomListItem } from "components/ui/CustomListItem";
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Platform } from "react-native";
 import {
@@ -43,7 +43,7 @@ export const TransactionConfirmationSheet: FC = () => {
     setIsNfcSheetVisible,
     setError,
     deviceWalletPublicKey,
-    paymasterWalletPublicKey,
+    cloudWalletPublicKey,
   } = useGlobalStore();
   const {
     walletAddress,
@@ -133,7 +133,7 @@ export const TransactionConfirmationSheet: FC = () => {
                 createKey: walletInfo.createKey,
               },
               deviceWalletPublicKey,
-              paymasterWalletPublicKey
+              cloudWalletPublicKey
             ),
           })) || [];
 
@@ -180,7 +180,7 @@ export const TransactionConfirmationSheet: FC = () => {
     walletInfo,
     changeConfig,
     deviceWalletPublicKey,
-    paymasterWalletPublicKey,
+    cloudWalletPublicKey,
     handleNonMultiWalletTransaction,
     handleMultiWalletGenericTransaction,
   ]);
@@ -295,7 +295,7 @@ const SelectSignersState: FC<{
     transactionSheetArgs,
     setError,
     deviceWalletPublicKey,
-    paymasterWalletPublicKey,
+    cloudWalletPublicKey,
   } = useGlobalStore();
   const {
     walletAddress,
@@ -323,11 +323,11 @@ const SelectSignersState: FC<{
               createKey: walletInfo.createKey,
             },
             deviceWalletPublicKey,
-            paymasterWalletPublicKey
+            cloudWalletPublicKey
           );
           if (
             type === SignerType.DEVICE ||
-            type === SignerType.PAYMASTER ||
+            type === SignerType.CLOUD ||
             (walletInfo.members.length === 1 && type === SignerType.NFC)
           ) {
             return {
@@ -341,7 +341,7 @@ const SelectSignersState: FC<{
         })
         .filter((x) => !!x) || []
     );
-  }, [walletInfo, deviceWalletPublicKey, paymasterWalletPublicKey]);
+  }, [walletInfo, deviceWalletPublicKey, cloudWalletPublicKey]);
 
   useEffect(() => {
     if (!selectedSigners) setSelectedSigners(preSelectedSigners);
@@ -415,7 +415,7 @@ const SelectSignersState: FC<{
               createKey: walletInfo.createKey,
             },
             deviceWalletPublicKey,
-            paymasterWalletPublicKey
+            cloudWalletPublicKey
           );
           return (
             <YGroup.Item key={x.pubkey}>
@@ -428,7 +428,7 @@ const SelectSignersState: FC<{
                   <Checkbox
                     defaultChecked={
                       type === SignerType.DEVICE ||
-                      type === SignerType.PAYMASTER ||
+                      type === SignerType.CLOUD ||
                       (walletInfo.members.length === 1 &&
                         type === SignerType.NFC)
                     }
@@ -489,16 +489,16 @@ const ConfirmationState: FC<{
 }> = ({ transactions, reset }) => {
   const {
     transactionSheetArgs,
-    paymasterWalletPublicKey,
     setError,
     setIsNfcSheetVisible,
+    cloudStorage,
     walletSheetArgs,
   } = useGlobalStore();
   const { error, walletAddress } = transactionSheetArgs ?? {};
   const { type } = walletSheetArgs ?? {};
   const buildAndSendTransactionMutation = useBuildAndSendTransaction({
     walletAddress,
-    paymasterWalletPublicKey,
+    cloudStorage,
     setIsNfcSheetVisible,
     type,
   });

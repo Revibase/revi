@@ -1,4 +1,4 @@
-import { Member, Permissions } from "@revibase/multi-wallet";
+import { Member } from "@revibase/multi-wallet";
 import {
   AddressLookupTableAccount,
   PublicKey,
@@ -90,7 +90,6 @@ export interface TransactionSigner {
   key: string;
   type: SignerType;
   state: SignerState;
-  permissions?: Permissions | null;
 }
 export enum SignerState {
   Signed,

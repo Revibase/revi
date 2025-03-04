@@ -1,10 +1,17 @@
 import { initiateEscrowAsNonOwner } from "@revibase/multi-wallet";
+import { DAS } from "@revibase/token-transfer";
 import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { Copy, Edit3, Trash2, User, UserPlus } from "@tamagui/lucide-icons";
+import { CustomButton } from "components/CustomButton";
+import { CustomListItem } from "components/CustomListItem";
 import { useCopyToClipboard, useWallet, useWalletInfo } from "components/hooks";
 import { useConnection } from "components/providers/connectionProvider";
+<<<<<<< Updated upstream
+=======
 import { CustomButton } from "components/ui/CustomButton";
+import { CustomCard } from "components/ui/CustomCard";
 import { CustomListItem } from "components/ui/CustomListItem";
+>>>>>>> Stashed changes
 import { router } from "expo-router";
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Alert } from "react-native";
@@ -24,14 +31,20 @@ import {
   getPermissionsFromSignerType,
   getRandomU64,
   getSignerTypeFromAddress,
+  getSponsoredFeePayer,
   logError,
   Page,
+<<<<<<< Updated upstream
+=======
   parsePermissions,
+  PLACEHOLDER_IMAGE,
+>>>>>>> Stashed changes
   SignerState,
   SignerType,
   TransactionSigner,
   useGlobalStore,
 } from "utils";
+import { OfferCardDetails } from "../offers/card";
 import { ScreenWrapper } from "../screenWrapper";
 import { RenderWalletInfo } from "./walletInfo";
 
@@ -40,7 +53,7 @@ export const RenderWalletMembers: FC = () => {
     setPage,
     walletSheetArgs,
     deviceWalletPublicKey,
-    paymasterWalletPublicKey,
+    cloudWalletPublicKey,
   } = useGlobalStore();
   const { walletAddress, type } = walletSheetArgs ?? {};
 
@@ -63,13 +76,12 @@ export const RenderWalletMembers: FC = () => {
             createKey: walletInfo.createKey,
           },
           deviceWalletPublicKey,
-          paymasterWalletPublicKey
+          cloudWalletPublicKey
         ),
         state: SignerState.Unsigned,
-        permissions: x.permissions,
       })) || []
     );
-  }, [walletInfo?.members, deviceWalletPublicKey, paymasterWalletPublicKey]);
+  }, [walletInfo?.members, deviceWalletPublicKey, cloudWalletPublicKey]);
 
   useEffect(() => {
     setFilteredMembers(originalMembers);
@@ -135,8 +147,9 @@ const RenderOffer: FC<{
   const {
     walletSheetArgs,
     setTransactionSheetArgs,
+    defaultWallet,
     deviceWalletPublicKey,
-    paymasterWalletPublicKey,
+    cloudWalletPublicKey,
     setWalletSheetArgs,
     setPage,
   } = useGlobalStore();
@@ -155,8 +168,9 @@ const RenderOffer: FC<{
     try {
       if (
         !walletInfo ||
+        !defaultWallet ||
         !deviceWalletPublicKey ||
-        !paymasterWalletPublicKey ||
+        !cloudWalletPublicKey ||
         !walletAddress
       ) {
         setWalletSheetArgs(null);
@@ -178,17 +192,17 @@ const RenderOffer: FC<{
           permissions: getPermissionsFromSignerType(SignerType.DEVICE),
         },
         {
-          pubkey: paymasterWalletPublicKey,
-          permissions: getPermissionsFromSignerType(SignerType.PAYMASTER),
+          pubkey: cloudWalletPublicKey,
+          permissions: getPermissionsFromSignerType(SignerType.CLOUD),
         },
       ];
       const proposer = {
-        key: deviceWalletPublicKey,
+        key: defaultWallet,
         state: SignerState.Unsigned,
         type: getSignerTypeFromAddress(
-          { pubkey: deviceWalletPublicKey },
+          { pubkey: defaultWallet },
           deviceWalletPublicKey,
-          paymasterWalletPublicKey
+          cloudWalletPublicKey
         ),
       };
       const member = {
@@ -249,11 +263,29 @@ const RenderOffer: FC<{
     amount,
     walletInfo,
     walletAddress,
+    defaultWallet,
     deviceWalletPublicKey,
-    paymasterWalletPublicKey,
+    cloudWalletPublicKey,
   ]);
+
+  const parsedMetadata = useMemo(
+    () =>
+      walletInfo?.fullMetadata
+        ? (JSON.parse(walletInfo.fullMetadata) as DAS.GetAssetResponse)
+        : undefined,
+    [walletInfo?.fullMetadata]
+  );
   return (
     <>
+      <CustomCard
+        height={"$20"}
+        shadowRadius={"$4"}
+        url={parsedMetadata?.content?.links?.image || PLACEHOLDER_IMAGE}
+      />
+      <OfferCardDetails
+        walletAddress={walletAddress}
+        parsedMetadata={parsedMetadata}
+      />
       <XStack
         items="center"
         borderWidth={1}
@@ -299,7 +331,7 @@ const RenderAddMembers: FC<{
   setFilteredMembers: React.Dispatch<React.SetStateAction<TransactionSigner[]>>;
   setAdd: React.Dispatch<React.SetStateAction<boolean>>;
 }> = ({ filteredMembers, setFilteredMembers, setAdd }) => {
-  const { walletSheetArgs, deviceWalletPublicKey, paymasterWalletPublicKey } =
+  const { walletSheetArgs, deviceWalletPublicKey, cloudWalletPublicKey } =
     useGlobalStore();
   const { walletAddress } = walletSheetArgs ?? {};
   const [member, setMember] = useState("");
@@ -316,7 +348,7 @@ const RenderAddMembers: FC<{
   ) => {
     setFilteredMembers((prev) => [
       ...prev.filter((x) => x.key !== key),
-      { key, type, state, permissions: getPermissionsFromSignerType(type) },
+      { key, type, state },
     ]);
     reset();
   };
@@ -337,11 +369,11 @@ const RenderAddMembers: FC<{
 
   const renderRecommendedMembers = () => {
     if (
-      paymasterWalletPublicKey &&
+      cloudWalletPublicKey &&
       deviceWalletPublicKey &&
       walletAddress &&
       (!isMember(deviceWalletPublicKey) ||
-        !isMember(paymasterWalletPublicKey) ||
+        !isMember(cloudWalletPublicKey) ||
         !isMember(walletAddress))
     ) {
       return (
@@ -356,11 +388,11 @@ const RenderAddMembers: FC<{
                 SignerType.DEVICE,
                 deviceWalletPublicKey
               )}
-            {!isMember(paymasterWalletPublicKey) &&
+            {!isMember(cloudWalletPublicKey) &&
               renderListItem(
-                paymasterWalletPublicKey,
-                SignerType.PAYMASTER,
-                paymasterWalletPublicKey
+                cloudWalletPublicKey,
+                SignerType.CLOUD,
+                cloudWalletPublicKey
               )}
           </YGroup>
           <Heading size={"$1"} text="center">
@@ -405,7 +437,7 @@ const RenderMembers: FC<{
   setOffer: React.Dispatch<React.SetStateAction<boolean>>;
   setEdit: React.Dispatch<React.SetStateAction<boolean>>;
 }> = ({ filteredMembers, setOffer, setEdit }) => {
-  const { walletSheetArgs, deviceWalletPublicKey, paymasterWalletPublicKey } =
+  const { walletSheetArgs, deviceWalletPublicKey, cloudWalletPublicKey } =
     useGlobalStore();
   const { walletAddress, theme, type } = walletSheetArgs ?? {};
 
@@ -415,16 +447,16 @@ const RenderMembers: FC<{
     walletInfo,
     noOwners,
     deviceWalletPublicKeyIsMember,
-    paymasterWalletPublicKeyIsMember,
+    cloudWalletPublicKeyIsMember,
     handleTakeOverAsOwner,
   } = useWallet({ theme, walletAddress, type });
 
   const handleConfirm = useCallback(async () => {
-    if (deviceWalletPublicKeyIsMember || paymasterWalletPublicKeyIsMember) {
+    if (deviceWalletPublicKeyIsMember || cloudWalletPublicKeyIsMember) {
       setEdit(true);
     } else if (
       deviceWalletPublicKey &&
-      paymasterWalletPublicKey &&
+      cloudWalletPublicKey &&
       !(noOwners && walletInfo && walletAddress)
     ) {
       setOffer(true);
@@ -435,10 +467,10 @@ const RenderMembers: FC<{
     walletAddress,
     noOwners,
     deviceWalletPublicKeyIsMember,
-    paymasterWalletPublicKeyIsMember,
+    cloudWalletPublicKeyIsMember,
     walletInfo,
     deviceWalletPublicKey,
-    paymasterWalletPublicKey,
+    cloudWalletPublicKey,
   ]);
 
   return (
@@ -447,16 +479,16 @@ const RenderMembers: FC<{
         <Text>Members:</Text>
       </XStack>
       <YGroup self="center" size="$5">
-        {filteredMembers.map((member) => {
+        {filteredMembers.map((member, index) => {
           return (
             <YGroup.Item key={member.key}>
               <CustomListItem
                 onPress={() => copyToClipboard(member.key)}
                 bordered
                 title={member.key}
-                subTitle={`${member.type}: ${parsePermissions(
-                  member.permissions || null
-                )}`}
+                subTitle={`Member ${index + 1} ${
+                  member.type === SignerType.UNKNOWN ? "" : `(${member.type})`
+                }`}
                 icon={<User size={"$1"} />}
                 iconAfter={<Copy size={"$1"} />}
               />
@@ -466,14 +498,13 @@ const RenderMembers: FC<{
       </YGroup>
       <CustomButton onPress={handleConfirm}>
         <ButtonText>
-          {deviceWalletPublicKeyIsMember || paymasterWalletPublicKeyIsMember
+          {deviceWalletPublicKeyIsMember || cloudWalletPublicKeyIsMember
             ? "Edit Members"
             : noOwners
             ? "Claim Ownership"
             : "Make an Offer"}
         </ButtonText>
-        {(deviceWalletPublicKeyIsMember ||
-          paymasterWalletPublicKeyIsMember) && (
+        {(deviceWalletPublicKeyIsMember || cloudWalletPublicKeyIsMember) && (
           <ButtonIcon>
             <Edit3 size={"$1"} />
           </ButtonIcon>
@@ -496,24 +527,14 @@ const RenderEditMembers: FC<{
   setEdit,
   originalMembers,
 }) => {
-  const {
-    walletSheetArgs,
-    setTransactionSheetArgs,
-    setPage,
-    paymasterWalletPublicKey,
-    setWalletSheetArgs,
-  } = useGlobalStore();
+  const { walletSheetArgs, setTransactionSheetArgs, setPage } =
+    useGlobalStore();
   const { walletAddress, theme, type } = walletSheetArgs ?? {};
 
   const { walletInfo } = useWalletInfo({ type, walletAddress });
 
   const handleConfirm = useCallback(async () => {
-    if (!paymasterWalletPublicKey) {
-      setWalletSheetArgs(null);
-      router.replace("/(tabs)/profile");
-      throw new Error("You need to complete your wallet set up first.");
-    }
-    const feePayer = paymasterWalletPublicKey;
+    const feePayer = getSponsoredFeePayer();
     if (walletInfo && walletAddress) {
       setTransactionSheetArgs({
         feePayer,
@@ -537,7 +558,7 @@ const RenderEditMembers: FC<{
           signature ? setPage(Page.Main) : setPage(Page.Settings),
       });
     }
-  }, [walletInfo, walletAddress, filteredMembers, paymasterWalletPublicKey]);
+  }, [walletInfo, walletAddress, filteredMembers]);
 
   return (
     <>
@@ -551,15 +572,13 @@ const RenderEditMembers: FC<{
         </CustomButton>
       </XStack>
       <YGroup self="center" size="$5">
-        {filteredMembers.map((member) => {
+        {filteredMembers.map((member, index) => {
           return (
             <YGroup.Item key={member.key}>
               <CustomListItem
                 bordered
                 title={member.key}
-                subTitle={`${member.type}: ${parsePermissions(
-                  member.permissions || null
-                )}`}
+                subTitle={`Member ${index + 1} (${member.type})`}
                 onPress={() =>
                   setFilteredMembers((prev) =>
                     prev.filter((x) => x.key !== member.key)

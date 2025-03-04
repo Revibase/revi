@@ -7,20 +7,20 @@ export const useWalletValidation = ({
   noOwners,
   hasPendingOffers,
   deviceWalletPublicKeyIsMember,
-  paymasterWalletPublicKeyIsMember,
+  cloudWalletPublicKeyIsMember,
 }: {
   walletInfo: WalletInfo | null | undefined;
   noOwners: boolean;
   hasPendingOffers: boolean;
   deviceWalletPublicKeyIsMember: boolean;
-  paymasterWalletPublicKeyIsMember: boolean;
+  cloudWalletPublicKeyIsMember: boolean;
 }) => {
   return useCallback(() => {
     if (
       walletInfo &&
       !noOwners &&
       !deviceWalletPublicKeyIsMember &&
-      !paymasterWalletPublicKeyIsMember
+      !cloudWalletPublicKeyIsMember
     ) {
       Alert.alert(
         "Unauthorized action",
@@ -40,6 +40,6 @@ export const useWalletValidation = ({
     noOwners,
     hasPendingOffers,
     deviceWalletPublicKeyIsMember,
-    paymasterWalletPublicKeyIsMember,
+    cloudWalletPublicKeyIsMember,
   ]);
 };

@@ -1,7 +1,13 @@
 import { Action } from "@dialectlabs/blinks-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { DAS } from "@revibase/token-transfer";
+<<<<<<< Updated upstream
+import { CloudStorage } from "react-native-cloud-storage";
+=======
+import { logError } from "utils/firebase";
+import { getDeviceWalletPublicKey } from "utils/secure";
 import { GenericSheetArgs } from "utils/types/genericSheet";
+>>>>>>> Stashed changes
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { Page } from "../enums";
@@ -9,52 +15,52 @@ import { Offer, TransactionSheetArgs, WalletSheetArgs } from "../types";
 
 interface GlobalStoreState {
   deviceWalletPublicKey: string | null | undefined;
-  paymasterWalletPublicKey: string | null | undefined;
+  cloudWalletPublicKey: string | null | undefined;
   isNfcSheetVisible?: boolean;
   transactionSheetArgs?: TransactionSheetArgs | null;
   walletSheetArgs?: WalletSheetArgs | null;
-  genericSheetArgs?: GenericSheetArgs | null;
+  defaultWallet: string | null | undefined;
+  cloudStorage: CloudStorage | null;
   previousData?: WalletSheetArgs | null;
-  isHydrated?: boolean;
   expoPushToken: string | null;
   setExpoPushToken: (expoPushToken: string | null | undefined) => void;
   setDeviceWalletPublicKey: (
     deviceWalletPublicKey: string | null | undefined
   ) => void;
-  setPaymasterWalletPublicKey: (
-    paymasterWalletPublicKey: string | null | undefined
+  setCloudWalletPublicKey: (
+    cloudWalletPublicKey: string | null | undefined
   ) => void;
   setIsNfcSheetVisible: (isNfcSheetVisible: boolean) => void;
+  setDefaultWallet: (defaultWallet: string | null | undefined) => void;
+  setCloudStorage: (storage: CloudStorage | null) => void;
   setTransactionSheetArgs: (
     transactionSheetArgs: TransactionSheetArgs | null
   ) => void;
   setError: (error: string) => void;
   setPreviousData: (previousData: WalletSheetArgs | null) => void;
   setWalletSheetArgs: (WalletSheetArgs: WalletSheetArgs | null) => void;
-  setBlink: (blink: Action | undefined) => void;
+  setBlink: (blink: Action | undefined, callback?: () => void) => void;
   setPage: (page: Page) => void;
   setAsset: (
     asset: DAS.GetAssetResponse | null | undefined,
     callback?: () => void
   ) => void;
-  setSwapAsset: (swapAsset: DAS.GetAssetResponse | null | undefined) => void;
   setOffer: (offer: Offer | null | undefined) => void;
   setPendingOffersCheck: (pendingOffersCheck: boolean) => void;
   setNoOwnersCheck: (noOwnersCheck: boolean) => void;
-  setGenericSheetArgs: (genericSheetArgs: GenericSheetArgs | null) => void;
 }
 
 export const useGlobalStore = create<GlobalStoreState>()(
   persist(
     (set) => ({
       deviceWalletPublicKey: undefined,
-      paymasterWalletPublicKey: undefined,
+      cloudWalletPublicKey: undefined,
       walletSheetArgs: null,
-      genericSheetArgs: null,
       isNfcSheetVisible: false,
+      defaultWallet: null,
       transactionSheetArgs: null,
+      cloudStorage: null,
       previousData: null,
-      isHydrated: false,
       expoPushToken: null,
       setExpoPushToken: (expoPushToken: string | null | undefined) => {
         set((state) => ({
@@ -77,12 +83,12 @@ export const useGlobalStore = create<GlobalStoreState>()(
         }));
       },
 
-      setPaymasterWalletPublicKey: (
-        paymasterWalletPublicKey: string | null | undefined
+      setCloudWalletPublicKey: (
+        cloudWalletPublicKey: string | null | undefined
       ) => {
         set((state) => ({
           ...state,
-          paymasterWalletPublicKey: paymasterWalletPublicKey,
+          cloudWalletPublicKey,
         }));
       },
 
@@ -113,10 +119,28 @@ export const useGlobalStore = create<GlobalStoreState>()(
           isNfcSheetVisible,
         }));
       },
+<<<<<<< Updated upstream
+      setDefaultWallet: (defaultWallet: string | undefined | null) => {
+        set((state) => ({
+          ...state,
+          defaultWallet,
+        }));
+      },
+
+      setCloudStorage: (storage: CloudStorage | null) => {
+        set((state) => ({
+          ...state,
+          cloudStorage: storage,
+        }));
+      },
+
       setBlink: (blink) => {
+=======
+      setBlink: (blink, callback) => {
+>>>>>>> Stashed changes
         set((state) => ({
           walletSheetArgs: state.walletSheetArgs
-            ? { ...state.walletSheetArgs, blink }
+            ? { ...state.walletSheetArgs, blink, callback }
             : state.walletSheetArgs,
         }));
       },
@@ -149,16 +173,6 @@ export const useGlobalStore = create<GlobalStoreState>()(
             : state.walletSheetArgs,
         }));
       },
-      setSwapAsset: (swapAsset) => {
-        set((state) => ({
-          walletSheetArgs: state.walletSheetArgs
-            ? {
-                ...state.walletSheetArgs,
-                swapAsset,
-              }
-            : state.walletSheetArgs,
-        }));
-      },
 
       setNoOwnersCheck: (noOwnersCheck) => {
         set((state) => ({
@@ -175,18 +189,22 @@ export const useGlobalStore = create<GlobalStoreState>()(
             : state.walletSheetArgs,
         }));
       },
-      setGenericSheetArgs: (genericSheetArgs: GenericSheetArgs | null) => {
-        set((state) => ({
-          ...state,
-          genericSheetArgs,
-        }));
-      },
     }),
 
     {
       onRehydrateStorage: () => {
-        return (state) => {
-          if (state) state.isHydrated = true;
+        return async (state, error) => {
+          if (error) {
+            logError(`Error during rehydration: ${error}`);
+            return;
+          }
+          if (state && !state.deviceWalletPublicKey) {
+            const deviceWalletPublicKey = await getDeviceWalletPublicKey();
+            useGlobalStore.setState((prevState) => ({
+              ...prevState,
+              deviceWalletPublicKey,
+            }));
+          }
         };
       },
       name: "global-store",
@@ -204,10 +222,10 @@ export const useGlobalStore = create<GlobalStoreState>()(
       },
       partialize: (state) => ({
         deviceWalletPublicKey: state.deviceWalletPublicKey,
-        paymasterWalletPublicKey: state.paymasterWalletPublicKey,
+        cloudWalletPublicKey: state.cloudWalletPublicKey,
+        defaultWallet: state.defaultWallet,
+        cloudStorage: state.cloudStorage,
         expoPushToken: state.expoPushToken,
-        setSwapAsset: state.setSwapAsset,
-        setGenericSheetArgs: state.setGenericSheetArgs,
         setNoOwnersCheck: state.setNoOwnersCheck,
         setPendingOffersCheck: state.setPendingOffersCheck,
         setExpoPushToken: state.setExpoPushToken,
@@ -215,9 +233,11 @@ export const useGlobalStore = create<GlobalStoreState>()(
         setPreviousData: state.setPreviousData,
         setAsset: state.setAsset,
         setBlink: state.setBlink,
+        setCloudStorage: state.setCloudStorage,
         setDeviceWalletPublicKey: state.setDeviceWalletPublicKey,
-        setPaymasterWalletPublicKey: state.setPaymasterWalletPublicKey,
+        setCloudWalletPublicKey: state.setCloudWalletPublicKey,
         setIsNfcSheetVisible: state.setIsNfcSheetVisible,
+        setDefaultWallet: state.setDefaultWallet,
         setTransactionSheetArgs: state.setTransactionSheetArgs,
         setError: state.setError,
         setWalletSheetArgs: state.setWalletSheetArgs,

@@ -1,7 +1,8 @@
 import { getVaultFromAddress } from "@revibase/multi-wallet";
 import { PublicKey } from "@solana/web3.js";
 import { Search } from "@tamagui/lucide-icons";
-import { CustomListItem } from "components/ui/CustomListItem";
+import { CustomListItem } from "components/CustomListItem";
+import { useWalletInfo } from "components/hooks";
 import { Image } from "expo-image";
 import { FC, useMemo, useState } from "react";
 import { Avatar, Input, XStack, YStack } from "tamagui";
@@ -11,17 +12,20 @@ import {
   SOL_NATIVE_MINT,
   useGetAssetsByOwner,
   useGlobalStore,
-  WalletType,
 } from "utils";
 import { ScreenWrapper } from "./screenWrapper";
 
 export const SearchPage: FC = () => {
   const { walletSheetArgs, setPage, setAsset } = useGlobalStore();
   const { type, walletAddress } = walletSheetArgs ?? {};
+  const { walletInfo } = useWalletInfo({
+    type,
+    walletAddress,
+  });
 
   const { data: allAssets } = useGetAssetsByOwner({
     address:
-      type === WalletType.MULTIWALLET && walletAddress
+      walletInfo && walletAddress
         ? getVaultFromAddress(new PublicKey(walletAddress)).toString()
         : walletAddress,
   });

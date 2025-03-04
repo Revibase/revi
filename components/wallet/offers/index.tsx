@@ -1,10 +1,10 @@
 import { collection, orderBy, query } from "@react-native-firebase/firestore";
 import { DAS } from "@revibase/token-transfer";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { CustomButton } from "components/CustomButton";
+import { CustomCard } from "components/CustomCard";
+import { CustomListItem } from "components/CustomListItem";
 import { useWalletInfo } from "components/hooks";
-import { CustomButton } from "components/ui/CustomButton";
-import { CustomCard } from "components/ui/CustomCard";
-import { CustomListItem } from "components/ui/CustomListItem";
 import { FC, memo } from "react";
 import { ButtonText, Heading, Spinner, Text, YGroup, YStack } from "tamagui";
 import {

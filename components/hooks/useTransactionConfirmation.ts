@@ -3,10 +3,12 @@ import {
   cancelEscrowAsOwner,
   changeConfig,
   createTransactionBundle,
+  getVaultFromAddress,
 } from "@revibase/multi-wallet";
 import {
   ComputeBudgetProgram,
   PublicKey,
+  SystemProgram,
   TransactionInstruction,
 } from "@solana/web3.js";
 import { useConnection } from "components/providers/connectionProvider";
@@ -15,19 +17,18 @@ import {
   EscrowActions,
   estimateFees,
   estimateJitoTips,
-  getTransactionCreatorFromSigners,
+  getMainWalletFromSigners,
   logError,
   SignerState,
   SignerType,
   TransactionResult,
   TransactionSheetArgs,
-  TransactionSigner,
   useGlobalStore,
 } from "utils";
 
 export const useTransactionConfirmation = () => {
   const { connection } = useConnection();
-  const { deviceWalletPublicKey } = useGlobalStore();
+  const { defaultWallet } = useGlobalStore();
 
   const handleMultiWalletEscrowTransaction = useCallback(
     async ({
@@ -36,22 +37,17 @@ export const useTransactionConfirmation = () => {
       feePayer,
       walletAddress,
     }: Partial<TransactionSheetArgs>) => {
-      if (
-        !signers ||
-        !walletAddress ||
-        !feePayer ||
-        !escrowConfig ||
-        !deviceWalletPublicKey
-      ) {
+      if (!signers || !walletAddress || !feePayer || !escrowConfig) {
         throw new Error("One or more arguments is missing.");
       }
 
+      const mainSigner = getMainWalletFromSigners(signers, defaultWallet);
       let ixs: TransactionInstruction[] = [];
 
       if (escrowConfig.type === EscrowActions.AcceptEscrowAsOwner) {
         ixs.push(
           await acceptEscrowAsOwner({
-            recipient: new PublicKey(deviceWalletPublicKey),
+            recipient: new PublicKey(mainSigner.key),
             feePayer: new PublicKey(feePayer),
             signers: signers.map((x) => new PublicKey(x.key)),
             identifier: escrowConfig.identifier,
@@ -61,7 +57,7 @@ export const useTransactionConfirmation = () => {
       } else if (escrowConfig.type === EscrowActions.CancelEscrowAsOwner) {
         ixs.push(
           await cancelEscrowAsOwner({
-            rentCollector: new PublicKey(deviceWalletPublicKey),
+            rentCollector: new PublicKey(mainSigner.key),
             signers: signers.map((x) => new PublicKey(x.key)),
             identifier: escrowConfig.identifier,
             walletAddress: new PublicKey(walletAddress),
@@ -91,14 +87,23 @@ export const useTransactionConfirmation = () => {
           {
             id: escrowConfig.type,
             feePayer,
-            signers: getSignersWithFeePayer(signers, feePayer),
+            signers: signers.some((x) => x.key === feePayer)
+              ? signers
+              : [
+                  ...signers,
+                  {
+                    key: feePayer,
+                    state: SignerState.Unsigned,
+                    type: SignerType.PAYMASTER,
+                  },
+                ],
             ixs,
           },
         ],
-        totalFees,
+        totalFees: signers.some((x) => x.key === feePayer) ? totalFees : 0,
       } as TransactionResult;
     },
-    [connection, deviceWalletPublicKey]
+    [connection, defaultWallet]
   );
 
   const handleMultiWalletChangeConfigTransaction = useCallback(
@@ -142,16 +147,25 @@ export const useTransactionConfirmation = () => {
         feePayer,
         data: [
           {
-            ixs,
             id: "Change Config",
             feePayer,
-            signers: getSignersWithFeePayer(signers, feePayer),
+            signers: signers.some((x) => x.key === feePayer)
+              ? signers
+              : [
+                  ...signers,
+                  {
+                    key: feePayer,
+                    state: SignerState.Unsigned,
+                    type: SignerType.PAYMASTER,
+                  },
+                ],
+            ixs,
           },
         ],
-        totalFees,
+        totalFees: signers.some((x) => x.key === feePayer) ? totalFees : 0,
       } as TransactionResult;
     },
-    [connection]
+    [connection, defaultWallet]
   );
 
   const handleMultiWalletGenericTransaction = useCallback(
@@ -166,14 +180,22 @@ export const useTransactionConfirmation = () => {
         if (!ixs || !signers || !feePayer || !walletAddress) {
           throw new Error("One or more arguments is missing.");
         }
-        const creator = getTransactionCreatorFromSigners(signers);
+        const mainSigner = getMainWalletFromSigners(signers, defaultWallet);
         const tipAmount = await estimateJitoTips();
         const instructions = [...ixs];
+        instructions.unshift(
+          SystemProgram.transfer({
+            fromPubkey: getVaultFromAddress(new PublicKey(walletAddress)),
+            toPubkey: new PublicKey(feePayer),
+            lamports: tipAmount,
+          })
+        );
+
         const { result } = await createTransactionBundle({
           feePayer: new PublicKey(feePayer),
           instructions,
           walletAddress: new PublicKey(walletAddress),
-          creator: new PublicKey(creator.key),
+          creator: new PublicKey(mainSigner.key),
           signers: signers.map((x) => new PublicKey(x.key)),
           lookUpTables,
           tipAmount,
@@ -182,12 +204,21 @@ export const useTransactionConfirmation = () => {
         return {
           feePayer,
           data: result.map((x) => {
-            const finalSigners = x.signers.length > 1 ? signers : [creator];
+            const finalSigners = x.signers.length > 1 ? signers : [mainSigner];
             return {
               ...x,
               feePayer,
               lookUpTables: x.lookupTableAccounts,
-              signers: getSignersWithFeePayer(finalSigners, feePayer),
+              signers: finalSigners.some((x) => x.key === feePayer)
+                ? finalSigners
+                : [
+                    ...signers,
+                    {
+                      key: feePayer,
+                      state: SignerState.Unsigned,
+                      type: SignerType.PAYMASTER,
+                    },
+                  ],
             };
           }),
           totalFees: tipAmount,
@@ -197,7 +228,7 @@ export const useTransactionConfirmation = () => {
         throw new Error(error instanceof Error ? error.message : String(error));
       }
     },
-    []
+    [defaultWallet]
   );
 
   const handleNonMultiWalletTransaction = useCallback(
@@ -231,13 +262,22 @@ export const useTransactionConfirmation = () => {
           data: [
             {
               id: "Execute Transaction",
-              signers: getSignersWithFeePayer(signers, feePayer),
+              signers: signers.some((x) => x.key === feePayer)
+                ? signers
+                : [
+                    ...signers,
+                    {
+                      key: feePayer,
+                      state: SignerState.Unsigned,
+                      type: SignerType.PAYMASTER,
+                    },
+                  ],
               feePayer,
               ixs,
               lookUpTables,
             },
           ],
-          totalFees,
+          totalFees: signers.some((x) => x.key === feePayer) ? totalFees : 0,
         } as TransactionResult;
       } catch (error) {
         logError(error);
@@ -253,18 +293,3 @@ export const useTransactionConfirmation = () => {
     handleMultiWalletEscrowTransaction,
   };
 };
-function getSignersWithFeePayer(
-  signers: TransactionSigner[],
-  feePayer: string
-): TransactionSigner[] {
-  return signers.some((x) => x.key === feePayer)
-    ? signers
-    : [
-        ...signers,
-        {
-          key: feePayer,
-          state: SignerState.Unsigned,
-          type: SignerType.PAYMASTER,
-        },
-      ];
-}

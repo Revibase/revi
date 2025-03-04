@@ -206,7 +206,7 @@ export const Onboarding: FC = () => {
             width={"100%"}
             value={mnemonic}
             onChangeText={setMnemonic}
-            placeholder={`Enter the 24 word seed phrase to import your wallet`}
+            placeholder={`Enter the 12 word seed phrase to import your wallet`}
           />
           <YStack gap={"$2"} width={"80%"}>
             <CustomButton
