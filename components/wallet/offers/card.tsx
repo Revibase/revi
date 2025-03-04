@@ -1,16 +1,16 @@
 import { getVaultFromAddress } from "@revibase/multi-wallet";
 import { DAS } from "@revibase/token-transfer";
 import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { Check, X } from "@tamagui/lucide-icons";
-import { CustomButton } from "components/CustomButton";
-import { CustomCard } from "components/CustomCard";
-import { CustomListItem } from "components/CustomListItem";
+import { AlertTriangle, Check, X } from "@tamagui/lucide-icons";
 import {
+  useAssetValidation,
   useOfferConfirmation,
   usePendingOffers,
   useWallet,
-  useWalletInfo,
 } from "components/hooks";
+import { CustomButton } from "components/ui/CustomButton";
+import { CustomCard } from "components/ui/CustomCard";
+import { CustomListItem } from "components/ui/CustomListItem";
 import { FC, useMemo } from "react";
 import { Linking } from "react-native";
 import {
@@ -39,74 +39,51 @@ export const OfferCard: FC = () => {
     setPage,
     walletSheetArgs,
     setOffer,
-    defaultWallet,
     deviceWalletPublicKey,
-    cloudWalletPublicKey,
+    paymasterWalletPublicKey,
   } = useGlobalStore();
-<<<<<<< Updated upstream
-  const { offer, walletAddress, type } = walletSheetArgs ?? {};
-  const { walletInfo } = useWalletInfo({ walletAddress, type });
-  const parsedMetadata = walletInfo?.fullMetadata
-    ? (JSON.parse(walletInfo.fullMetadata) as DAS.GetAssetResponse)
-    : undefined;
-  const { data: assets } = useGetAssetsByOwner({
-    address: offer
-      ? getVaultFromAddress(new PublicKey(offer.createKey)).toString()
-      : null,
-  });
+  const { offer, type } = walletSheetArgs ?? {};
 
-  const { deviceWalletPublicKeyIsMember, cloudWalletPublicKeyIsMember } =
-    useWallet({
-      theme: "accent",
-      type: WalletType.MULTIWALLET,
-      walletAddress: offer?.createKey,
-    });
-  const { hasPendingOffers } = usePendingOffers({
-    type: WalletType.MULTIWALLET,
-    walletAddress: offer?.createKey,
+  const vaultAddress = offer
+    ? getVaultFromAddress(new PublicKey(offer.createKey)).toString()
+    : null;
+  const { data: assets } = useGetAssetsByOwner({
+    address: vaultAddress,
   });
-=======
-  const { offer } = walletSheetArgs ?? {};
 
   const {
     deviceWalletPublicKeyIsMember,
     paymasterWalletPublicKeyIsMember,
     walletInfo,
+    noOwners,
   } = useWallet({
     theme: "accent",
     type: WalletType.MULTIWALLET,
     walletAddress: offer?.createKey,
   });
-
-  const parsedMetadata = useMemo(
-    () =>
-      walletInfo?.fullMetadata
-        ? (JSON.parse(walletInfo.fullMetadata) as DAS.GetAssetResponse)
-        : undefined,
-    [walletInfo?.fullMetadata]
-  );
-
->>>>>>> Stashed changes
+  const parsedMetadata = walletInfo?.fullMetadata
+    ? (JSON.parse(walletInfo.fullMetadata) as DAS.GetAssetResponse)
+    : undefined;
+  const { hasPendingOffers } = usePendingOffers({
+    type: WalletType.MULTIWALLET,
+    walletAddress: offer?.createKey,
+  });
   const { handleTransaction } = useOfferConfirmation(offer);
   const userIsOwner = useMemo(
-    () => deviceWalletPublicKeyIsMember || cloudWalletPublicKeyIsMember,
-    [deviceWalletPublicKeyIsMember, cloudWalletPublicKeyIsMember]
+    () => deviceWalletPublicKeyIsMember || paymasterWalletPublicKeyIsMember,
+    [deviceWalletPublicKeyIsMember, paymasterWalletPublicKeyIsMember]
   );
   const userIsProposer = useMemo(
     () =>
       !!offer &&
       (offer.proposer === deviceWalletPublicKey ||
-        offer.proposer === cloudWalletPublicKey),
-    [deviceWalletPublicKey, cloudWalletPublicKey, offer]
+        offer.proposer === paymasterWalletPublicKey),
+    [deviceWalletPublicKey, paymasterWalletPublicKey, offer]
   );
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
+  const { hasAsset } = useAssetValidation();
   if (!offer) {
     return null;
   }
-
   return (
     <ScreenWrapper
       animation={{ opacity: 0 }}
@@ -128,54 +105,59 @@ export const OfferCard: FC = () => {
         <YStack width={"100%"} gap="$4" items="center">
           <CustomCard
             height={"$20"}
-            shadowColor={"white"}
+            shadowRadius={"$4"}
             url={parsedMetadata?.content?.links?.image || PLACEHOLDER_IMAGE}
           />
-<<<<<<< Updated upstream
-          <YGroup bordered>
-            {parsedMetadata?.content?.metadata.name && (
+          {offer.isPending && (
+            <YGroup bordered>
+              {parsedMetadata?.content?.metadata.name && (
+                <YGroup.Item>
+                  <CustomListItem
+                    bordered
+                    title={parsedMetadata?.content?.metadata.name}
+                    subTitle={"Main Asset"}
+                    icon={
+                      !hasAsset(
+                        assets?.items.find((x) => x.id === parsedMetadata.id),
+                        vaultAddress,
+                        noOwners,
+                        deviceWalletPublicKeyIsMember,
+                        paymasterWalletPublicKeyIsMember,
+                        type
+                      ) ? (
+                        <AlertTriangle color="red" size={1} />
+                      ) : null
+                    }
+                  />
+                </YGroup.Item>
+              )}
               <YGroup.Item>
                 <CustomListItem
                   bordered
-                  title={parsedMetadata?.content?.metadata.name}
-                  subTitle={"Main Asset"}
+                  title={getVaultFromAddress(
+                    new PublicKey(offer.createKey)
+                  ).toString()}
+                  subTitle={"Wallet Address"}
                 />
               </YGroup.Item>
-            )}
-            <YGroup.Item>
-              <CustomListItem
-                bordered
-                title={getVaultFromAddress(
-                  new PublicKey(offer.createKey)
-                ).toString()}
-                subTitle={"Wallet Address"}
-              />
-            </YGroup.Item>
-            <YGroup.Item>
-              <CustomListItem
-                bordered
-                title={hasPendingOffers ? "Locked" : "Unlocked"}
-                subTitle={"Wallet Status"}
-              />
-            </YGroup.Item>
-            <YGroup.Item>
-              <CustomListItem
-                bordered
-                title={`${formatAmount(
-                  assets ? getTotalValueFromWallet(assets) : 0
-                )} USD`}
-                subTitle={"Estimated Wallet Value"}
-              />
-            </YGroup.Item>
-          </YGroup>
-=======
-          {offer.isPending && (
-            <OfferCardDetails
-              parsedMetadata={parsedMetadata}
-              walletAddress={offer.createKey}
-            />
+              <YGroup.Item>
+                <CustomListItem
+                  bordered
+                  title={hasPendingOffers ? "Locked" : "Unlocked"}
+                  subTitle={"Wallet Status"}
+                />
+              </YGroup.Item>
+              <YGroup.Item>
+                <CustomListItem
+                  bordered
+                  title={`${formatAmount(
+                    assets ? getTotalValueFromWallet(assets) : 0
+                  )} USD`}
+                  subTitle={"Estimated Wallet Value"}
+                />
+              </YGroup.Item>
+            </YGroup>
           )}
->>>>>>> Stashed changes
         </YStack>
         <YStack gap={"$4"}>
           <Heading size={"$4"}>{`Offer Details`}</Heading>
@@ -196,10 +178,8 @@ export const OfferCard: FC = () => {
                     offer.amount / LAMPORTS_PER_SOL
                   )} SOL.`}
                   subTitle={`${
-                    defaultWallet === deviceWalletPublicKey
-                      ? WalletType.DEVICE
-                      : WalletType.CLOUD
-                  }, ${defaultWallet?.substring(
+                    WalletType.DEVICE
+                  }, ${deviceWalletPublicKey?.substring(
                     0,
                     14
                   )}... to receive ${formatAmount(
@@ -335,79 +315,5 @@ export const OfferCard: FC = () => {
         </XStack>
       </YStack>
     </ScreenWrapper>
-  );
-};
-
-export const OfferCardDetails: FC<{
-  walletAddress: string | null | undefined;
-  parsedMetadata: DAS.GetAssetResponse | undefined;
-}> = ({ parsedMetadata, walletAddress }) => {
-  const { hasAsset } = useAssetValidation();
-  const vaultAddress = walletAddress
-    ? getVaultFromAddress(new PublicKey(walletAddress)).toString()
-    : null;
-  const { data: allAssets } = useGetAssetsByOwner({
-    address: vaultAddress,
-  });
-  const { hasPendingOffers } = usePendingOffers({
-    type: WalletType.MULTIWALLET,
-    walletAddress,
-  });
-  const {
-    noOwners,
-    deviceWalletPublicKeyIsMember,
-    paymasterWalletPublicKeyIsMember,
-  } = useWallet({
-    theme: "accent",
-    type: WalletType.MULTIWALLET,
-    walletAddress,
-  });
-  return (
-    <YGroup bordered>
-      {parsedMetadata?.content?.metadata.name && (
-        <YGroup.Item>
-          <CustomListItem
-            bordered
-            title={parsedMetadata?.content?.metadata.name}
-            subTitle={"Main Asset"}
-            icon={
-              !hasAsset(
-                allAssets?.items.find((x) => x.id === parsedMetadata.id),
-                vaultAddress,
-                noOwners,
-                deviceWalletPublicKeyIsMember,
-                paymasterWalletPublicKeyIsMember,
-                WalletType.MULTIWALLET
-              ) ? (
-                <AlertTriangle color="red" size={1} />
-              ) : null
-            }
-          />
-        </YGroup.Item>
-      )}
-      <YGroup.Item>
-        <CustomListItem
-          bordered
-          title={vaultAddress}
-          subTitle={"Wallet Address"}
-        />
-      </YGroup.Item>
-      <YGroup.Item>
-        <CustomListItem
-          bordered
-          title={hasPendingOffers ? "Locked" : "Unlocked"}
-          subTitle={"Wallet Status"}
-        />
-      </YGroup.Item>
-      <YGroup.Item>
-        <CustomListItem
-          bordered
-          title={`${formatAmount(
-            allAssets ? getTotalValueFromWallet(allAssets) : 0
-          )} USD`}
-          subTitle={"Estimated Wallet Value"}
-        />
-      </YGroup.Item>
-    </YGroup>
   );
 };

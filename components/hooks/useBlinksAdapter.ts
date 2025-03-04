@@ -11,16 +11,12 @@ import {
   VersionedTransaction,
 } from "@solana/web3.js";
 import { useConnection } from "components/providers/connectionProvider";
+import { router } from "expo-router";
 import { useCallback, useMemo } from "react";
 import {
   SignerState,
   WalletType,
   getSignerTypeFromWalletType,
-<<<<<<< Updated upstream
-  getSponsoredFeePayer,
-=======
-  sigMessageWithDeviceKeypair,
->>>>>>> Stashed changes
   useGlobalStore,
 } from "utils";
 import { useWalletInfo } from "./useWalletInfo";
@@ -29,8 +25,8 @@ export const useGetBlinksAdapter = () => {
   const {
     walletSheetArgs,
     setTransactionSheetArgs,
-    deviceWalletPublicKey,
-    cloudWalletPublicKey,
+    paymasterWalletPublicKey,
+    setWalletSheetArgs,
   } = useGlobalStore();
   const { walletAddress, type, theme } = walletSheetArgs ?? {};
   const { walletInfo } = useWalletInfo({ walletAddress, type });
@@ -38,9 +34,17 @@ export const useGetBlinksAdapter = () => {
   const { connection } = useConnection();
   const signBlinksTx = useCallback(
     async (tx: string): Promise<string> => {
+      if (!paymasterWalletPublicKey) {
+        setWalletSheetArgs(null);
+        router.replace("/(tabs)/profile");
+        throw new Error("You need to complete your wallet set up first.");
+      }
       const parsedTx = VersionedTransaction.deserialize(
         Buffer.from(tx, "base64")
       );
+      if (parsedTx.message.header.numRequiredSignatures > 1) {
+        throw new Error("Partial transactions are not supported yet.");
+      }
       return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
           reject(new Error("Transaction signing timed out"));
@@ -62,11 +66,6 @@ export const useGetBlinksAdapter = () => {
           if (!walletInfo) {
             clearTimeout(timeout);
             reject(new Error("Wallet Info undefined"));
-            return;
-          }
-          if (parsedTx.message.header.numRequiredSignatures > 1) {
-            clearTimeout(timeout);
-            reject(new Error("Partial Transactions are not supported."));
             return;
           }
           Promise.all(
@@ -91,18 +90,10 @@ export const useGetBlinksAdapter = () => {
                       ComputeBudgetProgram.programId.toString() && index < 2
                   )
               );
-<<<<<<< Updated upstream
-              const feePayer = getSponsoredFeePayer();
-=======
+              const feePayer = paymasterWalletPublicKey;
 
->>>>>>> Stashed changes
               ixs.forEach((x) => {
-                if (
-                  x.keys.some(
-                    (x) => x.pubkey.toString() === paymasterWalletPublicKey
-                  )
-                ) {
-                  clearTimeout(timeout);
+                if (x.keys.some((x) => x.pubkey.toString() === feePayer)) {
                   reject(
                     new Error(
                       "Fee payer should not be referenced inside the instruction."
@@ -113,7 +104,7 @@ export const useGetBlinksAdapter = () => {
               });
 
               setTransactionSheetArgs({
-                feePayer: paymasterWalletPublicKey,
+                feePayer,
                 theme,
                 walletAddress,
                 walletInfo,
@@ -150,8 +141,7 @@ export const useGetBlinksAdapter = () => {
       connection,
       walletAddress,
       walletInfo,
-      deviceWalletPublicKey,
-      cloudWalletPublicKey,
+      paymasterWalletPublicKey,
     ]
   );
 
@@ -172,18 +162,11 @@ export const useGetBlinksAdapter = () => {
         return;
       },
       signMessage: async (message: string | SignMessageData, _context) => {
-        if (type === WalletType.MULTIWALLET) {
-          throw new Error("Message Signing is not supported.");
-        } else {
-          const messageToSign =
-            typeof message === "string"
-              ? message
-              : createSignMessageText(message);
-          const signature = await sigMessageWithDeviceKeypair(messageToSign);
-          return {
-            signature,
-          };
-        }
+        const messageToSign =
+          typeof message === "string"
+            ? message
+            : createSignMessageText(message);
+        throw new Error("Message Signing is not supported yet.");
       },
       metadata: { supportedBlockchainIds: [BlockchainIds.SOLANA_MAINNET] },
     };

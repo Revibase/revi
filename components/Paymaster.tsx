@@ -3,9 +3,9 @@ import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { Copy, Wallet } from "@tamagui/lucide-icons";
 import { useCopyToClipboard } from "components/hooks";
 import { useConnection } from "components/providers/connectionProvider";
-import { FC, useCallback, useMemo } from "react";
+import { FC, useMemo } from "react";
 import { Alert } from "react-native";
-import { ButtonText, Text, XGroup, YGroup, YStack } from "tamagui";
+import { Text, XGroup, YGroup, YStack } from "tamagui";
 import {
   SignerState,
   SignerType,
@@ -35,9 +35,9 @@ export const Paymaster: FC = () => {
   const copyToClipboard = useCopyToClipboard();
   const theme = useMemo(
     () =>
-      (paymasterAccountInfo?.lamports ?? 0) < LAMPORTS_PER_SOL * 0.01
+      (paymasterAccountInfo?.lamports ?? 0) < LAMPORTS_PER_SOL * 0.06
         ? "red"
-        : (paymasterAccountInfo?.lamports ?? 0) < LAMPORTS_PER_SOL * 0.023
+        : (paymasterAccountInfo?.lamports ?? 0) < LAMPORTS_PER_SOL * 0.08
         ? "yellow"
         : "green",
     [paymasterAccountInfo]
@@ -50,43 +50,6 @@ export const Paymaster: FC = () => {
     () => deviceWalletAssets?.nativeBalance.lamports ?? 0,
     [deviceWalletAssets]
   );
-  const handleTopUp = useCallback(async () => {
-    const amount = 0.023 * LAMPORTS_PER_SOL - paymasterLamports;
-    if (
-      paymasterWalletPublicKey &&
-      deviceWalletPublicKey &&
-      deviceLamports > amount
-    ) {
-      const ixs = await transferAsset(
-        connection,
-        new PublicKey(deviceWalletPublicKey),
-        new PublicKey(paymasterWalletPublicKey),
-        new PublicKey(deviceWalletPublicKey),
-        amount / LAMPORTS_PER_SOL,
-        true
-      );
-      setGenericSheetArgs(null);
-      setTransactionSheetArgs({
-        ixs,
-        walletAddress: deviceWalletPublicKey,
-        feePayer: deviceWalletPublicKey,
-        signers: [
-          {
-            key: deviceWalletPublicKey,
-            type: SignerType.DEVICE,
-            state: SignerState.Unsigned,
-          },
-        ],
-      });
-    } else {
-      Alert.alert(
-        "Insufficient SOL",
-        `Device Wallet needs at least ${
-          (amount - deviceLamports) / LAMPORTS_PER_SOL
-        } SOL`
-      );
-    }
-  }, [deviceLamports, deviceWalletPublicKey, paymasterWalletPublicKey]);
   return (
     <CustomButton
       bordered
@@ -99,6 +62,44 @@ export const Paymaster: FC = () => {
       onPress={() => {
         setGenericSheetArgs({
           theme,
+          actionText: `Top up to 0.1 SOL`,
+          onPress: async () => {
+            const amount = 0.1 * LAMPORTS_PER_SOL - paymasterLamports;
+            if (
+              paymasterWalletPublicKey &&
+              deviceWalletPublicKey &&
+              deviceLamports > amount
+            ) {
+              const ixs = await transferAsset(
+                connection,
+                new PublicKey(deviceWalletPublicKey),
+                new PublicKey(paymasterWalletPublicKey),
+                new PublicKey(deviceWalletPublicKey),
+                amount / LAMPORTS_PER_SOL,
+                true
+              );
+              setGenericSheetArgs(null);
+              setTransactionSheetArgs({
+                ixs,
+                walletAddress: deviceWalletPublicKey,
+                feePayer: deviceWalletPublicKey,
+                signers: [
+                  {
+                    key: deviceWalletPublicKey,
+                    type: SignerType.DEVICE,
+                    state: SignerState.Unsigned,
+                  },
+                ],
+              });
+            } else {
+              Alert.alert(
+                "Insufficient SOL",
+                `Device Wallet needs at least ${
+                  (amount - deviceLamports) / LAMPORTS_PER_SOL
+                } SOL`
+              );
+            }
+          },
           snapPoints: [60],
           title: "Top Up Paymaster",
           body: (
@@ -139,14 +140,11 @@ export const Paymaster: FC = () => {
                     subTitle={
                       <Text
                         color={"gray"}
-                      >{`Network fees typically range from 0.00005 SOL to 0.003 SOL. To ensure you always have enough for transactions, it's best to maintain a balance of at least 0.023 SOL.`}</Text>
+                      >{`Network fees typically range from 0.00005 SOL to 0.003 SOL. To ensure you always have enough for transactions, it's best to maintain a balance of at least 0.1 SOL.`}</Text>
                     }
                   />
                 </YGroup.Item>
               </YGroup>
-              <CustomButton bordered onPress={handleTopUp}>
-                <ButtonText>{`Top up to 0.023 SOL`}</ButtonText>
-              </CustomButton>
             </YStack>
           ),
         });
@@ -156,9 +154,9 @@ export const Paymaster: FC = () => {
         <XGroup items={"center"} gap={"$1"}>
           <Text>{`${WalletType.PAYMASTER}:`}</Text>
           <Text fontSize={"$3"} fontWeight={600} letterSpacing={"$1"}>{`${
-            paymasterLamports < LAMPORTS_PER_SOL * 0.01
+            paymasterLamports < LAMPORTS_PER_SOL * 0.06
               ? "Top Up Required"
-              : paymasterLamports < LAMPORTS_PER_SOL * 0.023
+              : paymasterLamports < LAMPORTS_PER_SOL * 0.08
               ? "Top Up"
               : "Healthy"
           }`}</Text>

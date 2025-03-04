@@ -1,5 +1,6 @@
 import { cancelEscrowAsNonOwner } from "@revibase/multi-wallet";
 import { PublicKey } from "@solana/web3.js";
+import { router } from "expo-router";
 import { useCallback } from "react";
 import { Alert } from "react-native";
 import {
@@ -10,7 +11,6 @@ import {
   TransactionSheetArgs,
   WalletType,
   getSignerTypeFromAddress,
-  getSponsoredFeePayer,
   logError,
   useGlobalStore,
 } from "utils";
@@ -20,7 +20,8 @@ export const useOfferConfirmation = (offer: Offer | null | undefined) => {
   const {
     setTransactionSheetArgs,
     deviceWalletPublicKey,
-    cloudWalletPublicKey,
+    paymasterWalletPublicKey,
+    setWalletSheetArgs,
     setPage,
   } = useGlobalStore();
   const { walletInfo } = useWalletInfo({
@@ -31,13 +32,18 @@ export const useOfferConfirmation = (offer: Offer | null | undefined) => {
     async (action: EscrowActions) => {
       try {
         if (!offer?.proposer) {
-          throw new Error("Unable to fetch escrow data.");
+          throw new Error("Unable to find proposer.");
+        }
+        if (!paymasterWalletPublicKey) {
+          setWalletSheetArgs(null);
+          router.replace("/(tabs)/profile");
+          throw new Error("You need to complete your wallet set up first.");
         }
         const identifier = offer.identifier;
         const walletAddress = offer.createKey;
 
         let args: TransactionSheetArgs | null = null;
-        const feePayer = getSponsoredFeePayer();
+        const feePayer = paymasterWalletPublicKey;
         if (action === EscrowActions.CancelEscrowAsNonOwner) {
           const ix = await cancelEscrowAsNonOwner({
             proposer: new PublicKey(offer.proposer),
@@ -56,7 +62,7 @@ export const useOfferConfirmation = (offer: Offer | null | undefined) => {
                 type: getSignerTypeFromAddress(
                   { pubkey: offer.proposer, createKey: offer.createKey },
                   deviceWalletPublicKey,
-                  cloudWalletPublicKey
+                  paymasterWalletPublicKey
                 ),
               },
             ],
@@ -93,7 +99,7 @@ export const useOfferConfirmation = (offer: Offer | null | undefined) => {
         );
       }
     },
-    [deviceWalletPublicKey, cloudWalletPublicKey, offer, walletInfo]
+    [deviceWalletPublicKey, paymasterWalletPublicKey, offer, walletInfo]
   );
   return { handleTransaction };
 };

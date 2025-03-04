@@ -1,6 +1,6 @@
 export default {
   expo: {
-    name: "Revi Vault",
+    name: "Revi",
     slug: "revi-vault",
     version: "1.0.0",
     orientation: "portrait",
@@ -17,12 +17,17 @@ export default {
       config: {
         usesNonExemptEncryption: false,
       },
+      associatedDomains: ["webcredentials:revibase.com"],
       supportsTablet: true,
-      bundleIdentifier: "com.revibase.revi",
+      bundleIdentifier: "com.jychab.revivault",
       newArchEnabled: true,
       googleServicesFile:
         process.env.GOOGLE_SERVICES_INFO_PLIST ||
         "./assets/google/GoogleService-Info.plist",
+      infoPlist: {
+        NSFaceIDUsageDescription:
+          "Authenticate to securely access your wallet.",
+      },
     },
     android: {
       adaptiveIcon: {
@@ -30,7 +35,7 @@ export default {
         backgroundColor: "#ffffff",
       },
       permissions: ["android.permission.NFC"],
-      package: "com.revibase.revi",
+      package: "com.jychab.revivault",
       newArchEnabled: true,
       googleServicesFile:
         process.env.GOOGLE_SERVICES_JSON ||
@@ -42,12 +47,6 @@ export default {
       favicon: "./assets/images/favicon.png",
     },
     plugins: [
-      [
-        "expo-local-authentication",
-        {
-          faceIDPermission: "Allow $(PRODUCT_NAME) to use Face ID.",
-        },
-      ],
       [
         "react-native-nfc-manager",
         {
@@ -61,21 +60,19 @@ export default {
       ],
       "expo-router",
       "expo-font",
-      [
-        "expo-build-properties",
-        {
-          newArchEnabled: true,
-        },
-      ],
       "@react-native-firebase/crashlytics",
       "@react-native-firebase/app-check",
-      "react-native-cloud-storage",
       "@react-native-firebase/app",
       [
         "expo-build-properties",
         {
+          newArchEnabled: true,
+          android: {
+            compileSdkVersion: 35,
+          },
           ios: {
             useFrameworks: "static",
+            deploymentTarget: "15.1",
           },
         },
       ],

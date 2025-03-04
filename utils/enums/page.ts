@@ -9,7 +9,6 @@ export enum Page {
   Loading,
   Settings,
   Blinks,
-  BlinksPage,
   Offer,
   OffersPage,
 }

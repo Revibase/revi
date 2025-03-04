@@ -1,13 +1,13 @@
 import { getVaultFromAddress } from "@revibase/multi-wallet";
 import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { Copy, Handshake, Wallet } from "@tamagui/lucide-icons";
-import { CustomButton } from "components/CustomButton";
-import { CustomListItem } from "components/CustomListItem";
 import {
   useCopyToClipboard,
   usePendingOffers,
   useWalletInfo,
 } from "components/hooks";
+import { CustomButton } from "components/ui/CustomButton";
+import { CustomListItem } from "components/ui/CustomListItem";
 import { FC } from "react";
 import { ButtonIcon, ButtonText, Text, XStack } from "tamagui";
 import { formatAmount, Page, useGlobalStore, WalletType } from "utils";
@@ -49,7 +49,7 @@ export const RenderWalletInfo: FC = () => {
           </CustomButton>
         </XStack>
       )}
-      {hasPendingOffers && <Text>{`Wallet Status: Locked`}</Text>}
+
       {walletInfo?.threshold && (
         <Text>{`Current Signature Threshold: ${walletInfo.threshold}`}</Text>
       )}

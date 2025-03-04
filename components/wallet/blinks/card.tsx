@@ -1,6 +1,6 @@
 import { Blink } from "@dialectlabs/blinks-react-native";
-import { CustomListItem } from "components/CustomListItem";
 import { useGetBlinksAdapter } from "components/hooks";
+import { CustomListItem } from "components/ui/CustomListItem";
 import { FC, useMemo } from "react";
 import Markdown from "react-native-markdown-display";
 import { Text, useTheme, YGroup, YStack } from "tamagui";
@@ -20,9 +20,10 @@ type BlinkData = {
 };
 export const BlinksCard: FC = () => {
   const { setPage, walletSheetArgs, setBlink } = useGlobalStore();
-  const { blink, callback } = walletSheetArgs ?? {};
+  const { blink } = walletSheetArgs ?? {};
   const adapter = useGetBlinksAdapter();
-  const { background, background06, borderColor, color, color10 } = useTheme();
+  const { background, background06, borderColor, color, color10, accent10 } =
+    useTheme();
   const actionUrl = useMemo(() => {
     if (!blink) return null;
     try {
@@ -47,18 +48,8 @@ export const BlinksCard: FC = () => {
     <ScreenWrapper
       text={actionUrl.hostname}
       reset={() => {
-<<<<<<< Updated upstream
         setBlink(undefined);
-        setPage(Page.BlinksPage);
-=======
-        if (callback) {
-          callback();
-          setBlink(undefined);
-        } else {
-          setPage(Page.Asset);
-          setBlink(undefined);
-        }
->>>>>>> Stashed changes
+        setPage(Page.Asset);
       }}
     >
       <YStack gap={"$4"}>

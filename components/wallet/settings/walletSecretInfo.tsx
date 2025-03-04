@@ -1,12 +1,7 @@
 import { Copy } from "@tamagui/lucide-icons";
-import { CustomButton } from "components/CustomButton";
 import { useCopyToClipboard } from "components/hooks";
-<<<<<<< Updated upstream
-import { FC, useState } from "react";
-=======
 import { CustomButton } from "components/ui/CustomButton";
-import { FC, useCallback, useEffect, useRef, useState } from "react";
->>>>>>> Stashed changes
+import { FC, useState } from "react";
 import { Alert } from "react-native";
 import {
   ButtonIcon,
@@ -29,106 +24,20 @@ export const RenderSecretButtons: FC<{
 }> = ({ walletType }) => {
   const {
     setWalletSheetArgs,
-<<<<<<< Updated upstream
-    cloudStorage,
-=======
-    paymasterWalletPublicKey,
->>>>>>> Stashed changes
     deviceWalletPublicKey,
-    cloudWalletPublicKey,
-    setCloudWalletPublicKey,
+    setPaymasterWalletPublicKey,
     setDeviceWalletPublicKey,
   } = useGlobalStore();
   const [secret, setSecret] = useState("");
   const copyToClipboard = useCopyToClipboard();
   const theme = useTheme();
-  const exportWallet = useExportWallet({ cloudStorage });
+  const exportWallet = useExportWallet();
   const resetWallet = useResetWallet({
-<<<<<<< Updated upstream
-    cloudStorage,
-=======
-    paymasterWalletPublicKey,
->>>>>>> Stashed changes
     deviceWalletPublicKey,
-    cloudWalletPublicKey,
-    setCloudWalletPublicKey,
+    setPaymasterWalletPublicKey,
     setDeviceWalletPublicKey,
   });
-<<<<<<< Updated upstream
   const [selectedIndex, setSelectedIndex] = useState<number | undefined>();
-  return (
-    <>
-      <YGroup>
-        {["Show Private Key", "Reveal Seed Phrase", "Remove Wallet"].map(
-          (label, index) => (
-            <YGroup.Item key={label}>
-              <CustomButton
-                color={index === 2 ? theme.red10 : theme.color}
-                onPress={async () => {
-                  setSelectedIndex(index);
-                  if (index === 2) {
-                    Alert.alert(
-                      "Are you certain you want to delete the current wallet?",
-                      "Warning: This action cannot be undone. Ensure your seed phrase is securely saved before continuing.",
-                      [
-                        { text: "Cancel" },
-                        {
-                          text: "Ok",
-                          onPress: async () => {
-                            await resetWallet.mutateAsync({ walletType });
-                            setSelectedIndex(undefined);
-                            setWalletSheetArgs(null);
-                          },
-                        },
-                      ]
-                    );
-                  } else {
-                    const result = await exportWallet.mutateAsync({
-                      walletType: walletType,
-                      returnMnemonic: index === 1,
-                    });
-                    setSelectedIndex(undefined);
-                    if (result) setSecret(result);
-                  }
-                }}
-              >
-                {(exportWallet.isPending || resetWallet.isPending) &&
-                  index === selectedIndex && <Spinner />}
-                <ButtonText>{label}</ButtonText>
-              </CustomButton>
-            </YGroup.Item>
-          )
-        )}
-=======
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const handleRevealSecret = useCallback(
-    async (returnMnemonic: boolean) => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-      const result = await exportWallet.mutateAsync({
-        walletType,
-        returnMnemonic,
-      });
-      if (result) {
-        setSecret(result);
-        timeoutRef.current = setTimeout(() => setSecret(""), 10_000);
-      }
-    },
-    [walletType]
-  );
-
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-      setSecret("");
-    };
-  }, []);
 
   return (
     <>
@@ -136,20 +45,34 @@ export const RenderSecretButtons: FC<{
         <YGroup.Item>
           <CustomButton
             color={theme.color}
-            onPress={() => {
-              handleRevealSecret(true);
+            onPress={async () => {
+              setSelectedIndex(1);
+              const result = await exportWallet.mutateAsync({
+                walletType: walletType,
+                returnMnemonic: true,
+              });
+              setSelectedIndex(undefined);
+              if (result) setSecret(result);
             }}
           >
+            {exportWallet.isPending && 1 === selectedIndex && <Spinner />}
             <ButtonText>{"Show Seed Phrase"}</ButtonText>
           </CustomButton>
         </YGroup.Item>
         <YGroup.Item>
           <CustomButton
             color={theme.color}
-            onPress={() => {
-              handleRevealSecret(false);
+            onPress={async () => {
+              setSelectedIndex(2);
+              const result = await exportWallet.mutateAsync({
+                walletType: walletType,
+                returnMnemonic: false,
+              });
+              setSelectedIndex(undefined);
+              if (result) setSecret(result);
             }}
           >
+            {exportWallet.isPending && 2 === selectedIndex && <Spinner />}
             <ButtonText>{"Show Private Key"}</ButtonText>
           </CustomButton>
         </YGroup.Item>
@@ -168,6 +91,7 @@ export const RenderSecretButtons: FC<{
                     text: "Ok",
                     onPress: async () => {
                       await resetWallet.mutateAsync({ walletType });
+                      setSelectedIndex(undefined);
                       setWalletSheetArgs(null);
                     },
                   },
@@ -179,7 +103,6 @@ export const RenderSecretButtons: FC<{
             <ButtonText>{"Remove Wallet"}</ButtonText>
           </CustomButton>
         </YGroup.Item>
->>>>>>> Stashed changes
       </YGroup>
       {secret && (
         <YStack

@@ -222,7 +222,7 @@ const CardComponent: FC<{
           }
         >
           <Text fontSize={"$1"}>
-            {`Balance: ${
+            {`Available: ${
               (asset?.token_info?.balance || 0) /
               10 ** (asset?.token_info?.decimals || 0)
             } ${asset?.content?.metadata?.symbol}`}
@@ -262,6 +262,10 @@ const CardComponent: FC<{
               snapPoints: [70],
               title: "Select Token",
               body: type === "Input" ? <InputTokenList /> : <OutputTokenList />,
+              actionText: "",
+              onPress: function (): void {
+                throw new Error("Function not implemented.");
+              },
               theme: walletSheetArgs?.theme || "accent",
             });
           }}

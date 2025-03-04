@@ -3,14 +3,14 @@ import { useCallback } from "react";
 import { useGlobalStore, WalletType } from "utils";
 
 export const useAssetValidation = () => {
-  const { deviceWalletPublicKey, cloudWalletPublicKey } = useGlobalStore();
+  const { deviceWalletPublicKey, paymasterWalletPublicKey } = useGlobalStore();
   const hasAsset = useCallback(
     (
       asset: DAS.GetAssetResponse | null | undefined,
       vaultAddress: string | null | undefined,
       noOwners: boolean,
       deviceWalletPublicKeyIsMember: boolean,
-      cloudWalletPublicKeyIsMember: boolean,
+      paymasterWalletPublicKeyIsMember: boolean,
       type: WalletType | undefined
     ) => {
       if (!!asset?.token_info?.balance) {
@@ -20,21 +20,21 @@ export const useAssetValidation = () => {
         switch (type) {
           case WalletType.DEVICE:
             return asset.ownership.owner === deviceWalletPublicKey;
-          case WalletType.CLOUD:
-            return asset.ownership.owner === cloudWalletPublicKey;
+          case WalletType.PAYMASTER:
+            return asset.ownership.owner === paymasterWalletPublicKey;
           case WalletType.MULTIWALLET:
             return (
               vaultAddress === asset.ownership.owner &&
               (noOwners ||
                 deviceWalletPublicKeyIsMember ||
-                cloudWalletPublicKeyIsMember)
+                paymasterWalletPublicKeyIsMember)
             );
         }
       }
       return false;
     },
 
-    [deviceWalletPublicKey, cloudWalletPublicKey]
+    [deviceWalletPublicKey, paymasterWalletPublicKey]
   );
   return { hasAsset };
 };

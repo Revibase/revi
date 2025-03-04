@@ -1,9 +1,7 @@
 import { getVaultFromAddress } from "@revibase/multi-wallet";
 import { DAS } from "@revibase/token-transfer";
 import { PublicKey } from "@solana/web3.js";
-import { Send, Star } from "@tamagui/lucide-icons";
-import { CustomButton } from "components/CustomButton";
-import { CustomListItem } from "components/CustomListItem";
+import { ArrowUpDown, Copy, Send } from "@tamagui/lucide-icons";
 import {
   useCopyToClipboard,
   usePendingOffers,
@@ -11,6 +9,8 @@ import {
   useWalletValidation,
 } from "components/hooks";
 import { useAssetValidation } from "components/hooks/useAssetValidation";
+import { CustomButton } from "components/ui/CustomButton";
+import { CustomListItem } from "components/ui/CustomListItem";
 import { Image } from "expo-image";
 import { FC, useMemo, useState } from "react";
 import { Alert } from "react-native";
@@ -25,6 +25,7 @@ import {
   YStack,
 } from "tamagui";
 import { formatAmount, Page, proxify, useGlobalStore } from "utils";
+import { BlinksPage } from "./blinks";
 import { ScreenWrapper } from "./screenWrapper";
 
 export const AssetPage: FC = () => {
@@ -42,10 +43,17 @@ export const AssetPage: FC = () => {
           setAsset(undefined);
         }
       }}
-      copy={
-        asset?.id && asset.id !== PublicKey.default.toString()
-          ? () => copyToClipBoard(asset.id)
-          : undefined
+      rightIcon={
+        !!asset?.id &&
+        asset.id !== PublicKey.default.toString() && (
+          <CustomButton
+            bg={"$colorTransparent"}
+            size={"$3"}
+            onPress={() => copyToClipBoard(asset.id)}
+          >
+            <Copy />
+          </CustomButton>
+        )
       }
     >
       <YStack items="center" gap="$4">
@@ -77,7 +85,7 @@ export const Asset: FC<{
   const { theme, walletAddress, type } = walletSheetArgs ?? {};
   const {
     deviceWalletPublicKeyIsMember,
-    cloudWalletPublicKeyIsMember,
+    paymasterWalletPublicKeyIsMember,
     walletInfo,
     noOwners,
   } = useWallet({ theme, walletAddress, type });
@@ -88,7 +96,7 @@ export const Asset: FC<{
     walletInfo,
     noOwners,
     deviceWalletPublicKeyIsMember,
-    cloudWalletPublicKeyIsMember,
+    paymasterWalletPublicKeyIsMember,
   });
   const { hasAsset } = useAssetValidation();
   const vaultAddress = walletAddress
@@ -113,7 +121,7 @@ export const Asset: FC<{
 
   return (
     <YStack width={"100%"} gap={"$6"} items="center">
-      <XStack width={"100%"} items="center" justify="center" gap="$4">
+      <XStack width={"100%"} items="center" justify="center" gap="$2">
         <CustomButton
           bordered
           onPress={() => {
@@ -121,7 +129,7 @@ export const Asset: FC<{
             if (
               asset?.compression?.compressed &&
               !deviceWalletPublicKeyIsMember &&
-              !cloudWalletPublicKeyIsMember
+              !paymasterWalletPublicKeyIsMember
             ) {
               Alert.alert(
                 "Unauthorised action",
@@ -133,7 +141,7 @@ export const Asset: FC<{
                 vaultAddress,
                 noOwners,
                 deviceWalletPublicKeyIsMember,
-                cloudWalletPublicKeyIsMember,
+                paymasterWalletPublicKeyIsMember,
                 type
               )
             ) {
@@ -150,34 +158,18 @@ export const Asset: FC<{
           <Text fontSize={"$5"}>Send</Text>
           <ButtonIcon children={<Send size={"$1"} />} />
         </CustomButton>
-
-        <CustomButton
-          onPress={() => {
-            if (!validateAction()) return;
-            if (
-              !hasAsset(
-                asset,
-                vaultAddress,
-                noOwners,
-                deviceWalletPublicKeyIsMember,
-                cloudWalletPublicKeyIsMember,
-                type
-              )
-            ) {
-              Alert.alert(
-                `${asset?.content?.metadata.name} not found.`,
-                `Ensure you have ${asset?.content?.metadata.name} in your wallet.`
-              );
-            } else if (asset) {
+        {(asset?.token_info?.supply ?? 0) > 1 && (
+          <CustomButton
+            bordered
+            onPress={() => {
               setAsset(asset, callback || (() => setPage(Page.Asset)));
-              setPage(Page.BlinksPage);
-            }
-          }}
-          bordered
-        >
-          <Text fontSize={"$5"}>Blinks</Text>
-          <ButtonIcon children={<Star size={"$1"} />} />
-        </CustomButton>
+              setPage(Page.Swap);
+            }}
+          >
+            <Text fontSize={"$5"}>Swap</Text>
+            <ButtonIcon children={<ArrowUpDown size={"$1"} />} />
+          </CustomButton>
+        )}
       </XStack>
       {!!assetBalance && (
         <XGroup width={"100%"} items="center" justify="center" size={"$4"}>
@@ -268,13 +260,7 @@ export const Asset: FC<{
             <Text>{collection.description}</Text>
           </Card>
         )}
-<<<<<<< Updated upstream
-=======
-        <BlinksPage
-          asset={asset}
-          callback={callback || (() => setPage(Page.Asset))}
-        />
->>>>>>> Stashed changes
+        <BlinksPage />
       </YStack>
     </YStack>
   );
