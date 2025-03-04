@@ -77,6 +77,16 @@ export const Withdrawal: FC = () => {
           ? getVaultFromAddress(new PublicKey(walletAddress)).toString()
           : walletAddress;
 
+      const result = await transferAsset(
+        connection,
+        new PublicKey(source),
+        new PublicKey(recipient),
+        new PublicKey(source),
+        hasOnlyOne ? 1 : parseFloat(amount),
+        withdrawalAsset?.id === PublicKey.default.toString(),
+        withdrawalAsset ?? undefined
+      );
+
       if (type === WalletType.MULTIWALLET) {
         if (!paymasterWalletPublicKey) {
           setWalletSheetArgs(null);
@@ -84,15 +94,6 @@ export const Withdrawal: FC = () => {
           throw new Error("You need to complete your wallet set up first.");
         }
         if (walletInfo) {
-          const result = await transferAsset(
-            connection,
-            new PublicKey(source),
-            new PublicKey(recipient),
-            new PublicKey(paymasterWalletPublicKey),
-            hasOnlyOne ? 1 : parseFloat(amount),
-            withdrawalAsset?.id === PublicKey.default.toString(),
-            withdrawalAsset ?? undefined
-          );
           setTransactionSheetArgs({
             feePayer: paymasterWalletPublicKey,
             theme,
@@ -104,15 +105,6 @@ export const Withdrawal: FC = () => {
           });
         }
       } else {
-        const result = await transferAsset(
-          connection,
-          new PublicKey(source),
-          new PublicKey(recipient),
-          new PublicKey(walletAddress),
-          hasOnlyOne ? 1 : parseFloat(amount),
-          withdrawalAsset?.id === PublicKey.default.toString(),
-          withdrawalAsset ?? undefined
-        );
         setTransactionSheetArgs({
           feePayer: walletAddress,
           theme,

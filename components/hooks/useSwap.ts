@@ -151,7 +151,6 @@ export const useSwap = () => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            destinationTokenAccount: destinationTokenAccount.toString(),
             quoteResponse: quote,
             userPublicKey: userPublicKey.toString(),
             feeAccount: feeTokenAccount.toString(),
@@ -230,27 +229,6 @@ export const useSwap = () => {
         addressLookupTableAddresses
       );
 
-      const prepareAccountInstructions = async (payer: string) => {
-        return [
-          ...(await checkIfTokenAccountExist(
-            connection,
-            new PublicKey(payer),
-            feeTokenAccount,
-            feeAccount,
-            mint,
-            tokenProgram
-          )),
-          ...(await checkIfTokenAccountExist(
-            connection,
-            new PublicKey(payer),
-            destinationTokenAccount,
-            userPublicKey,
-            mint,
-            tokenProgram
-          )),
-        ];
-      };
-
       if (type === WalletType.MULTIWALLET) {
         if (!paymasterWalletPublicKey) {
           setWalletSheetArgs(null);
@@ -262,7 +240,14 @@ export const useSwap = () => {
           setTransactionSheetArgs({
             callback: (signature) => signature && setPage(Page.Main),
             ixs: [
-              ...(await prepareAccountInstructions(paymasterWalletPublicKey)),
+              ...(await checkIfTokenAccountExist(
+                connection,
+                userPublicKey,
+                destinationTokenAccount,
+                userPublicKey,
+                mint,
+                tokenProgram
+              )),
               ...setupInstructions.map(deserializeInstruction),
               deserializeInstruction(swapInstruction),
               deserializeInstruction(cleanupInstruction),
@@ -278,7 +263,14 @@ export const useSwap = () => {
         setTransactionSheetArgs({
           callback: (signature) => signature && setPage(Page.Main),
           ixs: [
-            ...(await prepareAccountInstructions(walletAddress)),
+            ...(await checkIfTokenAccountExist(
+              connection,
+              userPublicKey,
+              destinationTokenAccount,
+              userPublicKey,
+              mint,
+              tokenProgram
+            )),
             ...setupInstructions.map(deserializeInstruction),
             deserializeInstruction(swapInstruction),
             deserializeInstruction(cleanupInstruction),
