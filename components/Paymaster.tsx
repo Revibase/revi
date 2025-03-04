@@ -35,9 +35,9 @@ export const Paymaster: FC = () => {
   const copyToClipboard = useCopyToClipboard();
   const theme = useMemo(
     () =>
-      (paymasterAccountInfo?.lamports ?? 0) < LAMPORTS_PER_SOL * 0.06
+      (paymasterAccountInfo?.lamports ?? 0) < LAMPORTS_PER_SOL * 0.01
         ? "red"
-        : (paymasterAccountInfo?.lamports ?? 0) < LAMPORTS_PER_SOL * 0.08
+        : (paymasterAccountInfo?.lamports ?? 0) < LAMPORTS_PER_SOL * 0.023
         ? "yellow"
         : "green",
     [paymasterAccountInfo]
@@ -62,9 +62,9 @@ export const Paymaster: FC = () => {
       onPress={() => {
         setGenericSheetArgs({
           theme,
-          actionText: `Top up to 0.1 SOL`,
+          actionText: `Top up to 0.023 SOL`,
           onPress: async () => {
-            const amount = 0.1 * LAMPORTS_PER_SOL - paymasterLamports;
+            const amount = 0.023 * LAMPORTS_PER_SOL - paymasterLamports;
             if (
               paymasterWalletPublicKey &&
               deviceWalletPublicKey &&
@@ -140,7 +140,7 @@ export const Paymaster: FC = () => {
                     subTitle={
                       <Text
                         color={"gray"}
-                      >{`Network fees typically range from 0.00005 SOL to 0.003 SOL. To ensure you always have enough for transactions, it's best to maintain a balance of at least 0.1 SOL.`}</Text>
+                      >{`Network fees typically range from 0.00005 SOL to 0.003 SOL. To ensure you always have enough for transactions, it's best to maintain a balance of at least 0.023 SOL.`}</Text>
                     }
                   />
                 </YGroup.Item>
@@ -154,9 +154,9 @@ export const Paymaster: FC = () => {
         <XGroup items={"center"} gap={"$1"}>
           <Text>{`${WalletType.PAYMASTER}:`}</Text>
           <Text fontSize={"$3"} fontWeight={600} letterSpacing={"$1"}>{`${
-            paymasterLamports < LAMPORTS_PER_SOL * 0.06
+            paymasterLamports < LAMPORTS_PER_SOL * 0.01
               ? "Top Up Required"
-              : paymasterLamports < LAMPORTS_PER_SOL * 0.08
+              : paymasterLamports < LAMPORTS_PER_SOL * 0.023
               ? "Top Up"
               : "Healthy"
           }`}</Text>

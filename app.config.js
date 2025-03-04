@@ -19,7 +19,7 @@ export default {
       },
       associatedDomains: ["webcredentials:revibase.com"],
       supportsTablet: true,
-      bundleIdentifier: "com.jychab.revivault",
+      bundleIdentifier: "com.revibase.revi",
       newArchEnabled: true,
       googleServicesFile:
         process.env.GOOGLE_SERVICES_INFO_PLIST ||
@@ -35,7 +35,7 @@ export default {
         backgroundColor: "#ffffff",
       },
       permissions: ["android.permission.NFC"],
-      package: "com.jychab.revivault",
+      package: "com.revibase.revi",
       newArchEnabled: true,
       googleServicesFile:
         process.env.GOOGLE_SERVICES_JSON ||
